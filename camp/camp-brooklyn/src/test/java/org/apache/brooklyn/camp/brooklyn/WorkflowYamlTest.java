@@ -980,4 +980,58 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(Iterables.getOnlyElement(entity.getChildren()).getDisplayName(), "Test");
     }
 
+    @Test
+    public void testSubWorkflowOnEntities() throws Exception {
+        Application app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  id: child");
+
+        doTestSubWorkflowOnEntities(app, false,
+                "steps:",
+                "  - type: workflow",
+                "    target: $brooklyn:child(\"child\")",
+                "    steps:",
+                "      - set-sensor boolean ran = true",
+                "      - return ${entity.id}");
+
+        doTestSubWorkflowOnEntities(app, true,
+                "steps:",
+                "  - type: workflow",
+                "    target:",
+                "      - $brooklyn:child(\"child\")",
+                "    steps:",
+                "      - set-sensor boolean ran = true",
+                "      - return ${entity.id}");
+
+        doTestSubWorkflowOnEntities(app, false,
+                "steps:",
+                "  - step: let child = $brooklyn:child(\"child\")",
+                "  - type: workflow",
+                "    target: ${child}",
+                "    steps:",
+                "      - set-sensor boolean ran = true",
+                "      - return ${entity.id}");
+
+        doTestSubWorkflowOnEntities(app, true,
+                "steps:",
+                "  - step: let children",
+                "    value:",
+                "      - $brooklyn:child(\"child\")",
+                "  - type: workflow",
+                "    target: ${children}",
+                "    steps:",
+                "      - set-sensor boolean ran = true",
+                "      - return ${entity.id}");
+    }
+
+    void doTestSubWorkflowOnEntities(Application app, boolean expectList, String ...steps) throws Exception {
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        entity.sensors().set(Sensors.newBooleanSensor("ran"), false);
+        WorkflowExecutionContext x = WorkflowBasicTest.runWorkflow(app, Strings.lines(steps), "test");
+        Asserts.assertEquals(x.getTask(false).get().getUnchecked(),
+                expectList ? MutableList.of(entity.getId()) : entity.getId());
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newBooleanSensor("ran"), true);
+    }
+
 }
