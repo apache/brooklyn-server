@@ -57,6 +57,7 @@ import org.apache.brooklyn.util.core.task.BasicExecutionManager.BrooklynTaskLogg
 import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupportedException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Threads;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -319,14 +320,10 @@ public class BasicExecutionContext extends AbstractExecutionContext {
 
         try {
             return runInSameThread(fakeTaskForContext, new Callable<Maybe<T>>() {
-                public Maybe<T> call() {
-                    boolean wasAlreadyInterrupted = Thread.interrupted();
+                public Maybe<T> call() throws Exception {
                     try {
-                        return job.getImmediately();
+                        return Threads.runTemporarilyUninterrupted(job::getImmediately);
                     } finally {
-                        if (wasAlreadyInterrupted) {
-                            Thread.currentThread().interrupt();
-                        }
                         // we've acknowledged that getImmediate may wreck (cancel) the task,
                         // their first priority is to prevent them from leaking;
                         // however previously we did the cancel before running, 

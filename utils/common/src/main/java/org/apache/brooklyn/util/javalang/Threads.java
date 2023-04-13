@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.javalang;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -103,6 +104,25 @@ public class Threads {
     private static boolean hasMoreTasks() {
         synchronized (hooks) {
             return !hooks.isEmpty();
+        }
+    }
+
+    public static <T> T runTemporarilyUninterrupted(Callable<T> r) throws Exception {
+        boolean wasAlreadyInterrupted = Thread.interrupted();
+        try {
+            return r.call();
+        } finally {
+            if (wasAlreadyInterrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    public static void runTemporarilyUninterrupted(Runnable r) {
+        try {
+            runTemporarilyUninterrupted(() -> { r.run(); return null; });
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
         }
     }
 }

@@ -734,6 +734,32 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(result, 11);
     }
 
+    @Test
+    public void testLockReleasedOnCancel() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName());
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        WorkflowExecutionContext x1 = WorkflowBasicTest.runWorkflow(entity, Strings.lines(
+                "lock: x",
+                "steps:",
+                "  - set-sensor boolean x1 = true",
+                "  - sleep 5s",
+                "  - return done"), "test");
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newBooleanSensor("x1"), true);
+        Asserts.assertFalse(x1.getTask(false).get().isDone());
+
+        WorkflowExecutionContext x2 = WorkflowBasicTest.runWorkflow(entity, Strings.lines(
+                "lock: x",
+                "steps:",
+                "  - return done"), "test");
+        // x2 will block
+        Asserts.assertFalse(x2.getTask(false).get().isDone());
+        x1.getTask(false).get().cancel(true);
+        Asserts.assertEquals(x2.getTask(false).get().getUnchecked(), "done");
+        Asserts.assertEquals(x2.getTask(false).get().getUnchecked(Duration.seconds(5)), "done");
+    }
+
     @Test(groups="Live")
     public void testContainerEchoBashCommandAsWorkflowEffectorWithVarFromConfig() throws Exception {
         WorkflowBasicTest.addRegisteredTypeBean(mgmt(), "container", ContainerWorkflowStep.class);
