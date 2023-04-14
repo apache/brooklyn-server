@@ -217,8 +217,10 @@ public class EntityManagementUtils {
                 // if not promoting, set a nice name if needed
                 if (Strings.isEmpty(spec.getDisplayName())) {
                     int size = spec.getChildren().size();
-                    String childrenCountString = size + " " + (size != 1 ? "children" : "child");
-                    spec.displayName("Dynamically added " + childrenCountString);
+                    if (size>0) {
+                        String childrenCountString = size==1 ? "child" : size + " children";
+                        spec.displayName("Dynamically added " + childrenCountString);
+                    }
                 }
             }
             result.add(spec);
