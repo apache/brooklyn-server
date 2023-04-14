@@ -1212,4 +1212,39 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         EntityAsserts.assertAttributeEquals(entity, Sensors.newBooleanSensor("ran"), true);
     }
 
+    @Test
+    public void testAddPolicyWithDslFromDeployableBlueprint() throws Exception {
+        // this is not a nice pattern, relying on the fact that output is not a string in order to give the right output
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "    - type: workflow-effector",
+                "      name: foo",
+                "      steps:",
+                "      - return yes",
+                "    - type: workflow-effector",
+                "      name: bar",
+                "      steps:",
+                "      - type: add-policy",
+                "        interpolation_mode: disabled",
+                "        blueprint:",
+                "          type: workflow-policy",
+                "          triggers: [ s ]",
+                "          brooklyn.config:",
+                "            steps:",
+                "            - type: workflow",
+                "              steps:",
+                "              - step: invoke-effector",
+                "                entity: $brooklyn:self()",  // note we refer to parent
+                "                effector: foo",
+                "              - step: set-sensor result = ${output}");
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        entity.invoke(entity.getEntityType().getEffectorByName("bar").get(), null).get();
+
+        entity.sensors().set(Sensors.newStringSensor("s"), "run");
+        EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "result"), v -> v!=null);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "result"), "yes");
+    }
+
 }
