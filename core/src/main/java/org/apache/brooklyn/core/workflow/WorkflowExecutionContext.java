@@ -57,6 +57,7 @@ import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Threads;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -896,8 +897,10 @@ public class WorkflowExecutionContext {
                         if (Entities.isUnmanagingOrNoLongerManaged(getEntity())) {
                             log.debug("Skipping clearance of lock on "+lockSensor.getName()+" in "+WorkflowExecutionContext.this+" because entity unmanaging here; expect auto-replay on resumption to pick up");
                         } else {
-                            log.debug(WorkflowExecutionContext.this+" releasing lock on "+lockSensor.getName());
-                            ((EntityInternal.SensorSupportInternal) lockEntity.sensors()).remove(lockSensor);
+                            Threads.runTemporarilyUninterrupted(() -> {
+                                log.debug(WorkflowExecutionContext.this + " releasing lock on " + lockSensor.getName());
+                                ((EntityInternal.SensorSupportInternal) lockEntity.sensors()).remove(lockSensor);
+                            });
                         }
                     }
                 }

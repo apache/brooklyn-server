@@ -523,8 +523,13 @@ public class BrooklynJacksonSerializerTest {
         // and same with yaml
         out = mapperY.writerFor(Object.class).writeValueAsString(in);
 //        Asserts.assertStringContains(out, "\"(type)\":\""+EntitySpec.class.getName()+"\"");
-        Asserts.assertStringContains(out, "!<"+EntitySpec.class.getName()+">");
+        Asserts.assertStringContains(out, EntitySpec.class.getName());
+
+        // when we used tags this was done, but we don't use tags (this mapper supports it but snake yaml does not)
+        // see org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.newSimpleYamlMapper(boolean)
+//        Asserts.assertStringContains(out, "!<"+EntitySpec.class.getName()+">");
         Asserts.assertStringContains(out, "type: "+TestEntity.class.getName());
+
         in2 = mapperY.readerFor(SpecHolder.class).readValue(out);
 //        map = (Map) in2.specU.get();
 //        Asserts.assertEquals( TypeCoercions.coerce(map, EntitySpec.class).getType(), TestEntity.class);

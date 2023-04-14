@@ -734,6 +734,32 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(result, 11);
     }
 
+    @Test
+    public void testLockReleasedOnCancel() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName());
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        WorkflowExecutionContext x1 = WorkflowBasicTest.runWorkflow(entity, Strings.lines(
+                "lock: x",
+                "steps:",
+                "  - set-sensor boolean x1 = true",
+                "  - sleep 5s",
+                "  - return done"), "test");
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newBooleanSensor("x1"), true);
+        Asserts.assertFalse(x1.getTask(false).get().isDone());
+
+        WorkflowExecutionContext x2 = WorkflowBasicTest.runWorkflow(entity, Strings.lines(
+                "lock: x",
+                "steps:",
+                "  - return done"), "test");
+        // x2 will block
+        Asserts.assertFalse(x2.getTask(false).get().isDone());
+        x1.getTask(false).get().cancel(true);
+        Asserts.assertEquals(x2.getTask(false).get().getUnchecked(), "done");
+        Asserts.assertEquals(x2.getTask(false).get().getUnchecked(Duration.seconds(5)), "done");
+    }
+
     @Test(groups="Live")
     public void testContainerEchoBashCommandAsWorkflowEffectorWithVarFromConfig() throws Exception {
         WorkflowBasicTest.addRegisteredTypeBean(mgmt(), "container", ContainerWorkflowStep.class);
@@ -978,6 +1004,247 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "      name: Test"), "add-entity");
         x.getTask(false).get().getUnchecked();
         Asserts.assertEquals(Iterables.getOnlyElement(entity.getChildren()).getDisplayName(), "Test");
+    }
+
+    @Test
+    public void testAddEntityWithResolvableAndBogusVarRefs() throws Exception {
+        /*
+         * care must be taken when embedding blueprints that use variables; if those variables are available from the workflow scope,
+         * they are resolved immediately.  otherwise they are ignored.
+         */
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName());
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        WorkflowExecutionContext x = WorkflowBasicTest.runWorkflow(entity, Strings.lines(
+                "steps:",
+                "  - let v = A",
+                "  - set-config c = A",
+                "  - set-config cp = A",
+                "  - \"set-config map m = { a: 1 }\"",
+                "  - type: add-entity",
+                "    blueprint:",
+                "      type: " + BasicEntity.class.getName(),
+                "      name: Test",
+                "      brooklyn.config:",
+                "        ccv: ${v}",   // resolved at add-entity time
+                "        c: B",
+                "        x: B",
+                "        cc: ${entity.config.c}",   // resolved at add-entity time
+                "        ccc: ${entity.config.cc}",   // not resolvable
+                "        cx: ${entity.config.x}",   // not resolvable at add time, remains as var
+                "        cm: ${entity.config.m}",   // a map
+                "      brooklyn.policies:",
+                "      -",
+                "        type: workflow-policy",
+                "        brooklyn.config:",
+                "          name: Check if attached",
+                "          triggers:",
+                "            - s",
+                "          steps:",
+                "            - let ccv = ${v}",  // resolved at add-entity time
+                "            - let c = ${entity.config.c}",  // resolved at add-entity time
+                "            - let cc = ${entity.config.cc}",  // resolved when this workflow runs, to parent
+                "            - let x = ${entity.config.x}",  // resolved when this workflow runs, to B
+                "            - let cx = ${entity.config.cx}",  // resolved when this workflow runs, to expression set in cx
+                "            - let cm = ${entity.config.cm}",  // resolved when this workflow runs
+                "            - let cma = ${entity.config.cm.a}",  // resolved when this workflow runs
+                "            - let cxa = ${entity.config.cx.a} ?? unset",  // resolved when this workflow runs
+                "            - let entity1 = $brooklyn:self()",  // resolved at execution time
+                "            - step: let entity2",
+                "              value: $brooklyn:self()",         // resolved at deploy time
+                "            - step: set-sensor result",
+                "              value:",
+                "                 ccv: ${ccv}",
+                "                 c: ${c}",
+                "                 cc: ${cc}",
+                "                 x: ${x}",
+                "                 cx: ${cx}",
+                "                 cm: ${cm}",
+                "                 cma: ${cma}",
+                "                 cxa: ${cxa}",
+                "                 entity1: ${entity1.id}",
+                "                 entity2: ${entity2.id}",
+                ""
+                ), "test");
+        x.getTask(false).get().getUnchecked();
+        Entity newE = Iterables.getOnlyElement(entity.getChildren());
+        newE.sensors().set(Sensors.newStringSensor("s"), "run");
+        EntityAsserts.assertAttributeEventually(newE, Sensors.newSensor(Object.class, "result"), v -> v!=null);
+        EntityAsserts.assertAttributeEquals(newE, Sensors.newSensor(Object.class, "result"), MutableMap.of(
+                    "ccv", "A", "c", "A", "cc", "A", "x", "B", "cx", "${entity.config.x}", "cm", MutableMap.of("a", 1))
+                .add(MutableMap.of("cma", 1, "cxa", "unset",
+                        "entity1", newE.getId(), "entity2", entity.getId())));
+    }
+
+    @Test
+    public void testAddPolicyWithWeirdInterpolation() throws Exception {
+        // this is not a nice pattern, relying on the fact that output is not a string in order to give the right output
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName());
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        WorkflowExecutionContext x = WorkflowBasicTest.runWorkflow(entity, Strings.lines(
+                "steps:",
+                "  - type: no-op",
+                "    output: intended",
+                "  - type: apply-initializer",
+                "    blueprint:",
+                "      type: workflow-effector",
+                "      name: foo",
+                "      steps:",
+                "      - return ${output}",
+                "  - type: add-entity",
+                "    blueprint:",
+                "      type: "+BasicEntity.class.getName(),
+                "  - let child = ${output.entity}",
+                "  - type: add-policy",
+                "    entity: ${child}",
+                "    interpolation_mode: disabled",
+                "    blueprint:",
+                "      type: workflow-policy",
+                "      triggers: [ good_interpolation ]",
+                "      brooklyn.config:",
+                "        steps:",
+                "        - type: workflow",
+                "          steps:",
+                "          - step: invoke-effector",
+                "            entity: $brooklyn:parent()",
+                "            effector: foo",
+                "          - step: set-sensor result1 = ${output}",
+                "  - type: add-policy",
+                "    entity: ${child}",
+                "    blueprint:",
+                "      type: workflow-policy",
+                "      triggers: [ bad_interpolation_but_working_because_outer_output_is_not_a_string ]",
+                "      brooklyn.config:",
+                "        steps:",
+                "        - type: workflow",
+                "          steps:",
+                "          - step: invoke-effector",
+                "            entity: $brooklyn:self()",  // note we refer to parent
+                "            effector: foo",
+                "          - step: set-sensor result2 = ${output}",
+                "  - type: no-op",
+                "    output: probably_unintended",
+                "  - type: add-policy",
+                "    entity: ${child}",
+                "    blueprint:",
+                "      type: workflow-policy",
+                "      triggers: [ bad_interpolation_returning_unintended ]",
+                "      brooklyn.config:",
+                "        steps:",
+                "        - type: workflow",
+                "          steps:",
+                "          - step: invoke-effector",
+                "            entity: $brooklyn:self()",
+                "            effector: foo",
+                "          - step: set-sensor result3 = ${output}",
+                ""
+        ), "test");
+        x.getTask(false).get().getUnchecked();
+        Entity newE = Iterables.getOnlyElement(entity.getChildren());
+
+        newE.sensors().set(Sensors.newStringSensor("good_interpolation"), "run");
+        EntityAsserts.assertAttributeEventually(newE, Sensors.newSensor(Object.class, "result1"), v -> v!=null);
+        EntityAsserts.assertAttributeEquals(newE, Sensors.newSensor(Object.class, "result1"), "intended");
+
+        newE.sensors().set(Sensors.newStringSensor("bad_interpolation_but_working_because_outer_output_is_not_a_string"), "run");
+        EntityAsserts.assertAttributeEventually(newE, Sensors.newSensor(Object.class, "result2"), v -> v!=null);
+        EntityAsserts.assertAttributeEquals(newE, Sensors.newSensor(Object.class, "result2"), "intended");
+
+        newE.sensors().set(Sensors.newStringSensor("bad_interpolation_returning_unintended"), "run");
+        EntityAsserts.assertAttributeEventually(newE, Sensors.newSensor(Object.class, "result3"), v -> v!=null);
+        EntityAsserts.assertAttributeEquals(newE, Sensors.newSensor(Object.class, "result3"), "probably_unintended");
+    }
+
+    @Test
+    public void testSubWorkflowOnEntities() throws Exception {
+        Application app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  id: child");
+
+        doTestSubWorkflowOnEntities(app, false,
+                "steps:",
+                "  - type: workflow",
+                "    target: $brooklyn:child(\"child\")",
+                "    steps:",
+                "      - set-sensor boolean ran = true",
+                "      - return ${entity.id}");
+
+        doTestSubWorkflowOnEntities(app, true,
+                "steps:",
+                "  - type: workflow",
+                "    target:",
+                "      - $brooklyn:child(\"child\")",
+                "    steps:",
+                "      - set-sensor boolean ran = true",
+                "      - return ${entity.id}");
+
+        doTestSubWorkflowOnEntities(app, false,
+                "steps:",
+                "  - step: let child = $brooklyn:child(\"child\")",
+                "  - type: workflow",
+                "    target: ${child}",
+                "    steps:",
+                "      - set-sensor boolean ran = true",
+                "      - return ${entity.id}");
+
+        doTestSubWorkflowOnEntities(app, true,
+                "steps:",
+                "  - step: let children",
+                "    value:",
+                "      - $brooklyn:child(\"child\")",
+                "  - type: workflow",
+                "    target: ${children}",
+                "    steps:",
+                "      - set-sensor boolean ran = true",
+                "      - return ${entity.id}");
+    }
+
+    void doTestSubWorkflowOnEntities(Application app, boolean expectList, String ...steps) throws Exception {
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        entity.sensors().set(Sensors.newBooleanSensor("ran"), false);
+        WorkflowExecutionContext x = WorkflowBasicTest.runWorkflow(app, Strings.lines(steps), "test");
+        Asserts.assertEquals(x.getTask(false).get().getUnchecked(),
+                expectList ? MutableList.of(entity.getId()) : entity.getId());
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newBooleanSensor("ran"), true);
+    }
+
+    @Test
+    public void testAddPolicyWithDslFromDeployableBlueprint() throws Exception {
+        // this is not a nice pattern, relying on the fact that output is not a string in order to give the right output
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "    - type: workflow-effector",
+                "      name: foo",
+                "      steps:",
+                "      - return yes",
+                "    - type: workflow-effector",
+                "      name: bar",
+                "      steps:",
+                "      - type: add-policy",
+                "        interpolation_mode: disabled",
+                "        blueprint:",
+                "          type: workflow-policy",
+                "          triggers: [ s ]",
+                "          brooklyn.config:",
+                "            steps:",
+                "            - type: workflow",
+                "              steps:",
+                "              - step: invoke-effector",
+                "                entity: $brooklyn:self()",  // note we refer to parent
+                "                effector: foo",
+                "              - step: set-sensor result = ${output}");
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        entity.invoke(entity.getEntityType().getEffectorByName("bar").get(), null).get();
+
+        entity.sensors().set(Sensors.newStringSensor("s"), "run");
+        EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "result"), v -> v!=null);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "result"), "yes");
     }
 
 }
