@@ -25,6 +25,8 @@ import com.google.common.io.Files;
 import freemarker.cache.StringTemplateLoader;
 import freemarker.core.Environment;
 import freemarker.core.Expression;
+import freemarker.core.TemplateElement;
+import freemarker.core._CoreAPI;
 import freemarker.template.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.drivers.EntityDriver;
@@ -866,6 +868,15 @@ public class TemplateProcessor {
                             return Reflections.invokeMethodFromArgs(expr,
                                     evalMethod.get(), MutableList.of(env), true);
                         } catch (Exception e) {
+                            Exceptions.propagateIfFatal(e);
+                            TemplateException te = Exceptions.getFirstThrowableOfType(e, TemplateException.class);
+                            if (te!=null) {
+                                try {
+                                    return new ForgivingFreemarkerTemplateExceptionHandler(errorMode).handleSingleVariableExpressionTemplate(te, templateContents);
+                                } catch (TemplateException ex) {
+                                    throw Exceptions.propagate(ex);
+                                }
+                            }
                             throw Exceptions.propagate(e);
                         }
                     });
@@ -926,22 +937,42 @@ public class TemplateProcessor {
         }
         public void handleTemplateException(TemplateException te, Environment env, Writer out) throws TemplateException {
             if (errorMode==null || errorMode==InterpolationErrorMode.FAIL) throw te;
-
             if (errorMode==InterpolationErrorMode.BLANK) return;
             if (errorMode==InterpolationErrorMode.IGNORE) {
                 try {
                     // below won't work for complex expressions but those are discouraged anyways
-                    out.write("${" + te.getBlamedExpressionString() + "}");
+                    // it also doesn't work for nested maps where an early variable is unavailable, and those _are_ supported
+                    // eg ${entity.config.exists_but_does_not_have_key.key} -> it returns ${entity.config.exists_but_does_not_have_key}
+                    /// out.write("${" + te.getBlamedExpressionString() + "}");
+
+                    // this could work, but gives a string result so we need to intercept the renderer (which is a static :( ) -- or parse it to find the element we want
+//                    te.getFTLInstructionStack();
 
                     // this would work better, if we want to access private fields
-                    //te.getFTLInstructionStack();
 //                TemplateElement els[] = env.instructionStack;
 //                env.instructionStackSize - 1
+
+                    // aha but this allows us access!
+                    TemplateElement[] instructions = _CoreAPI.getInstructionStackSnapshot(env);
+                    if (instructions.length>0) {
+                        out.write(instructions[instructions.length-1].getCanonicalForm());
+                        return;
+                    }
+
+                    // can't find the instructions, so throw
+                    throw Exceptions.propagateAnnotated("Unable to retrieve instruction so cannot ignore error in processing it", te);
+
                 } catch (IOException e) {
                     throw Exceptions.propagate(e);
                 }
-                return;
             }
+        }
+
+        public TemplateModel handleSingleVariableExpressionTemplate(TemplateException te, String templateText) throws TemplateException {
+            if (errorMode == InterpolationErrorMode.BLANK) return new SimpleScalar("");
+            if (errorMode == InterpolationErrorMode.IGNORE) return new SimpleScalar(templateText);
+            //otherwise -- if (errorMode==null || errorMode==InterpolationErrorMode.FAIL)
+            throw te;
         }
     }
 
