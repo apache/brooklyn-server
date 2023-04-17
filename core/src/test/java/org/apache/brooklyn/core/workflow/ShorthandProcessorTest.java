@@ -124,6 +124,35 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "input", "trailing characters", "b x"));
         assertShorthandFailsWith("[${type}] ${key%...} [\"=\" ${value}]", "integer a b x",
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "invalid", "key%"));
+
+        /*
+
+optional expressions are greedy -- ie if it can bind an optional expression it will do so
+
+but the ... multi-word match is *not* greedy -- if it can defer extra words until later it will do so
+
+for example given
+
+template [ ${word1...} ] [ ${word2...} ]
+to match against a b c
+
+there are 4 valid matches for word1 :  unset or a or a b or a b c  (with the complement being in word2).
+
+the logic will take the one which matches the optional word1 but as minimally as possible, is word1 is a and word2 is b c
+
+(but if our template were [ ${word1...} ] [ " and " ${word2...} ] then a b c would all have to go into word1 because it cannot match the " and " for word2)
+
+         */
+        assertShorthandOfGives("[ ${word1...} ] [ ${word2...} ]", "a b c", MutableMap.of("word1", "a", "word2" , "b c"));
+
+        assertShorthandOfGives("${word1} [ ${word2} ] \" and \" ${word3}", "a b and c", MutableMap.of("word1", "a", "word2", "b", "word3", "c"));
+        assertShorthandOfGives("${word1} [ ${word2} ] \" and \" ${word3}", "a and c", MutableMap.of("word1", "a", "word3", "c"));
+
+        assertShorthandOfGives("${word1} [ ${word2} ] \" and \" ${word3}", "a and b and c", MutableMap.of("word1", "a", "word3", "b and c"));
+        assertShorthandOfGives("${word1} [ ${word2...} ] \" and \" ${word3}", "a and b and c", MutableMap.of("word1", "a", "word2" , "and b", "word3", "c"));
+        assertShorthandOfGives("${word1} [ ${word2...} ] [ \" and \" ${word3} ]", "a and b and c", MutableMap.of("word1", "a", "word2" , "and b", "word3", "c"));
+        assertShorthandOfGives("${word1} [ ${word2...} ] [ \" and \" ${word3} ]", "a and b not c", MutableMap.of("word1", "a", "word2" , "and b not c"));
+        assertShorthandOfGives("${word1} [ ${word2...} ] [ \" and \" ${word3} ]", "a not b not c", MutableMap.of("word1", "a", "word2" , "not b not c"));
     }
 
     @Test
