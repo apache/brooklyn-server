@@ -117,8 +117,8 @@ public class Jsonya {
     public static boolean isJsonPrimitiveDeep(Object x) {
         if (x==null) return true;
         if (x instanceof String || Boxing.isPrimitiveOrBoxedObject(x)) return true;
-        if (x instanceof Map) return ((Map<?,?>)x).entrySet().stream().anyMatch(ent -> !isJsonPrimitiveDeep(ent.getKey()) || !isJsonPrimitiveDeep(ent.getValue()));
-        if (x instanceof Collection) return ((Collection)x).stream().anyMatch(ent -> !isJsonPrimitiveDeep(ent));
+        if (x instanceof Map) return !((Map<?,?>)x).entrySet().stream().anyMatch(ent -> !isJsonPrimitiveDeep(ent.getKey()) || !isJsonPrimitiveDeep(ent.getValue()));
+        if (x instanceof Collection) return !((Collection)x).stream().anyMatch(ent -> !isJsonPrimitiveDeep(ent));
         return false;
     }
 

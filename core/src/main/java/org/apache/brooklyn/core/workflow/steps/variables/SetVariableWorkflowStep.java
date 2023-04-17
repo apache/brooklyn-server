@@ -167,24 +167,28 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         }
 
         public T evaluate() {
-            Object result = unresolvedValue;
+            try {
+                Object result = unresolvedValue;
 
-            Object resultCoerced;
-            TypeToken<? extends Object> typeIntermediate = type==null ? TypeToken.of(Object.class) : type;
+                Object resultCoerced;
+                TypeToken<? extends Object> typeIntermediate = type == null ? TypeToken.of(Object.class) : type;
 
-            if (interpolationMode==InterpolationMode.DISABLED) {
-                resultCoerced = context.getWorkflowExectionContext().resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
+                if (interpolationMode == InterpolationMode.DISABLED) {
+                    resultCoerced = context.getWorkflowExectionContext().resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
 
-            } else if (result instanceof String && interpolationMode==InterpolationMode.WORDS) {
-                result = process((String) result);
-                resultCoerced = context.getWorkflowExectionContext().resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
+                } else if (result instanceof String && interpolationMode == InterpolationMode.WORDS) {
+                    result = process((String) result);
+                    resultCoerced = context.getWorkflowExectionContext().resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
 
-            } else {
-                // full, or null the default
-                resultCoerced = resolveSubPart(result, typeIntermediate);
+                } else {
+                    // full, or null the default
+                    resultCoerced = resolveSubPart(result, typeIntermediate);
+                }
+
+                return (T) resultCoerced;
+            } catch (Exception e) {
+                throw e;
             }
-
-            return (T) resultCoerced;
         }
 
         <T> T resolveSubPart(Object v, TypeToken<T> type) {

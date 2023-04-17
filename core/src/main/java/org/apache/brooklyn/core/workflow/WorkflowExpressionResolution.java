@@ -344,7 +344,7 @@ public class WorkflowExpressionResolution {
     /** does not use templates */
     public <T> T resolveCoercingOnly(Object expression, TypeToken<T> type) {
         try {
-            if (expression==null || (Jsonya.isTypeJsonPrimitiveCompatible(expression) && !(expression instanceof Set))) {
+            if (expression==null || (Jsonya.isJsonPrimitiveDeep(expression) && !(expression instanceof Set))) {
                 // only try yaml coercion, as values are normally set from yaml and will be raw at this stage (but not if they are from a DSL)
                 // (might be better to always to TC.coerce)
                 return BeanWithTypeUtils.convert(context.getManagementContext(), expression, type, true,

@@ -68,7 +68,10 @@ public class BeanWithTypeUtils {
     }
 
     public static ObjectMapper newYamlMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
-        ObjectMapper mapper = applyCommonMapperConfig(newSimpleYamlMapper(), mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes);
+        return newYamlMapper(mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes, false);
+    }
+    public static ObjectMapper newYamlMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes, boolean allowYamlTagsForType) {
+        ObjectMapper mapper = applyCommonMapperConfig(newSimpleYamlMapper(allowYamlTagsForType), mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes);
         mapper = mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         return mapper;
     }
@@ -97,12 +100,23 @@ public class BeanWithTypeUtils {
     }
 
     public static YAMLMapper newSimpleYamlMapper() {
+        return newSimpleYamlMapper(false);
+    }
+    public static YAMLMapper newSimpleYamlMapper(boolean allowYamlTagsForType) {
         // for use with json maps (no special type resolution, even the field "type" is ignored);
         // do not split lines as that makes output harder to read
-        return YAMLMapper.builder().build().enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
+        YAMLMapper result = YAMLMapper.builder().build()
+                .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
                 .enable(YAMLGenerator.Feature.ALWAYS_QUOTE_NUMBERS_AS_STRINGS)  //otherwise "1" becomes 1
                 .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
                 .disable(YAMLGenerator.Feature.SPLIT_LINES);
+        if (!allowYamlTagsForType) {
+            // whether to use !<type> tags; normally not, use the same type / (type) keys as done for json
+            // if we know we will be deserializing it using one of these jackson deserializers, it could be enabled,
+            // though not sure if there is any point. note that snakeyaml does not support custom types by default.
+            result.disable(YAMLGenerator.Feature.USE_NATIVE_TYPE_ID);
+        }
+        return result;
     }
 
     public static boolean isPureJson(Object o) {

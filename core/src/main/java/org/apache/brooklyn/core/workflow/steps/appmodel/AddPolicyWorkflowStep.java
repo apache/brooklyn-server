@@ -51,8 +51,6 @@ public class AddPolicyWorkflowStep extends WorkflowStepDefinition implements Has
 
     public static final String SHORTHAND = "[ ${type} ] [ \" at \" ${entity} ] [ \" unique-tag \" ${uniqueTag} ]";
 
-    public static final ConfigKey<Object> BLUEPRINT = ConfigKeys.newConfigKey(Object.class, "blueprint");
-    public static final ConfigKey<String> TYPE = ConfigKeys.newStringConfigKey("type");
     public static final ConfigKey<String> UNIQUE_TAG = ConfigKeys.newStringConfigKey("uniqueTag");
     public static final ConfigKey<Object> ENTITY = ConfigKeys.newConfigKey(Object.class, "entity");
 
