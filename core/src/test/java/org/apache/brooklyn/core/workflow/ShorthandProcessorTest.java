@@ -54,6 +54,7 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testShorthandQuoted() {
         assertShorthandOfGives("${x}", "hello world", MutableMap.of("x", "hello world"));
+        assertShorthandOfGives("${x}", "hello world", MutableMap.of("x", "hello world"));
 
         assertShorthandOfGives("${x} \" is \" ${y}", "a is b c", MutableMap.of("x", "a", "y", "b c"));
         assertShorthandOfGives("${x} \" is \" ${y}", "a is b \"c\"", MutableMap.of("x", "a", "y", "b \"c\""));

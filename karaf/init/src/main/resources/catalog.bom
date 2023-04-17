@@ -110,6 +110,13 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.appmodel.SetSensorWorkflowStep
+
+  - id: set-entity-name
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.SetEntityNameWorkflowStep
+
   - id: clear-sensor
     format: java-type-name
     itemType: bean

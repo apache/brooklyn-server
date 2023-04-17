@@ -18,10 +18,15 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.google.common.base.Predicates;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -30,6 +35,8 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 
 import java.util.List;
 import java.util.Map;
@@ -157,4 +164,27 @@ public class WorkflowStepResolution {
         }
     }
 
+    public static Maybe<Entity> findEntity(WorkflowStepInstanceExecutionContext context, Object entityO) {
+        Entity entity=null;
+        String entityId;
+        if (entityO instanceof Entity) {
+            entity = (Entity) entityO;
+        } else if (entityO instanceof String || Boxing.isPrimitiveOrBoxedObject(entityO)) {
+            entityId = entityO.toString();
+
+            List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(), true,
+                    Predicates.and(EntityPredicates.configEqualTo(BrooklynConfigKeys.PLAN_ID, entityId), x->true)::apply);
+            if (firstGroupOfMatches.isEmpty()) {
+                firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(), true,
+                        Predicates.and(EntityPredicates.idEqualTo(entityId), x->true)::apply);
+            }
+            if (!firstGroupOfMatches.isEmpty()) {
+                entity = firstGroupOfMatches.get(0);
+            }
+
+            if (entity==null) return Maybe.absent("Cannot find entity with id '"+entityId+"'");
+
+        } else return Maybe.absent("Invalid expression for entity; must be a string or entity, not '"+entityO+"'");
+        return Maybe.of(entity);
+    }
 }

@@ -980,4 +980,72 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(Iterables.getOnlyElement(entity.getChildren()).getDisplayName(), "Test");
     }
 
+    @Test
+    public void testSetCurrentEntityName() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  name: old-name",
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init",
+                "      steps:",
+                "        - type: set-entity-name",
+                "          value: new-name");
+        waitForApplicationTasks(app);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Asserts.assertEquals(entity.getDisplayName(), "new-name");
+    }
+
+
+    @Test
+    public void testSetEntityName() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  id: the-other-entity",
+                "- type: " + BasicEntity.class.getName(),
+                "  name: renamer",
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: perform-rename",
+                "      steps:",
+                "        - type: set-entity-name",
+                "          value: new-name",
+            //    "          entity: $brooklyn:entity(\"the-other-entity\")");
+                "          entity: $brooklyn:component(\"the-other-entity\")");
+        waitForApplicationTasks(app);
+
+        Entity child = app.getChildren().stream().filter(c -> "renamer".equals(c.getDisplayName()))
+                .findFirst().orElse(null);
+        Assert.assertNotNull(child);
+
+        Entities.invokeEffector(app, child, ((EntityInternal) child).getEffector("perform-rename")).getUnchecked(Duration.ONE_MINUTE);
+
+        Entity renamedChild = app.getChildren().stream().filter(c -> "new-name".equals(c.getDisplayName()))
+                .findFirst().orElse(null);
+        Assert.assertNotNull(renamedChild);
+    }
+
+    @Test
+    public void testSetCurrentEntityNameShorthandWithSpace() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  name: old-name",
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init",
+                "      steps:",
+                "        - set-entity-name new name");
+        waitForApplicationTasks(app);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Asserts.assertEquals(entity.getDisplayName(), "new name");
+    }
+
 }

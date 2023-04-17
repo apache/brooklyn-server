@@ -108,7 +108,6 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
             throw Exceptions.propagateAnnotated("Invalid URI: "+endpoint, e);
         }
 
-        UsernamePassword creds = null;
         String username = context.getInput(USERNAME);
         String password = context.getInput(PASSWORD);
         if (Strings.isNonBlank(username) || Strings.isNonBlank(password)) {
@@ -147,7 +146,7 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
 
         final long startTime = System.currentTimeMillis();
         HttpExecutor httpExecutor = BrooklynHttpConfig.newHttpExecutor(context.getEntity());
-        HttpResponse response = null;
+        HttpResponse response;
         try {
             response = httpExecutor.execute(httpb.build());
         } catch (IOException e) {
