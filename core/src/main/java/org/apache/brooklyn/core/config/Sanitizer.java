@@ -262,6 +262,37 @@ public final class Sanitizer {
         }
     }
 
+    public static Object suppressWorkflowOutputs(Object x) {
+        if (x instanceof Map) {
+            Map y = MutableMap.of();
+            ((Map)x).forEach((k,v) -> {
+                y.put(k, v!=null && Sanitizer.IS_OUTPUT.apply(k) ? "(output suppressed)": suppressWorkflowOutputs(v) );
+            });
+            return y;
+        }else if (x instanceof Iterable){
+            List y = MutableList.of();
+            ((Iterable)x).forEach(xi -> y.add(suppressWorkflowOutputs(xi)));
+            return y;
+        }else {
+            return x;
+        }
+    }
+
+    public static final Predicate<Object> IS_OUTPUT = new IsOutputPredicate();
+
+    private static class IsOutputPredicate implements Predicate<Object> {
+        @Override
+        public boolean apply(Object name) {
+            if (name == null) return false;
+            String lowerName = name.toString().toLowerCase();
+            for (String outputFieldName : ImmutableList.of("output", "stdout", "stderr")) {
+                if (lowerName.contains(outputFieldName))
+                    return true;
+            }
+            return false;
+        }
+    }
+
     /**
      * Kept only in case this anonymous inner class has made it into any persisted state.
      * 
