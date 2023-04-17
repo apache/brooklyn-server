@@ -112,7 +112,7 @@ public abstract class WorkflowStepDefinition {
         return timeout;
     }
 
-    // might be nice to support a shorthand for on-error; but not yet
+    // TODO: might be nice to support a shorthand for on-error; but not yet
     @JsonProperty("on-error")
     protected Object onError = MutableList.of();
     @JsonInclude(JsonInclude.Include.NON_EMPTY)

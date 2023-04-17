@@ -18,28 +18,21 @@
  */
 package org.apache.brooklyn.core.workflow.steps.appmodel;
 
-import com.google.common.base.Predicates;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
-import org.apache.brooklyn.core.entity.EntityPredicates;
-import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import java.util.List;
 
 public class DeletePolicyWorkflowStep extends WorkflowStepDefinition {
 
@@ -78,7 +71,7 @@ public class DeletePolicyWorkflowStep extends WorkflowStepDefinition {
 
         if (found==null) {
             Object entityToFind = context.getInput(ENTITY);
-            entity = entityToFind!=null ? DeleteEntityWorkflowStep.findEntity(context, entityToFind).get() : context.getEntity();
+            entity = entityToFind!=null ? WorkflowStepResolution.findEntity(context, entityToFind).get() : context.getEntity();
             policy = EntityAdjuncts.tryFindOnEntity(entity, context.getInput(POLICY)).get();
             setStepState(context, Pair.of(entity.getId(), policy.getUniqueTag()));
         } else {

@@ -32,6 +32,7 @@ import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -72,7 +73,7 @@ public class AddPolicyWorkflowStep extends WorkflowStepDefinition implements Has
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         Object entityToFind = context.getInput(ENTITY);
-        Entity entity = entityToFind != null ? DeleteEntityWorkflowStep.findEntity(context, entityToFind).get() : context.getEntity();
+        Entity entity = entityToFind != null ? WorkflowStepResolution.findEntity(context, entityToFind).get() : context.getEntity();
 
         Object blueprint = resolveBlueprint(context);
 
