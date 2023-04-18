@@ -28,9 +28,9 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.brooklyn.core.BrooklynLogging;
 
-public class LogWorkflowStep extends WorkflowStepDefinition {
+import java.util.Arrays;
 
-    private static Logger LOG = LoggerFactory.getLogger(LogWorkflowStep.class);
+public class LogWorkflowStep extends WorkflowStepDefinition {
 
     public static final String SHORTHAND = "${message...}";
     public static final ConfigKey<String> MESSAGE = ConfigKeys.newStringConfigKey("message");
@@ -50,13 +50,15 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
         if (Strings.isBlank(message)) {
             throw new IllegalArgumentException("Log message is required");
         }
+        Logger log = LoggerFactory.getLogger(LogWorkflowStep.class);
         if (!Strings.isBlank(category)) {
-            LOG = LoggerFactory.getLogger(category);
+            log = LoggerFactory.getLogger(category);
         }
-        if(!Strings.isBlank(level)) {
-            BrooklynLogging.log(LOG, BrooklynLogging.LoggingLevel.valueOf(level.toUpperCase()), message);
+        Boolean levelExists = Arrays.stream(BrooklynLogging.LoggingLevel.values()).anyMatch((t) -> t.name().equals(level.toUpperCase()));
+        if(!Strings.isBlank(level) && levelExists) {
+            BrooklynLogging.log(log, BrooklynLogging.LoggingLevel.valueOf(level.toUpperCase()), message);
         } else {
-            LOG.info("{}", message);
+            log.info("{}", message);
         }
         // TODO all workflow log messages should include step id as logging MDC, or message to start/end each workflow/task
         return context.getPreviousStepOutput();

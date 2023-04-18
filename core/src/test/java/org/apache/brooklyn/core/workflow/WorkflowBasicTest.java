@@ -400,7 +400,11 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
                 .configure(WorkflowEffector.STEPS, MutableList.of(
                         MutableMap.of("step", "log with category and level",
-                                "level", "info",
+                                "level", "infos",
+                                "category", category
+                        ),
+                        MutableMap.of("step", "log with default info level",
+                                "level", "incorrect",
                                 "category", category
                         )))
         );
@@ -409,7 +413,9 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
             Map ids = (Map) app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).get();
             System.out.println(logWatcher.getMessages());
             Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
-                    "with category and level"));
+                    "with category and level",
+                    "with default info level"
+                    ));
         }
     }
 }
