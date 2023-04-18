@@ -26,12 +26,16 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.brooklyn.core.BrooklynLogging;
+
 public class LogWorkflowStep extends WorkflowStepDefinition {
 
-    private static final Logger LOG = LoggerFactory.getLogger(LogWorkflowStep.class);
+    private static Logger LOG = LoggerFactory.getLogger(LogWorkflowStep.class);
 
     public static final String SHORTHAND = "${message...}";
     public static final ConfigKey<String> MESSAGE = ConfigKeys.newStringConfigKey("message");
+    public static final ConfigKey<String> LEVEL = ConfigKeys.newStringConfigKey("level");
+    public static final ConfigKey<String> CATEGORY = ConfigKeys.newStringConfigKey("category");
 
     @Override
     public void populateFromShorthand(String value) {
@@ -41,11 +45,20 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         String message = context.getInput(MESSAGE);
-        if (Strings.isBlank(message))  {
+        String level = context.getInput(LEVEL);
+        String category = context.getInput(CATEGORY);
+        if (Strings.isBlank(message)) {
             throw new IllegalArgumentException("Log message is required");
         }
+        if (!Strings.isBlank(category)) {
+            LOG = LoggerFactory.getLogger(category);
+        }
+        if(!Strings.isBlank(level)) {
+            BrooklynLogging.log(LOG, BrooklynLogging.LoggingLevel.valueOf(level.toUpperCase()), message);
+        } else {
+            LOG.info("{}", message);
+        }
         // TODO all workflow log messages should include step id as logging MDC, or message to start/end each workflow/task
-        LOG.info("{}", message);
         return context.getPreviousStepOutput();
     }
 

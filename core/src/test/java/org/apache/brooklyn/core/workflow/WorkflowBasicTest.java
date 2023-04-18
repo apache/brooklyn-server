@@ -391,4 +391,25 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         }
     }
 
+    @Test
+    public void testWorkflowLoggingWithCategoryLevel() throws Exception {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        String category = "org.acme.audit.example";
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.STEPS, MutableList.of(
+                        MutableMap.of("step", "log with category and level",
+                                "level", "info",
+                                "category", category
+                        )))
+        );
+        eff.apply((EntityLocal)app);
+        try (ClassLogWatcher logWatcher = new ClassLogWatcher(category)) {
+            Map ids = (Map) app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).get();
+            System.out.println(logWatcher.getMessages());
+            Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
+                    "with category and level"));
+        }
+    }
 }
