@@ -378,7 +378,6 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
             Object workflowId = ids.get("workflow");
             List tasksIds = (List) ids.get("tasks");
 
-            System.out.println(logWatcher.getMessages());
             Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
                     "Starting workflow 'myWorkflow (workflow effector)', moving to first step "+workflowId+"-1",
                     "Starting step "+workflowId+"-1 in task "+tasksIds.get(0),
@@ -410,8 +409,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         );
         eff.apply((EntityLocal)app);
         try (ClassLogWatcher logWatcher = new ClassLogWatcher(category)) {
-            Map ids = (Map) app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).get();
-            System.out.println(logWatcher.getMessages());
+            app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).get();
             Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
                     "with category and level",
                     "with default info level"
