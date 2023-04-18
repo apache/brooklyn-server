@@ -54,9 +54,11 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
         if (!Strings.isBlank(category)) {
             log = LoggerFactory.getLogger(category);
         }
-        Boolean levelExists = Arrays.stream(BrooklynLogging.LoggingLevel.values()).anyMatch((t) -> t.name().equals(level.toUpperCase()));
-        if(!Strings.isBlank(level) && levelExists) {
-            BrooklynLogging.log(log, BrooklynLogging.LoggingLevel.valueOf(level.toUpperCase()), message);
+        if(!Strings.isBlank(level)) {
+            Boolean levelExists = Arrays.stream(BrooklynLogging.LoggingLevel.values()).anyMatch((t) -> t.name().equals(level.toUpperCase()));
+            if (levelExists) {
+                BrooklynLogging.log(log, BrooklynLogging.LoggingLevel.valueOf(level.toUpperCase()), message);
+            }
         } else {
             log.info("{}", message);
         }
