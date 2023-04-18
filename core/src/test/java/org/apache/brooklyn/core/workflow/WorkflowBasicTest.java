@@ -400,7 +400,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
                 .configure(WorkflowEffector.STEPS, MutableList.of(
                         MutableMap.of("step", "log with category and level",
-                                "level", "infos",
+                                "level", "info",
                                 "category", category
                         ),
                         MutableMap.of("step", "log with default info level",
