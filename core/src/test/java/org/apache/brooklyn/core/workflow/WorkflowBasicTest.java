@@ -378,7 +378,6 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
             Object workflowId = ids.get("workflow");
             List tasksIds = (List) ids.get("tasks");
 
-            System.out.println(logWatcher.getMessages());
             Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
                     "Starting workflow 'myWorkflow (workflow effector)', moving to first step "+workflowId+"-1",
                     "Starting step "+workflowId+"-1 in task "+tasksIds.get(0),
@@ -391,4 +390,30 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         }
     }
 
+    @Test
+    public void testWorkflowLoggingWithCategoryLevel() throws Exception {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        String category = "org.acme.audit.example";
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.STEPS, MutableList.of(
+                        MutableMap.of("step", "log with category and level",
+                                "level", "info",
+                                "category", category
+                        ),
+                        MutableMap.of("step", "log with default info level",
+                                "level", "incorrect",
+                                "category", category
+                        )))
+        );
+        eff.apply((EntityLocal)app);
+        try (ClassLogWatcher logWatcher = new ClassLogWatcher(category)) {
+            app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).get();
+            Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
+                    "with category and level",
+                    "with default info level"
+                    ));
+        }
+    }
 }
