@@ -221,6 +221,25 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             if (w.isEmpty()) return null;
 
             Maybe<Object> result;
+
+            result = handleTokenIfPresent(w, false, MutableMap.of("&&", this::handleBooleanAnd));
+            if (result.isPresent()) return result.get();
+
+            result = handleTokenIfPresent(w, false, MutableMap.of("||", this::handleBooleanOr));
+            if (result.isPresent()) return result.get();
+
+            result = handleTokenIfPresent(w, false, MutableMap.of(">", this::handleOrderedGreaterThan));
+            if (result.isPresent()) return result.get();
+
+            result = handleTokenIfPresent(w, false, MutableMap.of(">=", this::handleOrderedGreaterThanOrEqual));
+            if (result.isPresent()) return result.get();
+
+            result = handleTokenIfPresent(w, false, MutableMap.of("<", this::handleOrderedLessThan));
+            if (result.isPresent()) return result.get();
+
+            result = handleTokenIfPresent(w, false, MutableMap.of("<=", this::handleOrderedLessThanOrEqual));
+            if (result.isPresent()) return result.get();
+
             result = handleTokenIfPresent(w, false, MutableMap.of("??", this::handleNullish));
             if (result.isPresent()) return result.get();
 
@@ -331,6 +350,34 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             throw new IllegalArgumentException("Should not come here");
         }
 
+        Object applyBooleanOperator(List<String> lhs0, List<String> rhs0, BiFunction<Boolean, Boolean, Boolean> biFn) {
+            Object lhs = process(lhs0, null);
+            Object rhs = process(rhs0, null);
+
+            Maybe<Boolean> lhsB = asBoolean(lhs);
+            Maybe<Boolean> rhsB = asBoolean(rhs);
+            if (lhsB.isPresent() && rhsB.isPresent()) {
+                return biFn.apply(lhsB.get(), rhsB.get());
+            }
+            throw new IllegalArgumentException("Should not come here");
+        }
+
+        Object applyIntegerToBooleanOperator(List<String> lhs0, List<String> rhs0, BiFunction<Integer, Integer, Boolean> biFn) {
+            Object lhs = process(lhs0, null);
+            Object rhs = process(rhs0, null);
+
+            Maybe<Integer> lhsB = asInteger(lhs);
+            Maybe<Integer> rhsB = asInteger(rhs);
+            if (lhsB.isPresent() && rhsB.isPresent()) {
+                return biFn.apply(lhsB.get(), rhsB.get());
+            }
+            throw new IllegalArgumentException("Should not come here");
+        }
+
+        Maybe<Boolean> asBoolean(Object x) {
+            return TypeCoercions.tryCoerce(x, Boolean.class);
+        }
+
         private IllegalArgumentException failOnInvalidArgument(String side, String op, Object pre, Object post) {
             String msg = "Invalid "+side+" argument to operation '"+op+"'";
 
@@ -349,6 +396,30 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
         Object handleDivide(List<String> lhs, List<String> rhs) {
             return applyMathOperator("/", lhs, rhs, (a,b)->1.0*a/b, (a,b)->a/b);
+        }
+
+        Object handleBooleanAnd(List<String> lhs, List<String> rhs) {
+            return applyBooleanOperator(lhs, rhs, (a, b) -> a && b);
+        }
+
+        Object handleBooleanOr(List<String> lhs, List<String> rhs) {
+            return applyBooleanOperator(lhs, rhs, (a, b) -> a || b);
+        }
+
+        Object handleOrderedGreaterThan(List<String> lhs, List<String> rhs) {
+            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a > b);
+        }
+
+        Object handleOrderedGreaterThanOrEqual(List<String> lhs, List<String> rhs) {
+            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a >= b);
+        }
+
+        Object handleOrderedLessThan(List<String> lhs, List<String> rhs) {
+            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a < b);
+        }
+
+        Object handleOrderedLessThanOrEqual(List<String> lhs, List<String> rhs) {
+            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a <= b);
         }
 
         Object handleAdd(List<String> lhs, List<String> rhs) {
