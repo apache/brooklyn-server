@@ -167,7 +167,8 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         });
         TRANSFORMATIONS.put("max", () -> v -> minmax(v, "max", i -> i>0));
         TRANSFORMATIONS.put("min", () -> v -> minmax(v, "min", i -> i<0));
-        TRANSFORMATIONS.put("sum", () -> v -> sum(v, "sum"));
+//        TRANSFORMATIONS.put("sum", () -> v -> sum(v, "sum"));
+        TRANSFORMATIONS.put("sum", () -> new TransformSum());
         TRANSFORMATIONS.put("average", () -> v -> average(v, "average"));
         TRANSFORMATIONS.put("size", () -> v -> size(v, "size"));
     }
@@ -192,8 +193,35 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
             if (!(vi instanceof Number)) throw new IllegalArgumentException("Argument is not a number; cannot compute "+word);
             result += ((Number)vi).doubleValue();
         }
+
+        // PROBLEM: context is supplied to getTransform dynamically, but sum() is static...
+//        final ConfigurableInterpolationEvaluation evaluation = new ConfigurableInterpolationEvaluation(/* ... */);
+//        final Iterable<List<String>> list = (Iterable)v;
+//        final Iterator<List<String>> it = list.iterator();
+//        final int numberOfSums = Iterables.size(list) - 1;
+//
+//        if (numberOfSums < 1) { // add the one item to the sum, if any
+//            for (Object vi: list) {
+//                checkIsSummable(vi);
+//                result += ((Number)vi).doubleValue();
+//            }
+//        } else { // process items via handleAdd() to coerce numbers from Strings
+//            Object left = it.next();
+//            Object right;
+//            for (int count=1; count<= numberOfSums; count++) {
+//                right = it.next();
+//                checkIsSummable(left);
+//                checkIsSummable(right);
+//
+//                result += ((Number)evaluation.handleAdd(Arrays.asList(left), Arrays.asList(right))).doubleValue();
+//
+//                left = right;
+//            }
+//        }
         return result;
     }
+
+
 
     static final Integer size(Object v, String word) {
         if (v==null) return null;
