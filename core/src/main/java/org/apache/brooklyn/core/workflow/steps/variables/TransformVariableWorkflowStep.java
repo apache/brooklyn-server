@@ -137,7 +137,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         }
         if (t==null) throw new IllegalStateException("Unknown transform '"+transformType+"'");
         WorkflowTransformWithContext ta = transformOf(t);
-        ta.init(context.getWorkflowExectionContext(), transformWords);
+        ta.init(context.getWorkflowExectionContext(), transformWords, transformDef);
         return ta;
     }
 
@@ -148,6 +148,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         TRANSFORMATIONS.put("json", () -> new TransformJsonish(true, false, false));
         TRANSFORMATIONS.put("yaml", () -> new TransformJsonish(false, true, false));
         TRANSFORMATIONS.put("bash", () -> new TransformJsonish(true, false, true));
+        TRANSFORMATIONS.put("replace", () -> new TransformReplace());
         TRANSFORMATIONS.put("wait", () -> new TransformWait());
         TRANSFORMATIONS.put("type", () -> new TransformType());
         TRANSFORMATIONS.put("first", () -> x -> {
