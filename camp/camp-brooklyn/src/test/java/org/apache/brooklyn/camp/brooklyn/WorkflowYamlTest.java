@@ -1007,6 +1007,53 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     }
 
     @Test
+    public void testSumListOfNumbers() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  name: old-name",
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init",
+                "      steps:",
+                "        - let list x = [2,5]",
+                "        - transform y = ${x} | sum",
+                "        - set-sensor mySum = ${y}");
+        waitForApplicationTasks(app);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+
+        entity.sensors().set(Sensors.newStringSensor("good_interpolation"), "run");
+        EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "mySum"), v -> v!=null);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "mySum"), 7D);
+    }
+
+    @Test
+    public void testSumListOfNumbersCoerced() throws Exception {
+        // same as above except list has strings representing numbers like "5"
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  name: old-name",
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init",
+                "      steps:",
+                "        - let list x = [\"2\",5]",
+                "        - transform y = ${x} | sum",
+                "        - set-sensor mySum = ${y}");
+        waitForApplicationTasks(app);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+
+        entity.sensors().set(Sensors.newStringSensor("good_interpolation"), "run");
+        EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "mySum"), v -> v!=null);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "mySum"), 7D);
+    }
+
+    @Test
     public void testSetCurrentEntityName() throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
