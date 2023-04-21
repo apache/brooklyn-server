@@ -47,7 +47,7 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testValueTrue() {
+    public void testBooleanTrue() {
         Object result = runSteps(MutableList.of(
                 "let boolean foo = true",
                 "return ${foo}"
@@ -56,7 +56,7 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testValueFalse() {
+    public void testBooleanFalse() {
         Object result = runSteps(MutableList.of(
                 "let boolean foo = false",
                 "return ${foo}"
@@ -101,7 +101,7 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testBooleanGreaterThanTrue() {
+    public void testIntegerGreaterThanTrue() {
         Object result = runSteps(MutableList.of(
                 "let boolean pass = 4 > 3",
                 "return ${pass}"
@@ -110,7 +110,7 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testBooleanGreaterThanFalse() {
+    public void testIntegerGreaterThanFalse() {
         Object result = runSteps(MutableList.of(
                 "let boolean pass = 4 > 4",
                 "return ${pass}"
@@ -119,7 +119,7 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testBooleanGreaterThanOrEqualTrue() {
+    public void testIntegerGreaterThanOrEqualTrue() {
         Object result = runSteps(MutableList.of(
                 "let boolean pass = 4 >= 4",
                 "return ${pass}"
@@ -128,7 +128,7 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testBooleanGreaterThanOrEqualFalse() {
+    public void testIntegerGreaterThanOrEqualFalse() {
         Object result = runSteps(MutableList.of(
                 "let boolean pass = 3 >= 4",
                 "return ${pass}"
@@ -137,7 +137,7 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testBooleanLessThanTrue() {
+    public void testIntegerLessThanTrue() {
         Object result = runSteps(MutableList.of(
                 "let boolean pass = 3 < 4",
                 "return ${pass}"
@@ -146,7 +146,7 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testBooleanLessThanFalse() {
+    public void testIntegerLessThanFalse() {
         Object result = runSteps(MutableList.of(
                 "let boolean pass = 4 < 4",
                 "return ${pass}"
@@ -155,7 +155,7 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testBooleanLessThanOrEqualTrue() {
+    public void testIntegerLessThanOrEqualTrue() {
         Object result = runSteps(MutableList.of(
                 "let boolean pass = 4 <= 4",
                 "return ${pass}"
@@ -164,13 +164,31 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testBooleanLessThanOrEqualFalse() {
+    public void testIntegerLessThanOrEqualFalse() {
         Object result = runSteps(MutableList.of(
                 "let boolean pass = 4 <= 3",
                 "return ${pass}"
         ));
         Asserts.assertEquals(result, false);
     }
-    // other boolean operations?
+
+    @Test
+    public void testTernaryTrue() {
+        Object result = runSteps(MutableList.of(
+//                "let pass = true ? \"left\" : \"right\"",
+                "let pass = true ? true && false || false : true",
+                "return ${pass}"
+        ));
+        Asserts.assertEquals(result, "left");
+    }
+
+    @Test
+    public void testTernaryFalse() {
+        Object result = runSteps(MutableList.of(
+                "let pass = false ? \"left\" : \"right\"",
+                "return ${pass}"
+        ));
+        Asserts.assertEquals(result, "right");
+    }
     // precedence?
 }

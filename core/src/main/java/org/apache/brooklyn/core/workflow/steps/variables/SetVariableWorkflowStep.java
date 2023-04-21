@@ -222,35 +222,58 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
             Maybe<Object> result;
 
-            result = handleTokenIfPresent(w, false, MutableMap.of("&&", this::handleBooleanAnd));
-            if (result.isPresent()) return result.get();
-
-            result = handleTokenIfPresent(w, false, MutableMap.of("||", this::handleBooleanOr));
-            if (result.isPresent()) return result.get();
-
-            result = handleTokenIfPresent(w, false, MutableMap.of(">", this::handleOrderedGreaterThan));
-            if (result.isPresent()) return result.get();
-
-            result = handleTokenIfPresent(w, false, MutableMap.of(">=", this::handleOrderedGreaterThanOrEqual));
-            if (result.isPresent()) return result.get();
-
-            result = handleTokenIfPresent(w, false, MutableMap.of("<", this::handleOrderedLessThan));
-            if (result.isPresent()) return result.get();
-
-            result = handleTokenIfPresent(w, false, MutableMap.of("<=", this::handleOrderedLessThanOrEqual));
-            if (result.isPresent()) return result.get();
-
+            // Order of operations:
+            // #1: () [] -> . :: (i.e. Function call, scope, array/member access)
+            // #2: ! ~ - + & ++ -- (i.e. unary operators)
+            // ?: ?? (nullish - treat as an unary operator)
             result = handleTokenIfPresent(w, false, MutableMap.of("??", this::handleNullish));
             if (result.isPresent()) return result.get();
 
+            // #__: ?: (i.e. ternary)
+            result = handleTokenIfPresent(w, false, MutableMap.of(
+                    "?", this::handleTernaryCondition,
+                    ":", this::handleTernaryArms
+                    ));
+            if (result.isPresent()) return result.get();
+
+            //NOTE: levels 4 and 3 are out of order (by the C Order or operations)
+
+            // #4: + -
             result = handleTokenIfPresent(w, true, MutableMap.of("+", this::handleAdd, "-", this::handleSubtract));
             if (result.isPresent()) return result.get();
 
+            // #3: - * / % MOD
             result = handleTokenIfPresent(w, true, MutableMap.of("*", this::handleMultiply, "/", this::handleDivide));
             if (result.isPresent()) return result.get();
-
             result = handleTokenIfPresent(w, true, MutableMap.of("%", this::handleModulo));
             if (result.isPresent()) return result.get();
+
+            // #5: << >> (i.e. bitwise shift left and right
+
+            // #6: < <= > >=
+            result = handleTokenIfPresent(w, false, MutableMap.of(
+                    "<", this::handleOrderedLessThan,
+                    "<=", this::handleOrderedLessThanOrEqual,
+                    ">", this::handleOrderedGreaterThan,
+                    ">=", this::handleOrderedGreaterThanOrEqual
+            ));
+            if (result.isPresent()) return result.get();
+
+            // #7: == !=
+            // #8: & (i.e. bitwise AND)
+            // #9: ^ (i.e. bitwise XOR)
+            // #10: | (i.e. bitwise OR)
+
+            // #11: && (i.e. logical AND)
+            result = handleTokenIfPresent(w, false, MutableMap.of("&&", this::handleBooleanAnd));
+            if (result.isPresent()) return result.get();
+            // #12: || (i.e. logical OR)
+            result = handleTokenIfPresent(w, false, MutableMap.of("||", this::handleBooleanOr));
+            if (result.isPresent()) return result.get();
+
+
+            // #14: = += -= *= /= %= &= |= ^= <<= >>= (i.e. assignment operators)
+            // #15: ,
 
             // tokens include space delimiters and are still quotes, so unwrap then just stitch together. will preserve spaces.
             boolean resolveToString = w.size()>1;
@@ -420,6 +443,35 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
         Object handleOrderedLessThanOrEqual(List<String> lhs, List<String> rhs) {
             return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a <= b);
+        }
+
+        Object handleTernaryCondition(List<String> lhs0, List<String> rhs0) {
+            log.info(String.format("Ternary Condition 0: [lhs:%s][rhs:%s]", lhs0, rhs0));
+            Object lhs = process(lhs0, null);
+            Object rhs = process(rhs0, null);
+            log.info(String.format("Ternary Condition 1: [lhs:%s][rhs:%s]", lhs, rhs));
+
+            Maybe<Boolean> condition = asBoolean(lhs);
+            if (condition.isPresent()){
+                if (condition.get()) {
+                    // ? left : right -- rhs length is 5 [left, ,:, ,right]
+                    // ? true && true : false || false -- rhs length is ???
+                    throw new IllegalArgumentException("TERNARY CONDITION IS TRUE");
+                } else {
+                    throw new IllegalArgumentException("TERNARY CONDITION IS FALSE");
+                }
+            }
+            throw new IllegalArgumentException("Should not come here");
+        }
+
+        Object handleTernaryArms(List<String> lhs0, List<String> rhs0) {
+            log.info(String.format("Ternary 0: [lhs:%s][rhs:%s]", lhs0, rhs0));
+            Object lhs = process(lhs0, null);
+            Object rhs = process(rhs0, null);
+            log.info(String.format("Ternary 1: [lhs:%s][rhs:%s]", lhs, rhs));
+
+            //TODO?
+            throw new IllegalArgumentException("Should not come here");
         }
 
         Object handleAdd(List<String> lhs, List<String> rhs) {
