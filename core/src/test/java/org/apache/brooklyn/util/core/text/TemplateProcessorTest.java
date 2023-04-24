@@ -186,6 +186,14 @@ public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
         assertEquals(result, location.getId());
     }
 
+    @Test
+    public void testEntityChildren() {
+        String templateContents = "${entity.children[0].id}";
+        app.createAndManageChild( EntitySpec.create(TestApplication.class));
+        String result = TemplateProcessor.processTemplateContents(templateContents, app, ImmutableMap.<String,Object>of());
+        assertEquals(result, Iterables.getOnlyElement(app.getChildren()).getId());
+    }
+
     // Test takes 2.5s.
     @Test(groups = "Integration")
     public void testLocationConfig() {
