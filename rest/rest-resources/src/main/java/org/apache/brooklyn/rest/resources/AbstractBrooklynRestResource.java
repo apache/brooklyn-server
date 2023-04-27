@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.rest.domain.ApiError;
+import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
@@ -298,7 +299,7 @@ public abstract class AbstractBrooklynRestResource {
                             String resultS = mapper.writeValueAsString(result);
                             result = BeanWithTypeUtils.newSimpleMapper().readValue(resultS, Object.class);
                             if (suppressOutput){
-                                result = Sanitizer.suppressWorkflowOutputs(result);
+                                result = TaskTransformer.suppressWorkflowOutputs(result);
                             }
                             //the below treats all numbers as doubles
                             //new Gson().fromJson(resultS, Object.class);
