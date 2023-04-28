@@ -262,7 +262,6 @@ public final class Sanitizer {
         }
     }
 
-
     /**
      * Kept only in case this anonymous inner class has made it into any persisted state.
      * 
