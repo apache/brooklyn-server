@@ -266,7 +266,7 @@ public abstract class AbstractBrooklynRestResource {
 
         public static Object getValueForDisplay(ManagementContext mgmt, ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue, Boolean suppressNestedSecrets, Boolean suppressOutput) {
             suppressNestedSecrets = checkAndGetSecretsSuppressed(mgmt, suppressNestedSecrets, false);
-            return getValueForDisplayAfterSecretsCheck(mgmt, mapper, value, preferJson, isJerseyReturnValue, suppressNestedSecrets,suppressOutput);
+            return getValueForDisplayAfterSecretsCheck(mgmt, mapper, value, preferJson, isJerseyReturnValue, suppressNestedSecrets, suppressOutput);
         }
 
         static Object getValueForDisplayAfterSecretsCheck(ManagementContext mgmt, ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue, Boolean suppressNestedSecrets, Boolean suppressOutput) {
@@ -299,7 +299,7 @@ public abstract class AbstractBrooklynRestResource {
                             String resultS = mapper.writeValueAsString(result);
                             result = BeanWithTypeUtils.newSimpleMapper().readValue(resultS, Object.class);
                             if (suppressOutput){
-                                result = TaskTransformer.suppressWorkflowOutputs(result);
+                                result = TaskTransformer.suppressOutputs(result);
                             }
                             //the below treats all numbers as doubles
                             //new Gson().fromJson(resultS, Object.class);

@@ -20,14 +20,12 @@ package org.apache.brooklyn.rest.transform;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
 import org.apache.brooklyn.rest.api.ActivityApi;
@@ -236,16 +234,16 @@ public class TaskTransformer {
             return taskTaskSummaryFunction.apply(task);
         }).collect(Collectors.toList());
     }
-    public static Object suppressWorkflowOutputs(Object x) {
+    public static Object suppressOutputs(Object x) {
         if (x instanceof Map) {
             Map y = MutableMap.of();
             ((Map)x).forEach((k,v) -> {
-                y.put(k, v!=null && TaskTransformer.IS_OUTPUT.apply(k) ? "(output suppressed)": suppressWorkflowOutputs(v) );
+                y.put(k, v!=null && TaskTransformer.IS_OUTPUT.apply(k) ? "(output suppressed)": suppressOutputs(v) );
             });
             return y;
         }else if (x instanceof Iterable){
             List y = MutableList.of();
-            ((Iterable)x).forEach(xi -> y.add(suppressWorkflowOutputs(xi)));
+            ((Iterable)x).forEach(xi -> y.add(suppressOutputs(xi)));
             return y;
         }else {
             return x;
@@ -254,16 +252,12 @@ public class TaskTransformer {
 
     public static final Predicate<Object> IS_OUTPUT = new IsOutputPredicate();
 
+    static final ImmutableList<String> OUTPUT_VALUES = ImmutableList.of("output", "stdout", "stderr");
     private static class IsOutputPredicate implements Predicate<Object> {
         @Override
         public boolean apply(Object name) {
             if (name == null) return false;
-            String lowerName = name.toString().toLowerCase();
-            for (String outputFieldName : ImmutableList.of("output", "stdout", "stderr")) {
-                if (lowerName.contains(outputFieldName))
-                    return true;
-            }
-            return false;
+            return  OUTPUT_VALUES.contains(name.toString().toLowerCase());
         }
     }
 
