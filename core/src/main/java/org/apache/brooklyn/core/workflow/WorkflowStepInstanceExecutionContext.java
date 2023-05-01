@@ -224,7 +224,10 @@ public class WorkflowStepInstanceExecutionContext {
 
     /** sets other metadata, e.g. for the UI */
     public void noteOtherMetadata(String key, Object value) {
-        log.debug(getWorkflowStepReference()+" note metadata '"+key+"': "+value);
+        noteOtherMetadata(key, value, true);
+    }
+    public void noteOtherMetadata(String key, Object value, boolean includeInLogs) {
+        if (includeInLogs) log.debug(getWorkflowStepReference()+" note metadata '"+key+"': "+value);
         otherMetadata.put(key, value);
     }
 
