@@ -41,6 +41,7 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
     private static final Logger log = LoggerFactory.getLogger(LoadWorkflowStep.class);
 
     public static final String SHORTHAND =
+            // TODO could support "template" here to change the interpolation mode
             "[ \"charset\" ${charset} ] [ ${variable.type} ] ${variable.name} [ \"=\" ${url...} ]";
 
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
