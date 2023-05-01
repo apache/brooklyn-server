@@ -54,16 +54,20 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
         if (!Strings.isBlank(category)) {
             log = LoggerFactory.getLogger(category);
         }
+        String messageLogged = message;
         if(!Strings.isBlank(level)) {
             Boolean levelExists = Arrays.stream(BrooklynLogging.LoggingLevel.values()).anyMatch((t) -> t.name().equals(level.toUpperCase()));
             if (levelExists) {
                 BrooklynLogging.log(log, BrooklynLogging.LoggingLevel.valueOf(level.toUpperCase()), message);
+                messageLogged = "["+level.toUpperCase()+"]  "+messageLogged;
             } else {
                 log.info("{}", message);
             }
         } else {
             log.info("{}", message);
         }
+        context.noteOtherMetadata("Message", messageLogged, false);  // show this so it is displayed on the step in the UI
+
         // TODO all workflow log messages should include step id as logging MDC, or message to start/end each workflow/task
         return context.getPreviousStepOutput();
     }
