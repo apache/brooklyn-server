@@ -619,7 +619,6 @@ public class TemplateProcessor {
         protected final EntityDriver driver;
         protected final ManagementContext mgmt;
         protected final DotSplittingTemplateModel extraSubstitutionsModel;
-        protected final Collection<Entity> children;
 
         // TODO the extra substitutions here (and in LocationAndMapTemplateModel) could be replaced with
         // FirstAvailableTemplateModel(entityModel, mapHashModel)
@@ -629,7 +628,6 @@ public class TemplateProcessor {
             this.entity = entity !=null ? entity : driver!=null ? (EntityInternal) driver.getEntity() : null;
             this.mgmt = mgmt != null ? mgmt : this.entity!=null ? this.entity.getManagementContext() : null;
             extraSubstitutionsModel = new DotSplittingTemplateModel(null);
-            this.children = this.entity !=null ? this.entity.getChildren(): null;
         }
 
         @Override
@@ -652,7 +650,6 @@ public class TemplateProcessor {
         @Deprecated /** @deprecated since 1.1 use {@link #forEntity(Entity, Map)} and related instead; substitions added separately using {@link FirstAvailableTemplateModel }*/
         protected EntityAndMapTemplateModel(ManagementContext mgmt, Map<String,? extends Object> extraSubstitutions) {
             this.entity = null;
-            this.children = null;
             this.driver = null;
             this.mgmt = mgmt;
             this.extraSubstitutionsModel = new DotSplittingTemplateModel(extraSubstitutions);
@@ -662,7 +659,6 @@ public class TemplateProcessor {
         protected EntityAndMapTemplateModel(EntityDriver driver, Map<String,? extends Object> extraSubstitutions) {
             this.driver = driver;
             this.entity = (EntityInternal) driver.getEntity();
-            this.children = this.entity != null ? this.entity.getChildren(): null;
             this.mgmt = entity.getManagementContext();
             this.extraSubstitutionsModel = new DotSplittingTemplateModel(extraSubstitutions);
         }
@@ -670,7 +666,6 @@ public class TemplateProcessor {
         @Deprecated /** @deprecated since 1.1 use {@link #forEntity(Entity, Map)} and related instead; substitions added separately using {@link FirstAvailableTemplateModel }*/
         protected EntityAndMapTemplateModel(EntityInternal entity, Map<String,? extends Object> extraSubstitutions) {
             this.entity = entity;
-            this.children = this.entity != null ? this.entity.getChildren(): null;
             this.driver = null;
             this.mgmt = entity.getManagementContext();
             this.extraSubstitutionsModel = new DotSplittingTemplateModel(extraSubstitutions);
@@ -704,8 +699,8 @@ public class TemplateProcessor {
                 if (entity!=null)
                     return wrapAsTemplateModel( Iterables.getOnlyElement( entity.getLocations() ) );
             }
-            if ("children".equals(key) && children!=null)
-                return wrapAsTemplateModel( children );
+            if ("children".equals(key) && entity!=null)
+                return wrapAsTemplateModel( entity.getChildren() );
             if ("sensor".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_VALUE);
             if ("attribute".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_VALUE);
             if ("attributeWhenReady".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_WHEN_READY);
