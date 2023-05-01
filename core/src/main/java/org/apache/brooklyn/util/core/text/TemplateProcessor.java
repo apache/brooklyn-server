@@ -29,13 +29,17 @@ import freemarker.core.TemplateElement;
 import freemarker.core._CoreAPI;
 import freemarker.template.*;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.entity.drivers.EntityDriver;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
@@ -55,10 +59,7 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.lang.reflect.Method;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
-import java.util.Map;
+import java.util.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -145,22 +146,36 @@ public class TemplateProcessor {
         }
 
         @Override
-        public TemplateModel wrap(Object o) throws TemplateModelException {
-            if (o instanceof TemplateModel) {
-                return (TemplateModel) o;
+        public TemplateModel wrap(Object obj) throws TemplateModelException {
+            if (obj == null) {
+                return super.wrap(null);
             }
 
-            if (o instanceof Map) {
+            if (obj instanceof TemplateModel) {
+                return (TemplateModel) obj;
+            }
+
+            if (obj instanceof Map) {
                 // use our map recursively, so a map with `a.b` as a single key can be referenced as` ${a.b}` in the freemarker template
-                return new DotSplittingTemplateModel((Map<?,?>)o);
+                return new DotSplittingTemplateModel((Map<?,?>)obj);
             }
 
-            if (o instanceof Instant) {
+            if (obj instanceof Instant) {
                 // Freemarker doesn't support Instant, so we add
-                return super.wrap(Date.from( (Instant)o ));
+                return super.wrap(Date.from( (Instant)obj ));
             }
 
-            return super.wrap(o);
+            Object objOrig = obj;
+            if (obj.getClass().isArray()) {
+                obj = convertArray(obj);
+            }
+            if (obj instanceof Collection) {
+                if (!((Collection<?>) obj).isEmpty() && ((Collection<?>) obj).stream().allMatch(x -> x instanceof Identifiable)) {
+                }
+                return new SimpleSequenceWithLookup((Collection<?>) obj, this);
+            }
+
+            return super.wrap(objOrig);
         }
 
         @Override
@@ -194,6 +209,35 @@ public class TemplateProcessor {
             }
         }
 
+    }
+
+    static class SimpleSequenceWithLookup extends SimpleSequence implements TemplateHashModel {
+        SimpleSequenceWithLookup(Collection<?> collection, ObjectWrapper wrapper) {
+            super(collection, wrapper);
+        }
+
+        protected Object findKey(String key) {
+            for (Object l: list) {
+                if (l instanceof Entity) {
+                    String planId = ((Entity) l).config().get(BrooklynConfigKeys.PLAN_ID);
+                    if (Strings.isNonEmpty(planId) && Objects.equals(planId, key)) return l;
+                }
+                if (l instanceof Identifiable && Objects.equals(((Identifiable)l).getId(), key)) return l;
+            }
+            return null;
+        }
+
+        @Override
+        public TemplateModel get(String key) throws TemplateModelException {
+            Object match = findKey(key);
+            if (match==null) return null;
+            return getObjectWrapper().wrap(match);
+        }
+
+        @Override
+        public boolean isEmpty() throws TemplateModelException {
+            return false;
+        }
     }
 
     public static TemplateModel wrapAsTemplateModel(Object o) throws TemplateModelException {
@@ -701,6 +745,8 @@ public class TemplateProcessor {
             }
             if ("children".equals(key) && entity!=null)
                 return wrapAsTemplateModel( entity.getChildren() );
+            if ("members".equals(key) && entity!=null)
+                return wrapAsTemplateModel( entity instanceof Group ? ((Group)entity).getMembers() : MutableList.of() );
             if ("sensor".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_VALUE);
             if ("attribute".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_VALUE);
             if ("attributeWhenReady".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_WHEN_READY);

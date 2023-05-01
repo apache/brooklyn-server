@@ -18,13 +18,16 @@
  */
 package org.apache.brooklyn.util.core.text;
 
-import static org.testng.Assert.assertEquals;
-
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import freemarker.core.InvalidReferenceException;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
@@ -32,16 +35,18 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.group.BasicGroup;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.FixedLocaleTest;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
+import static org.testng.Assert.assertEquals;
 
 public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
     private FixedLocaleTest localeFix = new FixedLocaleTest();
@@ -187,11 +192,27 @@ public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testEntityChildren() {
-        String templateContents = "${entity.children[0].id}";
-        app.createAndManageChild( EntitySpec.create(TestApplication.class));
-        String result = TemplateProcessor.processTemplateContents(templateContents, app, ImmutableMap.<String,Object>of());
-        assertEquals(result, Iterables.getOnlyElement(app.getChildren()).getId());
+    public void testEntityChildrenAndMembers() {
+        TestEntity child = app.createAndManageChild(EntitySpec.create(TestEntity.class).configure(BrooklynConfigKeys.PLAN_ID, "my_child"));
+
+        assertEquals(TemplateProcessor.processTemplateContents("${entity.children[0].id}", app, null), child.getId());
+        assertEquals(TemplateProcessor.processTemplateContents("${entity.children[\"my_child\"].id}", app, null), child.getId());
+
+        Asserts.assertFailsWith(() -> TemplateProcessor.processTemplateContents("${entity.children[\"no_such_child\"].id}", app, null),
+            error -> Asserts.expectedFailureContains(error, "children[\"no_such_child\"] ", InvalidReferenceException.class.getSimpleName()));
+
+        assertEquals(TemplateProcessor.processTemplateContents("test", "${entity.children}", TemplateProcessor.EntityAndMapTemplateModel.forEntity(app, null), true, false),
+                MutableList.of(child));
+        assertEquals(TemplateProcessor.processTemplateContents("test", "${entity.children[0]}", TemplateProcessor.EntityAndMapTemplateModel.forEntity(app, null), true, false),
+                child);
+        assertEquals(TemplateProcessor.processTemplateContents("test", "${entity.children[\"my_child\"]}", TemplateProcessor.EntityAndMapTemplateModel.forEntity(app, null), true, false),
+                child);
+
+        Group group = app.createAndManageChild(EntitySpec.create(BasicGroup.class));
+        group.addMember(child);
+
+        assertEquals(TemplateProcessor.processTemplateContents("${entity.members[0].id}", (EntityInternal) group, null), child.getId());
+        assertEquals(TemplateProcessor.processTemplateContents("${entity.members[\"my_child\"].id}", (EntityInternal) group, null), child.getId());
     }
 
     // Test takes 2.5s.
