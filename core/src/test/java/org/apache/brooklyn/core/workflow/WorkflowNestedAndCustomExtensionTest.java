@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -90,6 +91,7 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
 
     ClassLogWatcher lastLogWatcher;
     TestApplication app;
+    Task<?> lastInvocation;
 
     Object invokeWorkflowStepsWithLogging(List<Object> steps) throws Exception {
         return invokeWorkflowStepsWithLogging(steps, null);
@@ -106,8 +108,8 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                     .putAll(extraEffectorConfig));
             eff.apply((EntityLocal)app);
 
-            Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
-            return invocation.getUnchecked();
+            lastInvocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+            return lastInvocation.getUnchecked();
         }
     }
 
@@ -703,6 +705,79 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
             }
 
         }
+    }
+
+
+    @Test
+    public void testConcurrentNestedWorkflowsShowAsChildren() throws Exception {
+        Object result = invokeWorkflowStepsWithLogging((List<Object>) Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
+                "  - type: workflow",
+                "    target:",
+                "      - A",
+                "      - B",
+                "    concurrency: all",
+                "    steps:",
+                "    - set-sensor s_${target_index} = ${target}",
+                "    - return ${target}",
+                ""
+        ))));
+
+        // ensure it ran
+        Asserts.assertEquals(MutableSet.of("A", "B"), MutableSet.copyOf((Iterable)result));
+        EntityAsserts.assertAttributeEquals(app, Sensors.newStringSensor("s_0"), "A");
+        EntityAsserts.assertAttributeEquals(app, Sensors.newStringSensor("s_1"), "B");
+
+        Task<?> firstStep = Iterables.getOnlyElement( ((HasTaskChildren) lastInvocation).getChildren() );
+        Iterable<Task<?>> subworkflows = ((HasTaskChildren) firstStep).getChildren();
+        Asserts.assertSize(subworkflows, 2);
+    }
+
+    @Test
+    public void testNestedWorkflowsFail() throws Exception {
+        Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging((List<Object>) Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
+                "  - type: workflow",
+                "    target:",
+                "      - A",
+                "      - B",
+                "    steps:",
+                "    - fail message deliberate failure on ${target}",
+                ""
+        )))), error -> Asserts.expectedFailureContainsIgnoreCase(error, "error running sub-workflows ", "deliberate failure on A"));
+
+        Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging((List<Object>) Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
+                "  - type: workflow",
+                "    target:",
+                "      - A",
+                "      - B",
+                "    concurrency: all",
+                "    steps:",
+                "    - fail message deliberate failure on ${target}",
+                ""
+        )))), error -> Asserts.expectedFailureContainsIgnoreCase(error, "errors running sub-workflows ", "2 errors including", "deliberate failure on A"));
+
+        Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging((List<Object>) Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
+                "  - type: workflow",
+                "    target:",
+                "      - A",
+                "    concurrency: all",
+                "    steps:",
+                "    - fail message deliberate failure on ${target}",
+                ""
+        )))), error -> Asserts.expectedFailureContainsIgnoreCase(error, "error running sub-workflow ", "deliberate failure on A"));
+
+        Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging((List<Object>) Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
+                "  - type: workflow",
+                "    target:",
+                "      - A",
+                "      - B",
+                "      - C",
+                "    steps:",
+                "    - condition:",
+                "        target: ${target}",
+                "        equals: B",
+                "      step: fail message deliberate failure on ${target}",
+                ""
+        )))), error -> Asserts.expectedFailureContainsIgnoreCase(error, "error running sub-workflows ", "deliberate failure on B"));
     }
 
 }
