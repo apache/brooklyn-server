@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.lang3.tuple.MutablePair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -223,19 +224,20 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             Maybe<Object> result;
 
             // Order of operations:
-            // #1: () [] -> . :: (i.e. Function call, scope, array/member access)
-            // #2: ! ~ - + & ++ -- (i.e. unary operators)
-            // ?: ?? (nullish - treat as an unary operator)
-            result = handleTokenIfPresent(w, false, MutableMap.of("??", this::handleNullish));
-            if (result.isPresent()) return result.get();
+            // not used: () [] -> . :: (i.e. Function call, scope, array/member access)
+            // not used: ! ~ - + & ++ -- (i.e. unary operators)
 
             // #__: ?: (i.e. ternary)
             result = handleTokenIfPresent(w, false, MutableMap.of(
                     "?", this::handleTernaryCondition,
                     ":", this::handleTernaryArms
-                    ));
+            ));
             if (result.isPresent()) return result.get();
 
+
+            // ?: ?? (nullish - treat as an unary operator)
+            result = handleTokenIfPresent(w, false, MutableMap.of("??", this::handleNullish));
+            if (result.isPresent()) return result.get();
             //NOTE: levels 4 and 3 are out of order (by the C Order or operations)
 
             // #4: + -
@@ -448,30 +450,67 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         Object handleTernaryCondition(List<String> lhs0, List<String> rhs0) {
             log.info(String.format("Ternary Condition 0: [lhs:%s][rhs:%s]", lhs0, rhs0));
             Object lhs = process(lhs0, null);
-            Object rhs = process(rhs0, null);
+            Object rhs;
+            int questionIndex = rhs0.indexOf("?");
+            int colonIndex = rhs0.indexOf(":");
+            if (questionIndex > -1 && questionIndex < colonIndex) {
+                // Nested ternary
+                rhs = handleNestedTernaryRhs(rhs0);
+            } else if (questionIndex > -1 && colonIndex < questionIndex) {
+                // Chained ternary
+                rhs = handleChainedTernaryRhs(rhs0);
+            } else {
+                // non-nested or chained
+                rhs = process(rhs0, null);
+            }
             log.info(String.format("Ternary Condition 1: [lhs:%s][rhs:%s]", lhs, rhs));
+
+            if (!(rhs instanceof TernaryArms)) throw new IllegalArgumentException("Mismatched ternary ':' operator");
 
             Maybe<Boolean> condition = asBoolean(lhs);
             if (condition.isPresent()){
                 if (condition.get()) {
                     // ? left : right -- rhs length is 5 [left, ,:, ,right]
                     // ? true && true : false || false -- rhs length is ???
-                    throw new IllegalArgumentException("TERNARY CONDITION IS TRUE");
+                    return process( ((TernaryArms)rhs).getLeft(), null );
+                    //throw new IllegalArgumentException("TERNARY CONDITION IS TRUE");
                 } else {
-                    throw new IllegalArgumentException("TERNARY CONDITION IS FALSE");
+                    return process( ((TernaryArms)rhs).getRight(), null );
+                    //throw new IllegalArgumentException("TERNARY CONDITION IS FALSE");
                 }
             }
             throw new IllegalArgumentException("Should not come here");
         }
 
-        Object handleTernaryArms(List<String> lhs0, List<String> rhs0) {
-            log.info(String.format("Ternary 0: [lhs:%s][rhs:%s]", lhs0, rhs0));
-            Object lhs = process(lhs0, null);
-            Object rhs = process(rhs0, null);
-            log.info(String.format("Ternary 1: [lhs:%s][rhs:%s]", lhs, rhs));
+        public TernaryArms handleNestedTernaryRhs(List<String> rhs) {
+            int lastColonIndex = rhs.lastIndexOf(":");
+            if (lastColonIndex == -1) {
+                throw new IllegalArgumentException("Mismatched ternary ':' operator");
+            }
+            int firstColonIndex = rhs.indexOf(":");
+            if (firstColonIndex == lastColonIndex) {
+                return (TernaryArms) process(rhs, null);
+            }
+            return new TernaryArms(trim(rhs.subList(0, lastColonIndex)), trim(rhs.subList(lastColonIndex + 1, rhs.size())));
+        }
 
-            //TODO?
-            throw new IllegalArgumentException("Should not come here");
+        public TernaryArms handleChainedTernaryRhs(List<String> rhs) {
+            int colonIndex = rhs.indexOf(":");
+            if (colonIndex == -1) {
+                throw new IllegalArgumentException("Mismatched ternary ':' operator");
+            }
+            return new TernaryArms(trim(rhs.subList(0, colonIndex)), trim(rhs.subList(colonIndex + 1, rhs.size())));
+        }
+
+        static class TernaryArms extends MutablePair<List<String>,List<String>> {
+            public TernaryArms(List<String> lhs, List<String> rhs) {
+                super(lhs, rhs);
+            }
+        }
+
+        public Object handleTernaryArms(List<String> lhs0, List<String> rhs0) {
+            log.info(String.format("Ternary 0: [lhs:%s][rhs:%s]", lhs0, rhs0));
+            return new TernaryArms(lhs0, rhs0);
         }
 
         Object handleAdd(List<String> lhs, List<String> rhs) {

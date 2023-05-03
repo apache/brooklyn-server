@@ -46,13 +46,20 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
         return app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).getUnchecked();
     }
 
+    public Object evaluate(String expression, String type) {
+        return runSteps(MutableList.of(
+                "let "+(type!=null ? type+" " : "") + "result = "+expression,
+                "return ${result}"
+        ));
+    }
+
+    public void assertEvaluated(String expression, Object value) {
+        Asserts.assertEquals(evaluate(expression, null), value);
+    }
+
     @Test
     public void testBooleanTrue() {
-        Object result = runSteps(MutableList.of(
-                "let boolean foo = true",
-                "return ${foo}"
-        ));
-        Asserts.assertEquals(result, true);
+        Asserts.assertEquals(evaluate("true", "boolean"), true);
     }
 
     @Test
@@ -173,22 +180,17 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testTernaryTrue() {
-        Object result = runSteps(MutableList.of(
-//                "let pass = true ? \"left\" : \"right\"",
-                "let pass = true ? true && false || false : true",
-                "return ${pass}"
-        ));
-        Asserts.assertEquals(result, "left");
-    }
+    public void testTernary() {
+        // simple
+        assertEvaluated("true ? \"left\" : \"right\"", "left");
+        assertEvaluated("false ? \"left\" : \"right\"", "right");
 
-    @Test
-    public void testTernaryFalse() {
-        Object result = runSteps(MutableList.of(
-                "let pass = false ? \"left\" : \"right\"",
-                "return ${pass}"
-        ));
-        Asserts.assertEquals(result, "right");
+        // nested
+        assertEvaluated("true ? true ? \"a\" : \"b\" : \"c\"", "a");
+        assertEvaluated("true ? false ? \"a\" : \"b\" : \"c\"", "b");
+        assertEvaluated("false ? ignored ? \"a\" : \"b\" : \"c\"", "c");
+
+        // chained
+        assertEvaluated("false ? ignored : true ? \"b\" : \"c\"", "b");
     }
-    // precedence?
 }
