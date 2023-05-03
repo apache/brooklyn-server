@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
@@ -30,6 +31,7 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Secret;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -214,6 +216,13 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
                         "      ${entity.sensor.my_id}",
                         "- return ${x}"),
                 lastEntity);
+    }
+
+    @Test
+    public void testWorkflowSecretGet() throws Exception {
+        createEntityWithWorkflowEffector("- s: transform x = ${entity.config.a_secret} | get", "  output: ${x}");
+        lastEntity.config().set(ConfigKeys.newConfigKey(Secret.class, "a_secret"), new Secret("53cr37"));
+        Asserts.assertEquals(invokeWorkflowStepsWithLogging(), "53cr37");
     }
 
 }

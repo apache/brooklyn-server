@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.resolve.jackson;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.reflect.TypeToken;
 import java.io.IOException;
@@ -45,6 +46,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.units.ByteSize;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.text.Secret;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -246,4 +248,9 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
         check.accept("[\"a\",{\"type\":\""+Duration.class.getName()+"\",\"value\":\"1s\"}]",
                 MutableList.of("a", MutableMap.of("type", Duration.class.getName(), "value", "1s")));
     }
+
+    static class WrappedSecretHolder {
+        WrappedValue<Secret<String>> s1;
+    }
+
 }

@@ -43,6 +43,7 @@ import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.internal.StringSystemProperty;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Secret;
 import org.apache.brooklyn.util.text.StringEscapes.BashStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -171,10 +172,7 @@ public final class Sanitizer {
     }
 
     public static String suppress(Object value) {
-        if (value==null) return null;
-        // only include the first few chars so that malicious observers can't uniquely brute-force discover the source
-        String md5Checksum = Strings.maxlen(Streams.getMd5Checksum(new ByteArrayInputStream(("" + value).getBytes())), 8);
-        return "<suppressed> (MD5 hash: " + md5Checksum + ")";
+        return Secret.SecretHelper.suppress(value);
     }
 
     public static String suppressJson(Object value, boolean excludeBrooklynDslExpressions) {
@@ -253,6 +251,7 @@ public final class Sanitizer {
         @Override
         public boolean apply(Object name) {
             if (name == null) return false;
+            if (name instanceof Secret) return true;
             String lowerName = name.toString().toLowerCase();
             for (String secretName : getSensitiveFieldsTokens()) {
                 if (lowerName.contains(secretName))
