@@ -171,6 +171,10 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         TRANSFORMATIONS.put("sum", () -> v -> sum(v, "sum"));
         TRANSFORMATIONS.put("average", () -> v -> average(v, "average"));
         TRANSFORMATIONS.put("size", () -> v -> size(v, "size"));
+        TRANSFORMATIONS.put("get", () -> v -> {
+            if (v instanceof Supplier) return ((Supplier)v).get();
+            return v;
+        });
     }
 
     static final Object minmax(Object v, String word, Predicate<Integer> test) {
