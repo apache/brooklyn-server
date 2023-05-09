@@ -32,6 +32,8 @@ import java.util.Objects;
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class ConnectionDefinition {
 
+    public static final String CONNECTION = "connection";
+
     public static final List<String> CONNECTION_TYPES = ImmutableList.of("ssh", "winrm");
 
     String type;

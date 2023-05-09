@@ -23,6 +23,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep;
@@ -31,7 +32,9 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.ssh.ConnectionDefinition;
 import org.apache.brooklyn.util.core.task.ssh.SshTasks;
+import org.apache.brooklyn.util.core.task.ssh.internal.RemoteExecTaskConfigHelper;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
@@ -67,18 +70,21 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
 
         if (Strings.isBlank(command)) throw new IllegalStateException("'command' is required");
 
-        SshMachineLocation machine;
-
         String endpoint = context.getInput(ENDPOINT);
         if (Strings.isNonBlank(endpoint)) {
             // TODO
             throw new IllegalStateException("Explicit endpoint not currently supported for ssh step");
         } else {
             // TODO better errors if multiple
-            machine = Locations.findUniqueSshMachineLocation(context.getEntity().getLocations()).orThrow("No SSH location available for workflow at "+context.getEntity()+" and no endpoint specified");
+            ConnectionDefinition cdef = BrooklynTags.findSingleKeyMapValue(ConnectionDefinition.CONNECTION, ConnectionDefinition.class, context.getEntity().tags().getTags());
+            if (cdef != null) {
+                RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecConfig =  new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromDefinition(context.getManagementContext(), context.getEntity(), cdef);
+                return DynamicTasks.queue(customizeProcessTaskFactory(context, SshTasks.newSshExecTaskFactory(remoteExecConfig, command)).newTask()).asTask().getUnchecked();
+            } else {
+                SshMachineLocation machine = Locations.findUniqueSshMachineLocation(context.getEntity().getLocations()).orThrow("No SSH location available for workflow at " + context.getEntity() + " and no endpoint specified");
+                return DynamicTasks.queue(customizeProcessTaskFactory(context, SshTasks.newSshExecTaskFactory(machine, command)).newTask()).asTask().getUnchecked();
+            }
         }
-
-        return DynamicTasks.queue(customizeProcessTaskFactory(context, SshTasks.newSshExecTaskFactory(machine, command)).newTask()).asTask().getUnchecked();
     }
 
     public static <U, T extends ProcessTaskFactory<U>> ProcessTaskFactory<Map<?,?>> customizeProcessTaskFactory(WorkflowStepInstanceExecutionContext context, T tf) {

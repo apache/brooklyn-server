@@ -1315,4 +1315,47 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "result"), "yes");
     }
 
+    @Test
+    public void testSshStepOnLocalhostLocation() throws Exception {
+        String yaml =
+                "location: localhost\n" +
+                "services:\n" +
+                "  - type: " + WorkflowSoftwareProcess.class.getName() +"\n" +
+                "    name: sample-server\n" ;
+        Entity app = createStartWaitAndLogApplication(yaml);
+
+        WorkflowExecutionContext x1 = WorkflowBasicTest.runWorkflow(app.getChildren().iterator().next(), Strings.lines(
+                "lock: x",
+                "steps:",
+                "- type: ssh\n" +
+                "  command: |\n" +
+                "    echo \"init-done\" >> wf.log"), "test");
+        Object result  = x1.getTask(false).get().get();
+        Asserts.assertEquals(((Map)result).get("exit_code"), 0);
+    }
+
+    @Test
+    public void testSshStepOnLocalhostDefinition() throws Exception {
+        String yaml =
+                    "services:\n" +
+                    "  - type: org.apache.brooklyn.core.test.entity.TestEntity\n" +
+                    "    brooklyn.tags:\n" +
+                    "    - connection: \n" +
+                    "        name: \"ssh-at-local\" \n" +
+                    "        type: \"ssh\" \n" +
+                    "        user: \"iuliana\" \n" +
+                    "        host: \"localhost\" \n" +
+                    "    name: sample-server\n" ;
+        Entity app = createStartWaitAndLogApplication(yaml);
+
+        WorkflowExecutionContext x1 = WorkflowBasicTest.runWorkflow(app.getChildren().iterator().next(), Strings.lines(
+                "lock: x",
+                "steps:",
+                "- type: ssh\n" +
+                        "  command: |\n" +
+                        "    echo \"init-done\" >> wf.log"), "test");
+        Object result  = x1.getTask(false).get().get();
+        Asserts.assertEquals(((Map)result).get("exit_code"), 0);
+    }
+
 }
