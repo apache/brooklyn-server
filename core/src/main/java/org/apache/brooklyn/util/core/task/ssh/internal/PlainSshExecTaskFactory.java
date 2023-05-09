@@ -18,11 +18,11 @@
  */
 package org.apache.brooklyn.util.core.task.ssh.internal;
 
-import java.util.List;
-import java.util.function.Function;
-
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
+
+import java.util.List;
+import java.util.function.Function;
 
 /** the "Plain" class exists purely so we can massage return types for callers' convenience */
 public class PlainSshExecTaskFactory<RET> extends AbstractSshExecTaskFactory<PlainSshExecTaskFactory<RET>,RET> {
@@ -37,6 +37,12 @@ public class PlainSshExecTaskFactory<RET> extends AbstractSshExecTaskFactory<Pla
         machine(machine);
     }
 
+    /** convenience constructor to supply machine immediately */
+    public PlainSshExecTaskFactory(RemoteExecTaskConfigHelper.RemoteExecCapability config, String ...commands) {
+        this(commands);
+        machine(machine);
+    }
+
     /** Constructor where machine will be added later */
     public PlainSshExecTaskFactory(List<String> commands) {
         this(commands.toArray(new String[commands.size()]));
@@ -45,6 +51,10 @@ public class PlainSshExecTaskFactory<RET> extends AbstractSshExecTaskFactory<Pla
     /** Convenience constructor to supply machine immediately */
     public PlainSshExecTaskFactory(SshMachineLocation machine, List<String> commands) {
         this(machine, commands.toArray(new String[commands.size()]));
+    }
+
+    public PlainSshExecTaskFactory(RemoteExecTaskConfigHelper.RemoteExecCapability config, List<String> commands) {
+        this(config, commands.toArray(new String[commands.size()]));
     }
 
     @Override

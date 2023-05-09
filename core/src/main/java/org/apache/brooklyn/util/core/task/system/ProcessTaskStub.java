@@ -26,6 +26,7 @@ import java.util.function.Function;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.ssh.internal.RemoteExecTaskConfigHelper;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.collect.ImmutableList;
@@ -36,6 +37,7 @@ public class ProcessTaskStub {
     protected final List<String> commands = new ArrayList<String>();
     /** null for localhost */
     protected MachineLocation machine;
+    protected RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability;
     
     // config data
     protected String summary;
@@ -58,6 +60,7 @@ public class ProcessTaskStub {
     protected ProcessTaskStub(ProcessTaskStub source) {
         commands.addAll(source.getCommands(false));
         machine = source.getMachine();
+        remoteExecCapability = source.getRemoteExecCapability();
         summary = source.getSummary();
         config.copy(source.getConfig());
         commandModifier = source.commandModifier;
@@ -79,6 +82,14 @@ public class ProcessTaskStub {
     /** null for localhost */
     public MachineLocation getMachine() {
         return machine;
+    }
+    public RemoteExecTaskConfigHelper.RemoteExecCapability getRemoteExecCapability() {
+        if (remoteExecCapability!=null) return remoteExecCapability;
+        if (machine!=null) {
+            remoteExecCapability = new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromLocation(machine);
+            return remoteExecCapability;
+        }
+        return null;
     }
     
     public Map<String, String> getShellEnvironment() {

@@ -18,29 +18,21 @@
  */
 package org.apache.brooklyn.util.core.task.ssh;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-
-import javax.annotation.Nullable;
-
+import com.google.common.annotations.Beta;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
-import org.apache.brooklyn.api.mgmt.TaskFactory;
-import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
+import org.apache.brooklyn.api.mgmt.*;
+import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.location.AbstractLocation;
-import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -50,6 +42,7 @@ import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ssh.internal.PlainSshExecTaskFactory;
+import org.apache.brooklyn.util.core.task.ssh.internal.RemoteExecTaskConfigHelper;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -61,9 +54,12 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+import javax.annotation.Nullable;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Conveniences for generating {@link Task} instances to perform SSH activities on an {@link SshMachineLocation}.
@@ -83,6 +79,10 @@ public class SshTasks {
         return newSshExecTaskFactory(machine,  Arrays.asList(commands));
     }
 
+    public static ProcessTaskFactory<Integer> newSshExecTaskFactory(RemoteExecTaskConfigHelper.RemoteExecCapability config, String ...commands) {
+        return newSshExecTaskFactory(config,  Arrays.asList(commands));
+    }
+
     public static ProcessTaskFactory<Integer> newSshExecTaskFactory(SshMachineLocation machine, final boolean useMachineConfig, String ...commands) {
         return newSshExecTaskFactory(machine, useMachineConfig, Arrays.asList(commands));
     }
@@ -91,11 +91,24 @@ public class SshTasks {
         return newSshExecTaskFactory(machine, true, commands);
     }
 
+    public static ProcessTaskFactory<Integer> newSshExecTaskFactory(RemoteExecTaskConfigHelper.RemoteExecCapability config, List<String> commands) {
+        return newSshExecTaskFactory(config, true, commands);
+    }
+
     public static ProcessTaskFactory<Integer> newSshExecTaskFactory(SshMachineLocation machine, final boolean useMachineConfig, List<String> commands) {
         return new PlainSshExecTaskFactory<Integer>(machine, commands) {
             {
                 if (useMachineConfig)
                     config.putIfAbsent(getSshFlags(machine));
+            }
+        };
+    }
+
+    public static ProcessTaskFactory<Integer> newSshExecTaskFactory(RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability, final boolean useMachineConfig, List<String> commands) {
+        return new PlainSshExecTaskFactory<Integer>(remoteExecCapability, commands) {
+            {
+                if (useMachineConfig)
+                    config.putIfAbsent(getSshFlags(remoteExecCapability.getManagementContext(), remoteExecCapability.getExtraConfiguration()));
             }
         };
     }
@@ -127,12 +140,15 @@ public class SshTasks {
     }
 
     private static Map<String, Object> getSshFlags(Location location) {
+        return getSshFlags(location instanceof AbstractLocation ? ((AbstractLocation)location).getManagementContext() : null, location.config());
+    }
+    private static Map<String, Object> getSshFlags(ManagementContext mgmt, Configurable.ConfigurationSupport config) {
         Set<ConfigKey<?>> sshConfig = MutableSet.of();
         
         StringConfigMap mgmtConfig = null;
-        sshConfig.addAll(location.config().findKeysPresent(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
-        if (location instanceof AbstractLocation) {
-            ManagementContext mgmt = ((AbstractLocation)location).getManagementContext();
+        sshConfig.addAll(config.findKeysPresent(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
+
+        if (mgmt!=null) {
             if (mgmt!=null) {
                 mgmtConfig = mgmt.getConfig();
                 sshConfig.addAll(mgmtConfig.findKeysPresent(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
@@ -142,9 +158,17 @@ public class SshTasks {
         
         Map<String, Object> result = Maps.newLinkedHashMap();
         for (ConfigKey<?> key : sshConfig) {
-            Maybe<Object> v = ((LocationInternal)location).config().getRaw(key);
-            if (v.isAbsent() && mgmtConfig!=null) v = Maybe.of( (Object) mgmtConfig.getConfig(key) );
-            result.put(ConfigUtils.unprefixedKey(SshTool.BROOKLYN_CONFIG_KEY_PREFIX, key).getName(), v.get());
+            // cf in SshEffectorTasks
+
+            Maybe<Object> v;
+            if (config instanceof BrooklynObjectInternal.ConfigurationSupportInternal) {
+                v = ((BrooklynObjectInternal.ConfigurationSupportInternal) config).getRaw(key);
+            } else {
+                v = Maybe.of(config.findKeysPresent(k -> key.equals(key)).stream().findFirst().map(k -> config.get(k)));
+            }
+
+            if (v.isAbsent() && mgmtConfig!=null) v = Maybe.of( mgmtConfig.getConfig(key) );
+            if (!v.isAbsent()) result.put(ConfigUtils.unprefixedKey(SshTool.BROOKLYN_CONFIG_KEY_PREFIX, key).getName(), v.get());
         }
         return result;
     }
@@ -202,7 +226,7 @@ public class SshTasks {
                 if (onFailingTask!=OnFailingTask.IGNORE) {
                     // TODO if in a queueing context can we mark this task inessential and throw?
                     // that way user sees the message...
-                    String message = "Error setting up sudo for "+task.getMachine().getUser()+"@"+task.getMachine().getAddress().getHostName()+" "+
+                    String message = "Error setting up sudo for "+task.getRemoteExecCapability().getConnectionSummary()+" "+
                         " (exit code "+task.getExitCode()+(entity!=null ? ", entity "+entity : "")+")";
                     DynamicTasks.queueIfPossible(Tasks.warning(message, null));
                 }
@@ -212,7 +236,7 @@ public class SshTasks {
                     Tasks.markInessential();
                 }
                 if (onFailingTask==OnFailingTask.FAIL || onFailingTask==OnFailingTask.WARN_OR_IF_DYNAMIC_FAIL_MARKING_INESSENTIAL) {
-                    throw new IllegalStateException("Passwordless sudo is required for "+task.getMachine().getUser()+"@"+task.getMachine().getAddress().getHostName()+
+                    throw new IllegalStateException("Passwordless sudo is required for "+task.getRemoteExecCapability().getConnectionSummary()+
                             (entity!=null ? " ("+entity+")" : ""));
                 }
                 return false; 

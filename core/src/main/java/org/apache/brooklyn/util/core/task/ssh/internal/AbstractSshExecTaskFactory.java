@@ -58,11 +58,11 @@ public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFa
 
             @Override
             protected void run(ConfigBag config) {
-                Preconditions.checkNotNull(getMachine(), "machine");
+                Preconditions.checkNotNull(getRemoteExecCapability(), "No remote exec capability or machine configured on task");
                 if (Boolean.FALSE.equals(this.runAsScript)) {
-                    this.exitCode = getMachine().execCommands(config.getAllConfig(), getSummary(), getCommands(true), shellEnvironment);
+                    this.exitCode = getRemoteExecCapability().execCommands(config.getAllConfig(), getSummary(), getCommands(true), shellEnvironment);
                 } else { // runScript = null or TRUE
-                    this.exitCode = getMachine().execScript(config.getAllConfig(), getSummary(), getCommands(true), shellEnvironment);
+                    this.exitCode = getRemoteExecCapability().execScript(config.getAllConfig(), getSummary(), getCommands(true), shellEnvironment);
                 }
             }
             @Override
