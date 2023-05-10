@@ -199,4 +199,28 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(result, "abXXXf ghi");
     }
 
+    @Test
+    public void testMapDirect() {
+
+        loadTypes();
+
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
+                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
+                        .append("let map myMap = {a: 1}")
+                        .append("let myMap.a = 2")
+                        .append("return ${myMap.a}")
+                )
+        );
+        eff.apply((EntityLocal)app);
+
+        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+        Object result = invocation.getUnchecked();
+        Asserts.assertNotNull(result);
+        Asserts.assertEquals(result, "2");
+    }
+
 }

@@ -112,15 +112,33 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             if ("output".equals(names0)) throw new IllegalArgumentException("Cannot set subfield in output");  // catch common error
             Object h = context.getWorkflowExectionContext().getWorkflowScratchVariables().get(names0);
             if (!(h instanceof Map)) throw new IllegalArgumentException("Cannot set " + name + " because " + names0 + " is " + (h == null ? "unset" : "not a map"));
-            for (int i=1; i<names.length-1; i++) {
+            for (int i = 1; i < names.length - 1; i++) {
                 Object hi = ((Map<?, ?>) h).get(names[i]);
-                if (hi==null) {
+                if (hi == null) {
                     hi = MutableMap.of();
-                    ((Map)h).put(names[i], hi);
-                } else if (!(hi instanceof Map)) throw new IllegalArgumentException("Cannot set " + name + " because " + names[i] + " is not a map");
+                    ((Map) h).put(names[i], hi);
+                } else if (!(hi instanceof Map))
+                    throw new IllegalArgumentException("Cannot set " + name + " because " + names[i] + " is not a map");
                 h = hi;
             }
-            oldValue = ((Map)h).put(names[names.length-1], resolvedValue);
+            oldValue = ((Map) h).put(names[names.length - 1], resolvedValue);
+        } else if (name.contains("[")) {
+            String[] names = name.split("((?<=\\[|\\])|(?=\\[|\\]))");
+            if (names.length != 4 || !"[".equals(names[1]) || !"]".equals(names[3])) {
+                throw new IllegalArgumentException("Invalid list index specifier " + name);
+            }
+            String listName = names[0];
+            int listIndex = Integer.parseInt(names[2]);
+            Object o = context.getWorkflowExectionContext().getWorkflowScratchVariables().get(listName);
+            if (!(o instanceof List))
+                throw new IllegalArgumentException("Cannot set " + name + " because " + listName + " is " + (o == null ? "unset" : "not a list"));
+
+            List l = MutableList.copyOf(((List)o));
+            if (listIndex < 0 || listIndex >= l.size()) {
+                throw new IllegalArgumentException("Invalid list index " + listIndex);
+            }
+            oldValue = l.set(listIndex, resolvedValue);
+            context.getWorkflowExectionContext().getWorkflowScratchVariables().put(listName, l);
         } else {
             oldValue = context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
         }
