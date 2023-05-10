@@ -77,13 +77,14 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
         } else {
             // TODO better errors if multiple
             ConnectionDefinition cdef = BrooklynTags.findSingleKeyMapValue(ConnectionDefinition.CONNECTION, ConnectionDefinition.class, context.getEntity().tags().getTags());
+            RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability;
             if (cdef != null) {
-                RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecConfig =  new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromDefinition(context.getManagementContext(), context.getEntity(), cdef);
-                return DynamicTasks.queue(customizeProcessTaskFactory(context, SshTasks.newSshExecTaskFactory(remoteExecConfig, command)).newTask()).asTask().getUnchecked();
+                remoteExecCapability =  new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromDefinition(context.getManagementContext(), context.getEntity(), cdef);
             } else {
                 SshMachineLocation machine = Locations.findUniqueSshMachineLocation(context.getEntity().getLocations()).orThrow("No SSH location available for workflow at " + context.getEntity() + " and no endpoint specified");
-                return DynamicTasks.queue(customizeProcessTaskFactory(context, SshTasks.newSshExecTaskFactory(machine, command)).newTask()).asTask().getUnchecked();
+                remoteExecCapability = new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromLocation(machine);
             }
+            return DynamicTasks.queue(customizeProcessTaskFactory(context, SshTasks.newSshExecTaskFactory(remoteExecCapability, command)).newTask()).asTask().getUnchecked();
         }
     }
 

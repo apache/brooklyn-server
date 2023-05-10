@@ -34,7 +34,7 @@ import com.google.common.collect.ImmutableMap;
 
 public class ProcessTaskStub {
     
-    protected final List<String> commands = new ArrayList<String>();
+    protected final List<String> commands = new ArrayList<>();
     /** null for localhost */
     protected MachineLocation machine;
     protected RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability;

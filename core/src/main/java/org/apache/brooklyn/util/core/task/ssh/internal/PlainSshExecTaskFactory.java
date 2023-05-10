@@ -41,6 +41,7 @@ public class PlainSshExecTaskFactory<RET> extends AbstractSshExecTaskFactory<Pla
     public PlainSshExecTaskFactory(RemoteExecTaskConfigHelper.RemoteExecCapability config, String ...commands) {
         this(commands);
         machine(machine);
+        remoteExecCapability(config);
     }
 
     /** Constructor where machine will be added later */

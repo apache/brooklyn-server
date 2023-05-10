@@ -52,7 +52,7 @@ public class RemoteExecTaskConfigHelper {
 
         @Override
         public String getConnectionSummary() {
-            return machine.getUser()+"@"+machine.getAddress().getHostName();  // would be nice to include port but we don't here know if it is ssh or winrm or other
+            return machine.getUser()+"@"+machine.getAddress().getHostName();  // would be nice to include port, but we don't here know if it is ssh or winrm or other
         }
 
         @Override
@@ -80,6 +80,7 @@ public class RemoteExecTaskConfigHelper {
         private final Entity entity;
         private final ConnectionDefinition definition;
         ManagementContext mgmt;
+
         public RemoteExecCapabilityFromDefinition(ManagementContext mgmt, Entity entity, ConnectionDefinition definition) {
             this.mgmt = mgmt;
             this.entity = entity;
@@ -88,12 +89,12 @@ public class RemoteExecTaskConfigHelper {
 
         @Override
         public String getConnectionSummary() {
-            // TODO resolve
             return definition.getUser().get() + "@" + definition.getHost();
         }
 
         @Override
         public Integer execScript(Map<String, Object> allConfig, String summary, List<String> commands, Map<String, String> shellEnvironment) {
+            // TODO resolve
             throw new IllegalStateException("TODO");
         }
 
