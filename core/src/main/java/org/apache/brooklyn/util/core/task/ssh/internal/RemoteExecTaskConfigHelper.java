@@ -19,11 +19,16 @@
 package org.apache.brooklyn.util.core.task.ssh.internal;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.Configurable;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.location.AbstractLocation;
+import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.objs.BasicConfigurableObject;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.ssh.ConnectionDefinition;
 
 import java.util.List;
@@ -80,11 +85,22 @@ public class RemoteExecTaskConfigHelper {
         private final Entity entity;
         private final ConnectionDefinition definition;
         ManagementContext mgmt;
+        AbstractMachineLocation machine;
 
         public RemoteExecCapabilityFromDefinition(ManagementContext mgmt, Entity entity, ConnectionDefinition definition) {
             this.mgmt = mgmt;
             this.entity = entity;
             this.definition = definition;
+            if("ssh".equals(definition.getType())) {
+                MutableMap<String, Object> config = MutableMap.of();
+                config.putAll(definition.getOther());
+                config.put("user", definition.getUser());
+                config.put("password", definition.getPassword());
+                config.put("host", definition.getHost());
+                config.put("port", definition.getPort());
+                config.put("private_key", definition.getPrivate_key());
+                machine = mgmt.getLocationManager().createLocation(LocationSpec.create(config, SshMachineLocation.class));
+            }
         }
 
         @Override
@@ -95,7 +111,8 @@ public class RemoteExecTaskConfigHelper {
         @Override
         public Integer execScript(Map<String, Object> allConfig, String summary, List<String> commands, Map<String, String> shellEnvironment) {
             // TODO resolve
-            throw new IllegalStateException("TODO");
+            //throw new IllegalStateException("TODO");
+            return machine.execScript(allConfig, summary, commands, shellEnvironment);
         }
 
         @Override

@@ -75,13 +75,14 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
             // TODO
             throw new IllegalStateException("Explicit endpoint not currently supported for ssh step");
         } else {
-            // TODO better errors if multiple
             ConnectionDefinition cdef = BrooklynTags.findSingleKeyMapValue(ConnectionDefinition.CONNECTION, ConnectionDefinition.class, context.getEntity().tags().getTags());
             RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability;
             if (cdef != null) {
-                remoteExecCapability =  new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromDefinition(context.getManagementContext(), context.getEntity(), cdef);
+                remoteExecCapability =  new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromDefinition(
+                        context.getManagementContext(), context.getEntity(), cdef);
             } else {
-                SshMachineLocation machine = Locations.findUniqueSshMachineLocation(context.getEntity().getLocations()).orThrow("No SSH location available for workflow at " + context.getEntity() + " and no endpoint specified");
+                SshMachineLocation machine = Locations.findUniqueSshMachineLocation(context.getEntity().getLocations())
+                        .orThrow("No SSH location available for workflow at " + context.getEntity() + " and no endpoint specified");
                 remoteExecCapability = new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromLocation(machine);
             }
             return DynamicTasks.queue(customizeProcessTaskFactory(context, SshTasks.newSshExecTaskFactory(remoteExecCapability, command)).newTask()).asTask().getUnchecked();

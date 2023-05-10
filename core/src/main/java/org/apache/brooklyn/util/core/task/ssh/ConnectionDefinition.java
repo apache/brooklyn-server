@@ -104,6 +104,13 @@ public class ConnectionDefinition {
         this.port = port;
     }
 
+    public Object getOther(final String key) {
+        return other.get(key);
+    }
+    public Map<String, Object> getOther() {
+        return other;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

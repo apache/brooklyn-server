@@ -28,6 +28,7 @@ import org.apache.brooklyn.util.core.internal.winrm.winrm4j.PrettyXmlWriter;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.ssh.internal.AbstractSshExecTaskFactory;
 import org.apache.brooklyn.util.core.task.ssh.internal.PlainSshExecTaskFactory;
+import org.apache.brooklyn.util.core.task.ssh.internal.RemoteExecTaskConfigHelper;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.commons.io.output.WriterOutputStream;
 
@@ -45,6 +46,12 @@ public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<P
     public PlainWinRmExecTaskFactory(WinRmMachineLocation machine, String ...commands) {
         this(commands);
         machine(machine);
+    }
+
+    public PlainWinRmExecTaskFactory(RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability, String ...commands) {
+        this(commands);
+        machine(machine);
+        remoteExecCapability(remoteExecCapability);
     }
 
     @Override
