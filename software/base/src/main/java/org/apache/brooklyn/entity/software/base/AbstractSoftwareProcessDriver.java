@@ -88,7 +88,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
 
     public AbstractSoftwareProcessDriver(EntityLocal entity, Location location) {
         this.entity = checkNotNull(entity, "entity");
-        this.location = checkNotNull(location, "location");
+        this.location = location;  // shouldn't normally be null, but useful in some cases where SSH driver is subclassed for other purposes
         this.resource = ResourceUtils.create(entity);
     }
 
@@ -124,7 +124,8 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
     @Override
     public void start() {
         boolean skipStart = false;
-        Optional<Boolean> locationRunning = Optional.fromNullable(getLocation().getConfig(BrooklynConfigKeys.SKIP_ENTITY_START_IF_RUNNING));
+        final Location l = getLocation();
+        Optional<Boolean> locationRunning = Optional.fromNullable(l==null ? null : l.getConfig(BrooklynConfigKeys.SKIP_ENTITY_START_IF_RUNNING));
         Optional<Boolean> entityRunning = Optional.fromNullable(entity.getConfig(BrooklynConfigKeys.SKIP_ENTITY_START_IF_RUNNING));
         Optional<Boolean> entityStarted = Optional.fromNullable(entity.getConfig(BrooklynConfigKeys.SKIP_ENTITY_START));
         if (locationRunning.or(entityRunning).or(false)) {
@@ -139,7 +140,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
 
         if (!skipStart) {
             DynamicTasks.queue("install", new Runnable() { @Override public void run() {
-                Optional<Boolean> locationInstalled = Optional.fromNullable(getLocation().getConfig(BrooklynConfigKeys.SKIP_ENTITY_INSTALLATION));
+                Optional<Boolean> locationInstalled = Optional.fromNullable(l==null ? null : l.getConfig(BrooklynConfigKeys.SKIP_ENTITY_INSTALLATION));
                 Optional<Boolean> entityInstalled = Optional.fromNullable(entity.getConfig(BrooklynConfigKeys.SKIP_ENTITY_INSTALLATION));
 
                 boolean skipInstall = locationInstalled.or(entityInstalled).or(false);
@@ -758,7 +759,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
     public void setExpandedInstallDir(String val) {
         String oldVal = getEntity().getAttribute(SoftwareProcess.EXPANDED_INSTALL_DIR);
         if (Strings.isNonBlank(oldVal) && !oldVal.equals(val)) {
-            log.info("Resetting expandedInstallDir (to "+val+" from "+oldVal+") for "+getEntity());
+            log.debug("Resetting expandedInstallDir (to "+val+" from "+oldVal+") for "+getEntity());
         }
 
         expandedInstallDir = val;

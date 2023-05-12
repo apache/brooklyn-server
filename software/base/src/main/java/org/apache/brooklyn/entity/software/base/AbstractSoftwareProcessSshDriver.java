@@ -43,6 +43,7 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
+import org.apache.brooklyn.util.core.mutex.MutexSupport;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -107,7 +108,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
 
         // FIXME this assumes we own the location, and causes warnings about configuring location after deployment;
         // better would be to wrap the ssh-execution-provider to supply these flags
-        if (getSshFlags()!=null && !getSshFlags().isEmpty())
+        if (getSshFlags()!=null && !getSshFlags().isEmpty() && machine!=null)
             machine.configure(getSshFlags());
 
         // ensure these are set using the routines below, not a global ConfigToAttributes.apply()
@@ -186,13 +187,23 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
                 flags.put("err", stderr);
             }
         }
-        if (!flags.containsKey("logPrefix")) flags.put("logPrefix", ""+entity.getId()+"@"+getLocation().getDisplayName());
+        if (!flags.containsKey("logPrefix")) {
+            SshMachineLocation l = getLocation();
+            flags.put("logPrefix", "" + entity.getId() + (l!=null ? "@" + l.getDisplayName() : ""));
+        }
         return getMachine().execScript(flags, summaryForLogging, script, environment);
+    }
+
+    private transient WithMutexes defaultMutexes = new MutexSupport();
+    protected WithMutexes getMutexes() {
+        SshMachineLocation l = getLocation();
+        if (l!=null) return l.mutexes();
+        return defaultMutexes;
     }
 
     @Override
     public void copyPreInstallResources() {
-        final WithMutexes mutexSupport = getLocation().mutexes();
+        final WithMutexes mutexSupport = getMutexes();
         String mutexId = "installation lock at host";
         mutexSupport.acquireMutex(mutexId, "pre-installation lock at host for files and templates");
         try {
@@ -207,7 +218,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
 
     @Override
     public void copyInstallResources() {
-        final WithMutexes mutexSupport = getLocation().mutexes();
+        final WithMutexes mutexSupport = getMutexes();
         String mutexId = "installation lock at host";
         mutexSupport.acquireMutex(mutexId, "installation lock at host for files and templates");
         try {
@@ -222,7 +233,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
 
     @Override
     public void copyCustomizeResources() {
-        final WithMutexes mutexSupport = getLocation().mutexes();
+        final WithMutexes mutexSupport = getMutexes();
         String mutexId = "installation lock at host";
         mutexSupport.acquireMutex(mutexId, "installation lock at host for files and templates");
         try {
@@ -478,7 +489,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
             if (INSTALLING.equals(phase)) {
                 // mutexId should be global because otherwise package managers will contend with each other
                 final String mutexId = "installation lock at host";
-                s.useMutex(getLocation().mutexes(), mutexId, "installing "+elvis(entity,this));
+                s.useMutex(getMutexes(), mutexId, "installing "+elvis(entity,this));
                 s.header.append(
                         "export "+INSTALL_DIR_ENV_VAR+"=\""+getInstallDir()+"\"",
                         "mkdir -p $"+INSTALL_DIR_ENV_VAR,
