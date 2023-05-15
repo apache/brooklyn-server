@@ -18,24 +18,36 @@
  */
 package org.apache.brooklyn.util.core.task.ssh.internal;
 
+import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.Configurable;
-import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.location.AbstractLocation;
-import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.objs.BasicConfigurableObject;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.BrooklynNetworkUtils;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
+import org.apache.brooklyn.util.core.internal.ssh.SshTool;
+import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ssh.ConnectionDefinition;
+import org.apache.brooklyn.util.core.task.system.internal.ExecWithLoggingHelpers;
+import org.apache.brooklyn.util.net.Networking;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
 
 public class RemoteExecTaskConfigHelper {
-
     public interface RemoteExecCapability {
         String getConnectionSummary();
 
@@ -82,24 +94,35 @@ public class RemoteExecTaskConfigHelper {
     }
 
     public static class RemoteExecCapabilityFromDefinition implements RemoteExecCapability {
+
+        private static final Logger logSsh = LoggerFactory.getLogger(BrooklynLogging.SSH_IO);
+        private static final Logger LOG = LoggerFactory.getLogger(RemoteExecCapabilityFromDefinition.class);
+
         private final Entity entity;
         private final ConnectionDefinition definition;
         ManagementContext mgmt;
-        AbstractMachineLocation machine;
+        protected InetAddress address;
+        protected Map<String, Object> config;
+
+        public InetAddress getAddress() {
+            return address;
+        }
 
         public RemoteExecCapabilityFromDefinition(ManagementContext mgmt, Entity entity, ConnectionDefinition definition) {
             this.mgmt = mgmt;
             this.entity = entity;
             this.definition = definition;
-            if("ssh".equals(definition.getType())) {
-                MutableMap<String, Object> config = MutableMap.of();
-                config.putAll(definition.getOther());
-                config.put("user", definition.getUser());
-                config.put("password", definition.getPassword());
-                config.put("host", definition.getHost());
-                config.put("port", definition.getPort());
-                config.put("private_key", definition.getPrivate_key());
-                machine = mgmt.getLocationManager().createLocation(LocationSpec.create(config, SshMachineLocation.class));
+
+            if ("ssh".equals(definition.getType())) {
+                // TODO maybe decide the SSH client class name here too ?
+                config = resolveConnectionSettings();
+                if(config.get("host").equals("localhost")) {
+                    address = BrooklynNetworkUtils.getLocalhostInetAddress();
+                } else {
+                    address = Networking.resolve(config.get("host").toString());
+                }
+            } else {
+                // TODO what do I do with winrm ?
             }
         }
 
@@ -108,16 +131,24 @@ public class RemoteExecTaskConfigHelper {
             return definition.getUser().get() + "@" + definition.getHost();
         }
 
+        private Map<String, Object> resolveConnectionSettings() {
+            MutableMap<String, Object> config = MutableMap.of();
+            definition.getOther().forEach((k, v) -> config.put(k, v instanceof WrappedValue ? ((WrappedValue<Object>) v).get() : v));
+            config.put("user", definition.getUser() == null ? System.getProperty("user.name") : definition.getUser().get());
+            config.put("password", definition.getPort() == null ? null : definition.getPassword().get());
+            config.put("host", definition.getHost() == null ? null: definition.getHost().get());
+            config.put("port", definition.getPort() == null ? "22" : definition.getPort().get());
+            return config;
+        }
+
         @Override
         public Integer execScript(Map<String, Object> allConfig, String summary, List<String> commands, Map<String, String> shellEnvironment) {
-            // TODO resolve
-            //throw new IllegalStateException("TODO");
-            return machine.execScript(allConfig, summary, commands, shellEnvironment);
+            return newExecWithLoggingHelpers().execScript(allConfig, summary, commands, shellEnvironment);
         }
 
         @Override
         public Integer execCommands(Map<String, Object> allConfig, String summary, List<String> commands, Map<String, String> shellEnvironment) {
-            throw new IllegalStateException("TODO");
+            return newExecWithLoggingHelpers().execCommands(allConfig, summary, commands, shellEnvironment);
         }
 
         @Override
@@ -129,6 +160,65 @@ public class RemoteExecTaskConfigHelper {
         public ManagementContext getManagementContext() {
             return mgmt;
         }
-    }
 
+        protected <T> T execSsh(final Map<String, ?> props, final Function<ShellTool, T> task) {
+            String sshToolClass = SshjTool.class.getName();
+            try {
+                SshTool ssh = (SshTool) new ClassLoaderUtils(this, getManagementContext())
+                        .loadClass(sshToolClass)
+                        .getConstructor(Map.class)
+                        .newInstance(config);
+                if (LOG.isTraceEnabled()) LOG.trace("using ssh-tool {} (of type {}); props ", ssh, sshToolClass);
+                Tasks.setBlockingDetails("Opening ssh connection");
+                try {
+                    ssh.connect();
+                    return task.apply(ssh);
+                } finally {
+                    try {
+                        ssh.disconnect();
+                    } catch (Exception e) {
+                        if (logSsh.isDebugEnabled()) logSsh.debug("ssh-disconnect failed from {}", this.getConnectionSummary(), e);
+                    }
+                    Tasks.setBlockingDetails(null);
+                }
+            } catch (Exception e) {
+                String rootCause = Throwables.getRootCause(e).getMessage();
+                throw new IllegalStateException("Cannot establish ssh connection to " + this.getConnectionSummary() +
+                        (rootCause!=null && !rootCause.isEmpty() ? " ("+rootCause+")" : "")+". \n"+
+                        "Ensure that passwordless and passphraseless ssh access is enabled using standard keys from ~/.ssh or " +
+                        "as configured in brooklyn.properties. " +
+                        "Check that the target host is accessible, " +
+                        "that credentials are correct (location and permissions if using a key), " +
+                        "that the SFTP subsystem is available on the remote side, " +
+                        "and that there is sufficient random noise in /dev/random on both ends. " +
+                        "To debug less common causes, see the original error in the trace or log, and/or enable 'net.schmizz' (sshj) logging."
+                        , e);
+            }
+        }
+
+        protected ExecWithLoggingHelpers newExecWithLoggingHelpers() {
+            return new ExecWithLoggingHelpers("SSH") {
+                @Override
+                protected <T> T execWithTool(MutableMap<String, Object> props, Function<ShellTool, T> function) {
+                    return execSsh(props, function);
+                }
+
+                @Override
+                protected void preExecChecks() {
+                    Preconditions.checkNotNull(address, "host address must be specified for ssh");
+                }
+
+                @Override
+                protected String getTargetName() {
+                    return "" + this;
+                }
+
+                @Override
+                protected String constructDefaultLoggingPrefix(ConfigBag execFlags) {
+                    String hostname = address.getHostName();
+                    return (config.get("user") != null ? config.get("user")+"@" : "") + hostname + (config.get("port") != null ? ":"+config.get("port") : "");
+                }
+            }.logger(logSsh);
+        }
+    }
 }

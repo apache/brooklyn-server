@@ -1337,13 +1337,15 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     @Test
     public void testSshStepOnLocalhostDefinition() throws Exception {
         String yaml =
+                    "brooklyn.config:\n" +
+                    "   login: \"iuliana\"\n" +
                     "services:\n" +
                     "  - type: org.apache.brooklyn.core.test.entity.TestEntity\n" +
                     "    brooklyn.tags:\n" +
                     "    - connection: \n" +
                     "        name: \"ssh-at-local\" \n" +
                     "        type: \"ssh\" \n" +
-                    "        user: \"iuliana\" \n" +
+                    "        user: $brooklyn:config(\"login\") \n" +
                     "        host: \"localhost\" \n" +
                     "    name: sample-server\n" ;
         Entity app = createStartWaitAndLogApplication(yaml);

@@ -40,10 +40,8 @@ public class ConnectionDefinition {
     WrappedValue<String> user;
     WrappedValue<Secret<String>> password;
 
-    // TODO next 3 should also be wrapped values
-    Secret<String> private_key;
-    String host;
-    String port;
+    WrappedValue<String> host;
+    WrappedValue<String> port;
 
     public ConnectionDefinition() {
     }
@@ -68,15 +66,11 @@ public class ConnectionDefinition {
         return password;
     }
 
-    public Secret<String> getPrivate_key() {
-        return private_key;
-    }
-
-    public String getHost() {
+    public WrappedValue<String> getHost() {
         return host;
     }
 
-    public String getPort() {
+    public WrappedValue<String> getPort() {
         return port;
     }
 
@@ -92,15 +86,11 @@ public class ConnectionDefinition {
         this.password = password;
     }
 
-    public void setPrivate_key(String private_key) {
-        this.private_key = new Secret<>(private_key);
-    }
-
-    public void setHost(String host) {
+    public void setHost(WrappedValue<String> host) {
         this.host = host;
     }
 
-    public void setPort(String port) {
+    public void setPort(WrappedValue<String> port) {
         this.port = port;
     }
 
