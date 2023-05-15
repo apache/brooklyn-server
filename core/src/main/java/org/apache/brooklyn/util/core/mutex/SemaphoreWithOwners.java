@@ -18,16 +18,15 @@
  */
 package org.apache.brooklyn.util.core.mutex;
 
+import com.google.common.collect.ImmutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-
-import org.apache.brooklyn.util.exceptions.Exceptions;
-
-import com.google.common.collect.ImmutableList;
 
 /** a subclass of {@link Semaphore} 
  * which tracks who created and released the semaphores,
@@ -42,7 +41,7 @@ public class SemaphoreWithOwners extends Semaphore {
     }
     private static final long serialVersionUID = -5303474637353009454L;
     final private List<Thread> owningThreads = new ArrayList<Thread>();
-    final private Set<Thread> requestingThreads = new LinkedHashSet<Thread>();
+    final private Set<Thread> requestingThreads = MutableSet.of();
     
     @Override
     public void acquire() throws InterruptedException {
@@ -188,7 +187,7 @@ public class SemaphoreWithOwners extends Semaphore {
 
     /** true iff there are any owners or any requesters (callers blocked trying to acquire) */
     public synchronized boolean isInUse() {
-        return !owningThreads.isEmpty() || !requestingThreads.isEmpty();
+        return !requestingThreads.isEmpty() || !owningThreads.isEmpty();
     }
 
     /** true iff the calling thread is one of the owners */ 
@@ -224,7 +223,7 @@ public class SemaphoreWithOwners extends Semaphore {
     /** Indicate that the calling thread is going to acquire or tryAcquire, 
      * in order to set up the semaphore's isInUse() value appropriately for certain checks.
      * It *must* do so after invoking this method. */ 
-    public void indicateCallingThreadWillRequest() {
+    public synchronized void indicateCallingThreadWillRequest() {
         requestingThreads.add(Thread.currentThread());
     }
     

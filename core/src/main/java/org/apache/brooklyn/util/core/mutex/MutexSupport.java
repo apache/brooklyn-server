@@ -102,10 +102,9 @@ public class MutexSupport implements WithMutexes {
 
     @Override
     public synchronized void releaseMutex(String mutexId) {
-        SemaphoreWithOwners s;
         if (log.isDebugEnabled())
             log.debug("Releasing mutex: "+mutexId+"@"+this);
-        synchronized (this) { s = semaphores.get(mutexId); }
+        SemaphoreWithOwners s = semaphores.get(mutexId);
         if (s==null) throw new IllegalStateException("No mutex known for '"+mutexId+"'");
         s.release();
         cleanupMutex(mutexId);
@@ -121,6 +120,6 @@ public class MutexSupport implements WithMutexes {
      * from manipulating the semaphore objects themselves. 
      */
     public synchronized Map<String,SemaphoreWithOwners> getAllSemaphores() {
-        return ImmutableMap.<String,SemaphoreWithOwners>copyOf(semaphores);
+        return ImmutableMap.copyOf(semaphores);
     }
 }
