@@ -75,8 +75,8 @@ public class WinrmWorkflowStep extends WorkflowStepDefinition {
         } else {
             ConnectionDefinition cdef = BrooklynTags.findSingleKeyMapValue(ConnectionDefinition.CONNECTION, ConnectionDefinition.class, context.getEntity().tags().getTags());
             if (cdef != null) {
-                remoteExecCapability =  new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromDefinition(
-                        context.getManagementContext(), context.getEntity(), cdef);
+                remoteExecCapability =   RemoteExecTaskConfigHelper
+                        .RemoteExecCapabilityFromDefinition.of(context.getEntity(), cdef);
             } else {
                 machine = Machines.findUniqueMachineLocation(context.getEntity().getLocations(), WinRmMachineLocation.class)
                         .orThrow("No WinRm location available for workflow at " + context.getEntity() + " and no endpoint specified");

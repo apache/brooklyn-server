@@ -41,7 +41,6 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.*;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
-import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -1351,6 +1350,36 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Entity app = createStartWaitAndLogApplication(yaml);
 
         WorkflowExecutionContext x1 = WorkflowBasicTest.runWorkflow(app.getChildren().iterator().next(), Strings.lines(
+                "lock: x",
+                "steps:",
+                "- type: ssh\n" +
+                        "  command: |\n" +
+                        "    echo \"init-done\" >> wf.log"), "test");
+        Object result  = x1.getTask(false).get().get();
+        Asserts.assertEquals(((Map)result).get("exit_code"), 0);
+    }
+
+    @Test
+    public void testSshStepOnLocalhostDefinitionWithExternalConfig() throws Exception {
+        String yaml =
+                        "services:\n" +
+                        "  - type: org.apache.brooklyn.core.test.entity.TestEntity\n" +
+                        "    id: \"user-provider\"\n" +
+                        "    brooklyn.config:\n" +
+                        "        login: \"iuliana\"\n" +
+                        "  - type: org.apache.brooklyn.core.test.entity.TestEntity\n" +
+                        "    brooklyn.tags:\n" +
+                        "    - connection: \n" +
+                        "        name: \"ssh-at-local\" \n" +
+                        "        type: \"ssh\" \n" +
+                        "        user: $brooklyn:component(\"user-provider\").config(\"login\")\n" +
+                        "        host: \"localhost\" \n" +
+                        "    name: sample-server\n" ;
+        Entity app = createStartWaitAndLogApplication(yaml);
+
+        WorkflowExecutionContext x1 = WorkflowBasicTest.
+                runWorkflow(Iterables.get(app.getChildren(), 1),
+                Strings.lines(
                 "lock: x",
                 "steps:",
                 "- type: ssh\n" +

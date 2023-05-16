@@ -39,7 +39,6 @@ import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
 
 import java.util.Map;
 import java.util.function.Supplier;
@@ -78,8 +77,8 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
             ConnectionDefinition cdef = BrooklynTags.findSingleKeyMapValue(ConnectionDefinition.CONNECTION, ConnectionDefinition.class, context.getEntity().tags().getTags());
             RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability;
             if (cdef != null) {
-                remoteExecCapability =  new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromDefinition(
-                        context.getManagementContext(), context.getEntity(), cdef);
+                remoteExecCapability =  RemoteExecTaskConfigHelper.RemoteExecCapabilityFromDefinition
+                        .of(context.getEntity(), cdef);
             } else {
                 SshMachineLocation machine = Locations.findUniqueSshMachineLocation(context.getEntity().getLocations())
                         .orThrow("No SSH location available for workflow at " + context.getEntity() + " and no endpoint specified");

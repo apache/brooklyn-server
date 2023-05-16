@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.core.BrooklynLogging;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.objs.BasicConfigurableObject;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
@@ -98,7 +99,6 @@ public class RemoteExecTaskConfigHelper {
         private static final Logger logSsh = LoggerFactory.getLogger(BrooklynLogging.SSH_IO);
         private static final Logger LOG = LoggerFactory.getLogger(RemoteExecCapabilityFromDefinition.class);
 
-        private final Entity entity;
         private final ConnectionDefinition definition;
         ManagementContext mgmt;
         protected InetAddress address;
@@ -108,13 +108,20 @@ public class RemoteExecTaskConfigHelper {
             return address;
         }
 
-        public RemoteExecCapabilityFromDefinition(ManagementContext mgmt, Entity entity, ConnectionDefinition definition) {
+        public static RemoteExecCapabilityFromDefinition  of(ManagementContext mgmt,ConnectionDefinition definition) {
+            return new RemoteExecCapabilityFromDefinition(mgmt, definition);
+        }
+
+        public static RemoteExecCapabilityFromDefinition  of(Entity entity,ConnectionDefinition definition) {
+            return new RemoteExecCapabilityFromDefinition(((EntityInternal)entity).getManagementContext(), definition);
+        }
+
+        protected RemoteExecCapabilityFromDefinition(ManagementContext mgmt,ConnectionDefinition definition) {
             this.mgmt = mgmt;
-            this.entity = entity;
             this.definition = definition;
 
             if ("ssh".equals(definition.getType())) {
-                // TODO maybe decide the SSH client class name here too ?
+                // TODO SSH client class should be injected in the 'config' map here too,  get it from ManagementContext.getTypeRegistry() , allow users to register their own types 'ssh' and 'winrm'
                 config = resolveConnectionSettings();
                 if(config.get("host").equals("localhost")) {
                     address = BrooklynNetworkUtils.getLocalhostInetAddress();
@@ -122,7 +129,7 @@ public class RemoteExecTaskConfigHelper {
                     address = Networking.resolve(config.get("host").toString());
                 }
             } else {
-                // TODO what do I do with winrm ?
+                // TODO add support for 'winrm'
             }
         }
 
@@ -133,11 +140,12 @@ public class RemoteExecTaskConfigHelper {
 
         private Map<String, Object> resolveConnectionSettings() {
             MutableMap<String, Object> config = MutableMap.of();
-            definition.getOther().forEach((k, v) -> config.put(k, v instanceof WrappedValue ? ((WrappedValue<Object>) v).get() : v));
-            config.put("user", definition.getUser() == null ? System.getProperty("user.name") : definition.getUser().get());
-            config.put("password", definition.getPort() == null ? null : definition.getPassword().get());
-            config.put("host", definition.getHost() == null ? null: definition.getHost().get());
-            config.put("port", definition.getPort() == null ? "22" : definition.getPort().get());
+            definition.getOther()
+                    .forEach((k, v) -> config.put(k, v instanceof WrappedValue ? ((WrappedValue<Object>) v).get() : v));
+            config.put("user", WrappedValue.getMaybe(definition.getUser()).or(() -> System.getProperty("user.name")));
+            config.put("password",  WrappedValue.get(definition.getPassword()));
+            config.put("host", WrappedValue.get(definition.getHost()));
+            config.put("port", WrappedValue.getMaybe(definition.getPort()).or("22"));
             return config;
         }
 
@@ -162,15 +170,15 @@ public class RemoteExecTaskConfigHelper {
         }
 
         protected <T> T execSsh(final Map<String, ?> props, final Function<ShellTool, T> task) {
-            String sshToolClass = SshjTool.class.getName();
+            String sshToolClass = SshjTool.class.getName(); // TODO hardcoded for now, @see SshMachineLocation#connectSsh(..)
             try {
                 SshTool ssh = (SshTool) new ClassLoaderUtils(this, getManagementContext())
                         .loadClass(sshToolClass)
                         .getConstructor(Map.class)
                         .newInstance(config);
                 if (LOG.isTraceEnabled()) LOG.trace("using ssh-tool {} (of type {}); props ", ssh, sshToolClass);
-                Tasks.setBlockingDetails("Opening ssh connection");
                 try {
+                    Tasks.setBlockingDetails("Opening ssh connection");
                     ssh.connect();
                     return task.apply(ssh);
                 } finally {
