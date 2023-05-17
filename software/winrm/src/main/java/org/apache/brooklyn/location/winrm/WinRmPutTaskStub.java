@@ -22,12 +22,14 @@ import com.google.common.base.Supplier;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.ssh.SshPutTaskStub;
+import org.apache.brooklyn.util.core.task.ssh.internal.RemoteExecTaskConfigHelper;
 
 import java.io.InputStream;
 
 public class WinRmPutTaskStub {
     protected String remoteFile;
     protected WinRmMachineLocation machine;
+    protected RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability;
     protected Supplier<? extends InputStream> contents;
     protected String summary;
     protected String permissions;
@@ -61,6 +63,16 @@ public class WinRmPutTaskStub {
     public WinRmMachineLocation getMachine() {
         return machine;
     }
+
+    public RemoteExecTaskConfigHelper.RemoteExecCapability getRemoteExecCapability() {
+        if (remoteExecCapability!=null) return remoteExecCapability;
+        if (machine!=null) {
+            remoteExecCapability = new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromLocation(machine);
+            return remoteExecCapability;
+        }
+        return null;
+    }
+
 
     protected ConfigBag getConfig() {
         return config;

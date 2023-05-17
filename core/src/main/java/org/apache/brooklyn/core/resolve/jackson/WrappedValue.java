@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.brooklyn.core.validation.BrooklynValidation;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.guava.Maybe;
 
 /**
  * Wraps a value which might be constant or might come from a supplier.
@@ -136,6 +137,12 @@ public class WrappedValue<T> implements Supplier<T>, com.google.common.base.Supp
     public static <T> T get(WrappedValue<T> wrapper) {
         if (wrapper==null) return null;
         return wrapper.get();
+    }
+
+    /** Convenience to wrap the value of a wrapper in a `Maybe<T>` instance. . */
+    public static <T> Maybe<T> getMaybe(WrappedValue<T> wrapper) {
+        if (wrapper==null) return Maybe.absent();
+        return Maybe.of(wrapper.get());
     }
 
 }

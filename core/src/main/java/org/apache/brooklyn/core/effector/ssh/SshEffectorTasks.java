@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -41,6 +42,7 @@ import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -130,7 +132,7 @@ public class SshEffectorTasks {
                 if (entity!=null)
                     machine(EffectorTasks.getSshMachine(entity));
             }
-            applySshFlags(getConfig(), entity, getMachine());
+            applySshFlags(getConfig(), entity, getRemoteExecCapability().getExtraConfiguration());
             return super.newTask();
         }
         
@@ -165,7 +167,7 @@ public class SshEffectorTasks {
         @Override
         public SshPutTaskWrapper newTask(Entity entity, Effector<Void> effector, ConfigBag parameters) {
             machine(EffectorTasks.getSshMachine(entity));
-            applySshFlags(getConfig(), entity, getMachine());
+            applySshFlags(getConfig(), entity, getRemoteExecCapability().getExtraConfiguration());
             return super.newTask();
         }
         @Override
@@ -179,7 +181,7 @@ public class SshEffectorTasks {
                 }
 
             }
-            applySshFlags(getConfig(), entity, getMachine());
+            applySshFlags(getConfig(), entity, getRemoteExecCapability().getExtraConfiguration());
             return super.newTask();
         }
     }
@@ -194,7 +196,7 @@ public class SshEffectorTasks {
         @Override
         public SshFetchTaskWrapper newTask(Entity entity, Effector<String> effector, ConfigBag parameters) {
             machine(EffectorTasks.getSshMachine(entity));
-            applySshFlags(getConfig(), entity, getMachine());
+            applySshFlags(getConfig(), entity, getRemoteExecCapability().getExtraConfiguration());
             return super.newTask();
         }
         @Override
@@ -206,7 +208,7 @@ public class SshEffectorTasks {
                 if (entity!=null)
                     machine(EffectorTasks.getSshMachine(entity));
             }
-            applySshFlags(getConfig(), entity, getMachine());
+            applySshFlags(getConfig(), entity, getRemoteExecCapability().getExtraConfiguration());
             return super.newTask();
         }
     }
@@ -317,12 +319,16 @@ public class SshEffectorTasks {
      * the SshTool is created or re-used by the SshMachineLocation making use of these properties */
     @Beta
     public static Map<String, Object> getSshFlags(Entity entity, Location optionalLocation) {
+        return getSshFlags(entity, optionalLocation==null ? null : optionalLocation.config());
+    }
+
+    public static Map<String, Object> getSshFlags(Entity entity, Configurable.ConfigurationSupport optionalExtraConfig) {
         Set<ConfigKey<?>> sshConfig = MutableSet.of();
         
         sshConfig.addAll(((EntityInternal)entity).config().findKeysPresent(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
         
-        if (optionalLocation!=null)
-            sshConfig.addAll(optionalLocation.config().findKeysPresent(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
+        if (optionalExtraConfig!=null)
+            sshConfig.addAll(optionalExtraConfig.findKeysPresent(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
         
         StringConfigMap globalConfig = ((EntityInternal)entity).getManagementContext().getConfig();
         sshConfig.addAll(globalConfig.findKeysDeclared(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
@@ -341,11 +347,14 @@ public class SshEffectorTasks {
                 v = entity.config().get(key);
             }
             
-            if (mv.isAbsent() && optionalLocation!=null) {
-                mv = ((LocationInternal)optionalLocation).config().getRaw(key);
-            }
-            if (v==null && mv.isPresent()) {
-                v = optionalLocation.config().get(key);
+            if (v==null && mv.isAbsent() && optionalExtraConfig!=null) {
+                if (optionalExtraConfig instanceof BrooklynObjectInternal.ConfigurationSupportInternal) {
+                    mv = ((BrooklynObjectInternal.ConfigurationSupportInternal) optionalExtraConfig).getRaw(key);
+                    v = optionalExtraConfig.get(key);
+                } else {
+                    mv = Maybe.of(optionalExtraConfig.findKeysPresent(k -> key.equals(key)).stream().findFirst().map(k -> optionalExtraConfig.get(k)));
+                    v = mv.get();
+                }
             }
 
             if (mv.isAbsent()) {
@@ -357,10 +366,10 @@ public class SshEffectorTasks {
         return result;
     }
 
-    private static void applySshFlags(ConfigBag config, Entity entity, Location machine) {
+    private static void applySshFlags(ConfigBag config, Entity entity, Configurable.ConfigurationSupport machineConfig) {
         if (entity!=null) {
             if (!config.get(IGNORE_ENTITY_SSH_FLAGS)) {
-                config.putIfAbsent(getSshFlags(entity, machine));
+                config.putIfAbsent(getSshFlags(entity, machineConfig));
             }
         }
     }

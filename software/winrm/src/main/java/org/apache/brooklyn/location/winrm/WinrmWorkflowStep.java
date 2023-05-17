@@ -23,6 +23,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.location.Machines;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.external.SshWorkflowStep;
@@ -31,6 +32,8 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.ssh.ConnectionDefinition;
+import org.apache.brooklyn.util.core.task.ssh.internal.RemoteExecTaskConfigHelper;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
@@ -65,15 +68,24 @@ public class WinrmWorkflowStep extends WorkflowStepDefinition {
         WinRmMachineLocation machine;
 
         String endpoint = context.getInput(ENDPOINT);
+        RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability;
         if (Strings.isNonBlank(endpoint)) {
             // TODO
             throw new IllegalStateException("Explicit endpoint not currently supported for winrm step");
         } else {
-            machine = Machines.findUniqueMachineLocation(context.getEntity().getLocations(), WinRmMachineLocation.class).get();
+            ConnectionDefinition cdef = BrooklynTags.findSingleKeyMapValue(ConnectionDefinition.CONNECTION, ConnectionDefinition.class, context.getEntity().tags().getTags());
+            if (cdef != null) {
+                remoteExecCapability =   RemoteExecTaskConfigHelper
+                        .RemoteExecCapabilityFromDefinition.of(context.getEntity(), cdef);
+            } else {
+                machine = Machines.findUniqueMachineLocation(context.getEntity().getLocations(), WinRmMachineLocation.class)
+                        .orThrow("No WinRm location available for workflow at " + context.getEntity() + " and no endpoint specified");
+                remoteExecCapability = new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromLocation(machine);
+            }
         }
 
         DslPredicates.DslPredicate<Integer> exitcode = context.getInput(EXIT_CODE);
-        ProcessTaskFactory<?> tf = WinRmTasks.newWinrmExecTaskFactory(machine, command);
+        ProcessTaskFactory<?> tf = WinRmTasks.newWinrmExecTaskFactory(remoteExecCapability, command);
         if (exitcode!=null) tf.allowingNonZeroExitCode();
         Map<String, Object> env = context.getInput(ENV);
         if (env!=null) tf.environmentVariables(new ShellEnvironmentSerializer(context.getWorkflowExectionContext().getManagementContext()).serialize(env));

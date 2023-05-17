@@ -25,6 +25,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.util.core.task.ssh.internal.RemoteExecTaskConfigHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.config.ConfigKey;
@@ -77,6 +78,13 @@ public abstract class AbstractProcessTaskFactory<T extends AbstractProcessTaskFa
     public T machine(MachineLocation machine) {
         markDirty();
         this.machine = machine;
+        return self();
+    }
+
+    @Override
+    public T remoteExecCapability(RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability) {
+        markDirty();
+        this.remoteExecCapability = remoteExecCapability;
         return self();
     }
 
