@@ -1108,20 +1108,29 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "    brooklyn.config:",
                 "      name: post-init",
                 "      steps:",
-                "        - let instant x = ${workflow.util.now_iso}",
+                "        - let x = ${workflow.util.now_instant}",
                 "        - let duration y = 7 days",
                 "        - let in_a_week = ${x} + ${y}",
+                "        - step: set-sensor boolean condition_works = true",
+                "          condition:",
+                "            target: ${in_a_week}",
+                "            greater-than: ${workflow.util.now_instant}",
                 "        - set-sensor in_a_week = ${in_a_week}",
+                "        - \"let is_in_a_week = ${in_a_week} > ${workflow.util.now_instant} ? yes : no\"",
+                "        - set-sensor is_in_a_week = ${is_in_a_week}",
                 "");
         waitForApplicationTasks(app);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
 
-        EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "in_a_week"), v -> v!=null);
+        EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "is_in_a_week"), v -> v!=null);
         Object inAWeek = entity.sensors().get(Sensors.newSensor(Object.class, "in_a_week"));
         Asserts.assertInstanceOf(inAWeek, Instant.class);
         Asserts.assertThat((Instant)inAWeek, t -> t.isAfter(Instant.now().plus(6, ChronoUnit.DAYS)));
         Asserts.assertThat((Instant)inAWeek, t -> t.isBefore(Instant.now().plus(8, ChronoUnit.DAYS)));
+
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Boolean.class, "condition_works"), true);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(String.class, "is_in_a_week"), "yes");
     }
 
     @Test

@@ -28,6 +28,7 @@ import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.*;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -411,16 +412,11 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             throw new IllegalArgumentException("Should not come here");
         }
 
-        Object applyIntegerToBooleanOperator(List<String> lhs0, List<String> rhs0, BiFunction<Integer, Integer, Boolean> biFn) {
+        Object applyComparison(List<String> lhs0, List<String> rhs0, Function<Integer, Boolean> test) {
             Object lhs = process(lhs0, null);
             Object rhs = process(rhs0, null);
 
-            Maybe<Integer> lhsB = asInteger(lhs);
-            Maybe<Integer> rhsB = asInteger(rhs);
-            if (lhsB.isPresent() && rhsB.isPresent()) {
-                return biFn.apply(lhsB.get(), rhsB.get());
-            }
-            throw new IllegalArgumentException("Should not come here");
+            return DslPredicates.coercedCompare(lhs, rhs, test);
         }
 
         Maybe<Boolean> asBoolean(Object x) {
@@ -456,19 +452,19 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         }
 
         Object handleOrderedGreaterThan(List<String> lhs, List<String> rhs) {
-            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a > b);
+            return applyComparison(lhs, rhs, v -> v>0);
         }
 
         Object handleOrderedGreaterThanOrEqual(List<String> lhs, List<String> rhs) {
-            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a >= b);
+            return applyComparison(lhs, rhs, v -> v>=0);
         }
 
         Object handleOrderedLessThan(List<String> lhs, List<String> rhs) {
-            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a < b);
+            return applyComparison(lhs, rhs, v -> v<0);
         }
 
         Object handleOrderedLessThanOrEqual(List<String> lhs, List<String> rhs) {
-            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a <= b);
+            return applyComparison(lhs, rhs, v -> v<=0);
         }
 
         Object handleTernaryCondition(List<String> lhs0, List<String> rhs0) {
