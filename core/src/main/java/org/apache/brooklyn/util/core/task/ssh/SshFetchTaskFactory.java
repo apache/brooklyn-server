@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.core.task.ssh;
 
 import org.apache.brooklyn.api.mgmt.TaskFactory;
+import org.apache.brooklyn.util.core.task.ssh.internal.RemoteExecTaskConfigHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -32,6 +33,8 @@ public class SshFetchTaskFactory implements TaskFactory<SshFetchTaskWrapper> {
     private boolean dirty = false;
     
     protected SshMachineLocation machine;
+    protected RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability;
+
     protected String remoteFile;
     protected final ConfigBag config = ConfigBag.newInstance();
 
@@ -60,6 +63,14 @@ public class SshFetchTaskFactory implements TaskFactory<SshFetchTaskWrapper> {
         
     public SshMachineLocation getMachine() {
         return machine;
+    }
+    public RemoteExecTaskConfigHelper.RemoteExecCapability getRemoteExecCapability() {
+        if (remoteExecCapability!=null) return remoteExecCapability;
+        if (machine!=null) {
+            remoteExecCapability = new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromLocation(machine);
+            return remoteExecCapability;
+        }
+        return null;
     }
     
     public SshFetchTaskFactory remoteFile(String remoteFile) {

@@ -22,6 +22,7 @@ import com.google.common.annotations.Beta;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
+import org.apache.brooklyn.util.core.task.ssh.internal.RemoteExecTaskConfigHelper;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskStub.ScriptReturnType;
 
 import java.util.List;
@@ -30,6 +31,8 @@ import java.util.function.Function;
 
 public interface ProcessTaskFactory<T> extends SimpleProcessTaskFactory<ProcessTaskFactory<T>,ProcessTaskWrapper<?>,T,ProcessTaskWrapper<T>> {
     ProcessTaskFactory<T> machine(MachineLocation machine);
+    ProcessTaskFactory<T> remoteExecCapability(RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability);
+
     ProcessTaskFactory<T> add(String ...commandsToAdd);
     ProcessTaskFactory<T> add(Iterable<String> commandsToAdd);
     ProcessTaskFactory<T> requiringExitCodeZero();

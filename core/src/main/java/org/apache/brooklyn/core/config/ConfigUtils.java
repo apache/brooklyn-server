@@ -112,7 +112,7 @@ public class ConfigUtils {
 
     @SuppressWarnings("rawtypes")
     public static Set<HasConfigKey<?>> getStaticKeysOnClass(Class<?> type) {
-        Set<HasConfigKey<?>> result = new LinkedHashSet<ConfigKey.HasConfigKey<?>>();
+        Set<HasConfigKey<?>> result = new LinkedHashSet<>();
         for (Field f: type.getFields()) {
             try {
                 if ((f.getModifiers() & Modifier.STATIC)==0)

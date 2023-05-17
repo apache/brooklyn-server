@@ -24,11 +24,13 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 
 import com.google.common.base.Supplier;
+import org.apache.brooklyn.util.core.task.ssh.internal.RemoteExecTaskConfigHelper;
 
 public class SshPutTaskStub {
 
     protected String remoteFile;
     protected SshMachineLocation machine;
+    protected RemoteExecTaskConfigHelper.RemoteExecCapability remoteExecCapability;
     protected Supplier<? extends InputStream> contents;
     protected String summary;
     protected String permissions;
@@ -42,6 +44,7 @@ public class SshPutTaskStub {
     protected SshPutTaskStub(SshPutTaskStub constructor) {
         this.remoteFile = constructor.remoteFile;
         this.machine = constructor.machine;
+        this.remoteExecCapability = constructor.remoteExecCapability;
         this.contents = constructor.contents;
         this.summary = constructor.summary;
         this.allowFailure = constructor.allowFailure;
@@ -62,7 +65,16 @@ public class SshPutTaskStub {
     public SshMachineLocation getMachine() {
         return machine;
     }
-    
+    public RemoteExecTaskConfigHelper.RemoteExecCapability getRemoteExecCapability() {
+        if (remoteExecCapability!=null) return remoteExecCapability;
+        if (machine!=null) {
+            remoteExecCapability = new RemoteExecTaskConfigHelper.RemoteExecCapabilityFromLocation(machine);
+            return remoteExecCapability;
+        }
+        return null;
+    }
+
+
     protected ConfigBag getConfig() {
         return config;
     }
