@@ -378,6 +378,11 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
             Object workflowId = ids.get("workflow");
             List tasksIds = (List) ids.get("tasks");
 
+            if (logWatcher.getMessages().size()!=8) {
+                // add logging for intermittent failure; sometimes we are getting way more messages than we expect
+                throw new IllegalStateException("Wrong number of messages found ("+logWatcher.getMessages().size()+", not 8): "+logWatcher.getMessages());
+            }
+
             Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
                     "Starting workflow 'myWorkflow (workflow effector)', moving to first step "+workflowId+"-1",
                     "Starting step "+workflowId+"-1 in task "+tasksIds.get(0),
