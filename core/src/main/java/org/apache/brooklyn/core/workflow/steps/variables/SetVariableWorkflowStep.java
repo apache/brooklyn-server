@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.lang3.tuple.MutablePair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,15 +113,33 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             if ("output".equals(names0)) throw new IllegalArgumentException("Cannot set subfield in output");  // catch common error
             Object h = context.getWorkflowExectionContext().getWorkflowScratchVariables().get(names0);
             if (!(h instanceof Map)) throw new IllegalArgumentException("Cannot set " + name + " because " + names0 + " is " + (h == null ? "unset" : "not a map"));
-            for (int i=1; i<names.length-1; i++) {
+            for (int i = 1; i < names.length - 1; i++) {
                 Object hi = ((Map<?, ?>) h).get(names[i]);
-                if (hi==null) {
+                if (hi == null) {
                     hi = MutableMap.of();
-                    ((Map)h).put(names[i], hi);
-                } else if (!(hi instanceof Map)) throw new IllegalArgumentException("Cannot set " + name + " because " + names[i] + " is not a map");
+                    ((Map) h).put(names[i], hi);
+                } else if (!(hi instanceof Map))
+                    throw new IllegalArgumentException("Cannot set " + name + " because " + names[i] + " is not a map");
                 h = hi;
             }
-            oldValue = ((Map)h).put(names[names.length-1], resolvedValue);
+            oldValue = ((Map) h).put(names[names.length - 1], resolvedValue);
+        } else if (name.contains("[")) {
+            String[] names = name.split("((?<=\\[|\\])|(?=\\[|\\]))");
+            if (names.length != 4 || !"[".equals(names[1]) || !"]".equals(names[3])) {
+                throw new IllegalArgumentException("Invalid list index specifier " + name);
+            }
+            String listName = names[0];
+            int listIndex = Integer.parseInt(names[2]);
+            Object o = context.getWorkflowExectionContext().getWorkflowScratchVariables().get(listName);
+            if (!(o instanceof List))
+                throw new IllegalArgumentException("Cannot set " + name + " because " + listName + " is " + (o == null ? "unset" : "not a list"));
+
+            List l = MutableList.copyOf(((List)o));
+            if (listIndex < 0 || listIndex >= l.size()) {
+                throw new IllegalArgumentException("Invalid list index " + listIndex);
+            }
+            oldValue = l.set(listIndex, resolvedValue);
+            context.getWorkflowExectionContext().getWorkflowScratchVariables().put(listName, l);
         } else {
             oldValue = context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
         }
@@ -221,17 +240,60 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             if (w.isEmpty()) return null;
 
             Maybe<Object> result;
-            result = handleTokenIfPresent(w, false, MutableMap.of("??", this::handleNullish));
+
+            // Order of operations:
+            // not used: () [] -> . :: (i.e. Function call, scope, array/member access)
+            // not used: ! ~ - + & ++ -- (i.e. unary operators)
+
+            // #__: ?: (i.e. ternary)
+            result = handleTokenIfPresent(w, false, MutableMap.of(
+                    "?", this::handleTernaryCondition,
+                    ":", this::handleTernaryArms
+            ));
             if (result.isPresent()) return result.get();
 
+
+            // ?: ?? (nullish - treat as an unary operator)
+            result = handleTokenIfPresent(w, false, MutableMap.of("??", this::handleNullish));
+            if (result.isPresent()) return result.get();
+            //NOTE: levels 4 and 3 are out of order (by the C Order or operations)
+
+            // #4: + -
             result = handleTokenIfPresent(w, true, MutableMap.of("+", this::handleAdd, "-", this::handleSubtract));
             if (result.isPresent()) return result.get();
 
+            // #3: - * / % MOD
             result = handleTokenIfPresent(w, true, MutableMap.of("*", this::handleMultiply, "/", this::handleDivide));
             if (result.isPresent()) return result.get();
-
             result = handleTokenIfPresent(w, true, MutableMap.of("%", this::handleModulo));
             if (result.isPresent()) return result.get();
+
+            // #5: << >> (i.e. bitwise shift left and right
+
+            // #6: < <= > >=
+            result = handleTokenIfPresent(w, false, MutableMap.of(
+                    "<", this::handleOrderedLessThan,
+                    "<=", this::handleOrderedLessThanOrEqual,
+                    ">", this::handleOrderedGreaterThan,
+                    ">=", this::handleOrderedGreaterThanOrEqual
+            ));
+            if (result.isPresent()) return result.get();
+
+            // #7: == !=
+            // #8: & (i.e. bitwise AND)
+            // #9: ^ (i.e. bitwise XOR)
+            // #10: | (i.e. bitwise OR)
+
+            // #11: && (i.e. logical AND)
+            result = handleTokenIfPresent(w, false, MutableMap.of("&&", this::handleBooleanAnd));
+            if (result.isPresent()) return result.get();
+            // #12: || (i.e. logical OR)
+            result = handleTokenIfPresent(w, false, MutableMap.of("||", this::handleBooleanOr));
+            if (result.isPresent()) return result.get();
+
+
+            // #14: = += -= *= /= %= &= |= ^= <<= >>= (i.e. assignment operators)
+            // #15: ,
 
             // tokens include space delimiters and are still quotes, so unwrap then just stitch together. will preserve spaces.
             boolean resolveToString = w.size()>1;
@@ -331,6 +393,34 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             throw new IllegalArgumentException("Should not come here");
         }
 
+        Object applyBooleanOperator(List<String> lhs0, List<String> rhs0, BiFunction<Boolean, Boolean, Boolean> biFn) {
+            Object lhs = process(lhs0, null);
+            Object rhs = process(rhs0, null);
+
+            Maybe<Boolean> lhsB = asBoolean(lhs);
+            Maybe<Boolean> rhsB = asBoolean(rhs);
+            if (lhsB.isPresent() && rhsB.isPresent()) {
+                return biFn.apply(lhsB.get(), rhsB.get());
+            }
+            throw new IllegalArgumentException("Should not come here");
+        }
+
+        Object applyIntegerToBooleanOperator(List<String> lhs0, List<String> rhs0, BiFunction<Integer, Integer, Boolean> biFn) {
+            Object lhs = process(lhs0, null);
+            Object rhs = process(rhs0, null);
+
+            Maybe<Integer> lhsB = asInteger(lhs);
+            Maybe<Integer> rhsB = asInteger(rhs);
+            if (lhsB.isPresent() && rhsB.isPresent()) {
+                return biFn.apply(lhsB.get(), rhsB.get());
+            }
+            throw new IllegalArgumentException("Should not come here");
+        }
+
+        Maybe<Boolean> asBoolean(Object x) {
+            return TypeCoercions.tryCoerce(x, Boolean.class);
+        }
+
         private IllegalArgumentException failOnInvalidArgument(String side, String op, Object pre, Object post) {
             String msg = "Invalid "+side+" argument to operation '"+op+"'";
 
@@ -349,6 +439,96 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
         Object handleDivide(List<String> lhs, List<String> rhs) {
             return applyMathOperator("/", lhs, rhs, (a,b)->1.0*a/b, (a,b)->a/b);
+        }
+
+        Object handleBooleanAnd(List<String> lhs, List<String> rhs) {
+            return applyBooleanOperator(lhs, rhs, (a, b) -> a && b);
+        }
+
+        Object handleBooleanOr(List<String> lhs, List<String> rhs) {
+            return applyBooleanOperator(lhs, rhs, (a, b) -> a || b);
+        }
+
+        Object handleOrderedGreaterThan(List<String> lhs, List<String> rhs) {
+            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a > b);
+        }
+
+        Object handleOrderedGreaterThanOrEqual(List<String> lhs, List<String> rhs) {
+            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a >= b);
+        }
+
+        Object handleOrderedLessThan(List<String> lhs, List<String> rhs) {
+            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a < b);
+        }
+
+        Object handleOrderedLessThanOrEqual(List<String> lhs, List<String> rhs) {
+            return applyIntegerToBooleanOperator(lhs, rhs, (a, b) -> a <= b);
+        }
+
+        Object handleTernaryCondition(List<String> lhs0, List<String> rhs0) {
+            log.info(String.format("Ternary Condition 0: [lhs:%s][rhs:%s]", lhs0, rhs0));
+            Object lhs = process(lhs0, null);
+            Object rhs;
+            int questionIndex = rhs0.indexOf("?");
+            int colonIndex = rhs0.indexOf(":");
+            if (questionIndex > -1 && questionIndex < colonIndex) {
+                // Nested ternary
+                rhs = handleNestedTernaryRhs(rhs0);
+            } else if (questionIndex > -1 && colonIndex < questionIndex) {
+                // Chained ternary
+                rhs = handleChainedTernaryRhs(rhs0);
+            } else {
+                // non-nested or chained
+                rhs = process(rhs0, null);
+            }
+            log.info(String.format("Ternary Condition 1: [lhs:%s][rhs:%s]", lhs, rhs));
+
+            if (!(rhs instanceof TernaryArms)) throw new IllegalArgumentException("Mismatched ternary ':' operator");
+
+            Maybe<Boolean> condition = asBoolean(lhs);
+            if (condition.isPresent()){
+                if (condition.get()) {
+                    // ? left : right -- rhs length is 5 [left, ,:, ,right]
+                    // ? true && true : false || false -- rhs length is ???
+                    return process( ((TernaryArms)rhs).getLeft(), null );
+                    //throw new IllegalArgumentException("TERNARY CONDITION IS TRUE");
+                } else {
+                    return process( ((TernaryArms)rhs).getRight(), null );
+                    //throw new IllegalArgumentException("TERNARY CONDITION IS FALSE");
+                }
+            }
+            throw new IllegalArgumentException("Should not come here");
+        }
+
+        public TernaryArms handleNestedTernaryRhs(List<String> rhs) {
+            int lastColonIndex = rhs.lastIndexOf(":");
+            if (lastColonIndex == -1) {
+                throw new IllegalArgumentException("Mismatched ternary ':' operator");
+            }
+            int firstColonIndex = rhs.indexOf(":");
+            if (firstColonIndex == lastColonIndex) {
+                return (TernaryArms) process(rhs, null);
+            }
+            return new TernaryArms(trim(rhs.subList(0, lastColonIndex)), trim(rhs.subList(lastColonIndex + 1, rhs.size())));
+        }
+
+        public TernaryArms handleChainedTernaryRhs(List<String> rhs) {
+            int colonIndex = rhs.indexOf(":");
+            if (colonIndex == -1) {
+                throw new IllegalArgumentException("Mismatched ternary ':' operator");
+            }
+            return new TernaryArms(trim(rhs.subList(0, colonIndex)), trim(rhs.subList(colonIndex + 1, rhs.size())));
+        }
+
+        static class TernaryArms extends MutablePair<List<String>,List<String>> {
+            public TernaryArms(List<String> lhs, List<String> rhs) {
+                super(lhs, rhs);
+            }
+        }
+
+        public Object handleTernaryArms(List<String> lhs0, List<String> rhs0) {
+            log.info(String.format("Ternary 0: [lhs:%s][rhs:%s]", lhs0, rhs0));
+            return new TernaryArms(lhs0, rhs0);
         }
 
         Object handleAdd(List<String> lhs, List<String> rhs) {

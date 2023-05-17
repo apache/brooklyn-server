@@ -57,6 +57,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class CustomWorkflowStep extends WorkflowStepDefinition implements WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization, WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow {
@@ -203,7 +204,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
         AtomicInteger index = new AtomicInteger(0);
         ((Iterable<?>) targetR).forEach(t -> {
-            WorkflowExecutionContext nw = newWorkflow(context, t, index.getAndIncrement());
+            WorkflowExecutionContext nw = newWorkflow(context, t, wasList ? index.getAndIncrement() : null);
             Maybe<Task<Object>> mt = nw.getTask(true);
 
             String targetS = wasList || t !=null ? " for target '"+t+"'" : "";
@@ -298,9 +299,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                                     }
                                 }),
                                 task);
-                    } else {
-                        DynamicTasks.queue(task);
                     }
+                    DynamicTasks.queue(task);
                     submitted.add(task);
                 }
             }
@@ -308,6 +308,11 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
         submitted.forEach(t -> {
             try {
+                if (!t.isSubmitted() && !errors.isEmpty()) {
+                    // if concurrent, all tasks will be submitted, and we should wait;
+                    // if not, then there might be queued tasks not yet submitted; if there are errors, they will never be submitted
+                    return;
+                }
                 t.get();
             } catch (Throwable tt) {
                 errors.add(tt);
@@ -321,7 +326,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         context.setOutput(result);
 
         if (!errors.isEmpty()) {
-            throw Exceptions.propagate("Error running sub-workflows in "+context.getWorkflowStepReference(), errors);
+            throw Exceptions.propagate("Error"+(errors.size()>1 ? "s" : "")+" running sub-workflow"+(nestedWorkflowContexts.size()>1 ? "s" : "")+" in "+context.getWorkflowStepReference(), errors);
         }
 
         return !wasList ? Iterables.getOnlyElement(result) : result;
@@ -352,7 +357,10 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     }
 
     public String getNameOrDefault() {
-        return (Strings.isNonBlank(getName()) ? getName() : Strings.isNonBlank(shorthandTypeName) ? shorthandTypeName : "custom step");
+        return getNameOrDefault(() -> Strings.isNonBlank(shorthandTypeName) ? shorthandTypeName : "custom step");
+    }
+    public String getNameOrDefault(Supplier<String> defaultSupplier) {
+        return Strings.isNonBlank(getName()) ? getName() : defaultSupplier==null ? null : defaultSupplier.get();
     }
 
     @Override
@@ -397,18 +405,25 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         return result;
     }
 
-    private WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target, int targetIndex) {
+    private WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target, Integer targetIndexOrNull) {
         if (steps==null) throw new IllegalArgumentException("Cannot make new workflow with no steps");
+
+        String indexName = targetIndexOrNull==null ? "" : " "+(targetIndexOrNull+1);
+        String name = getNameOrDefault(null);
+        name = (name == null ? "Sub-workflow" + indexName : "Sub-workflow"+indexName+" for " + name);
+        String targetString = target==null ? null : target.toString();
+        if (targetString!=null && targetString.length()<60 && !Strings.isMultiLine(targetString)) name += " ("+targetString+")";
 
         WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(
                 target instanceof BrooklynObject ? (BrooklynObject) target : context.getEntity(), context.getWorkflowExectionContext(),
-                WorkflowExecutionContext.WorkflowContextType.NESTED_WORKFLOW, "Workflow for " + getNameOrDefault(),
+                WorkflowExecutionContext.WorkflowContextType.NESTED_WORKFLOW,
+                name,
                 getConfigForSubWorkflow(false), null,
                 ConfigBag.newInstance(getInput()), null);
-        if (target!=null) {
-            nestedWorkflowContext.getWorkflowScratchVariables().put("target", target);
-            nestedWorkflowContext.getWorkflowScratchVariables().put("target_index", targetIndex);
-        }
+
+        nestedWorkflowContext.getWorkflowScratchVariables().put("target", target);
+        if (targetIndexOrNull!=null) nestedWorkflowContext.getWorkflowScratchVariables().put("target_index", targetIndexOrNull);
+
         return nestedWorkflowContext;
     }
 

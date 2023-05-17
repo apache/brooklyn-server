@@ -18,21 +18,12 @@
  */
 package org.apache.brooklyn.core.mgmt.internal;
 
-import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
-import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
-import static org.apache.brooklyn.util.JavaGroovyEquivalents.join;
-
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicLong;
-
+import com.google.common.base.Objects;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multimaps;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
@@ -58,12 +49,12 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimaps;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.*;
 
 /**
  * A {@link SubscriptionManager} that stores subscription details locally.
@@ -272,11 +263,17 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         Set<Subscription> subs = (Set<Subscription>) ((Set<?>) getSubscriptionsForEntitySensor(event.getSource(), event.getSensor()));
         if (groovyTruth(subs)) {
             if (LOG.isTraceEnabled()) LOG.trace("sending {}, {} to {}", new Object[] {event.getSensor().getName(), event, join(subs, ",")});
+            List<Throwable> errors = MutableList.of();
             for (Subscription s : subs) {
-                submitPublishEvent(s, event, false);
+                try {
+                    submitPublishEvent(s, event, false);
+                } catch (Exception e) {
+                    errors.add(e);
+                }
                 // excludes initial so only do it here
                 totalEventsDeliveredCount.incrementAndGet();
             }
+            if (!errors.isEmpty()) throw Exceptions.propagate("Error delivering subscriptions", errors);
         }
     }
     
@@ -309,9 +306,11 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         
         if (includeDescriptionForSensorTask(event)) {
             name.append(" ");
-            name.append(event.getValue());
+            String vs = Strings.toStringWithValueForNull(event.getValue(), "<null>");
+            if (vs.length() > 200) vs = vs.substring(0, 196) + " ...";
             description.append(", value: ");
-            description.append(event.getValue());
+            description.append(vs);
+            if (vs.length() < 40) name.append(vs);
         }
         Map<String, Object> execFlags = MutableMap.of("tags", tags, 
             "displayName", name.toString(),
@@ -368,6 +367,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                     } else {
                         LOG.warn("Error processing subscriptions to "+this+": "+t, t);
                     }
+                    throw Exceptions.propagate(t);
                 } finally {
                     if (setEC) {
                         BasicExecutionContext.setPerThreadExecutionContext(oldEC);

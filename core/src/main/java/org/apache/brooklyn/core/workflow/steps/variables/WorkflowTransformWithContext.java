@@ -25,5 +25,7 @@ import java.util.List;
 public interface WorkflowTransformWithContext extends WorkflowTransform {
     void init(WorkflowExecutionContext context, List<String> definition);
 
+    void init(WorkflowExecutionContext context, List<String> definition, String transformDef);
+
     boolean isResolver();
 }

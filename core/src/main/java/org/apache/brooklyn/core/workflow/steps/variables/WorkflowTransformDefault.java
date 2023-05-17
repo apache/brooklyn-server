@@ -26,6 +26,11 @@ public abstract class WorkflowTransformDefault implements WorkflowTransformWithC
     protected WorkflowExecutionContext context;
 
     @Override
+    public void init(WorkflowExecutionContext context, List<String> definition, String transformDef) {
+        init(context, definition);
+    }
+
+    @Override
     public void init(WorkflowExecutionContext context, List<String> definition) {
         this.context = context;
         if (definition != null) checkDefinitionSize1(definition);

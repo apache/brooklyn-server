@@ -26,12 +26,16 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LogWorkflowStep extends WorkflowStepDefinition {
+import org.apache.brooklyn.core.BrooklynLogging;
 
-    private static final Logger LOG = LoggerFactory.getLogger(LogWorkflowStep.class);
+import java.util.Arrays;
+
+public class LogWorkflowStep extends WorkflowStepDefinition {
 
     public static final String SHORTHAND = "${message...}";
     public static final ConfigKey<String> MESSAGE = ConfigKeys.newStringConfigKey("message");
+    public static final ConfigKey<String> LEVEL = ConfigKeys.newStringConfigKey("level");
+    public static final ConfigKey<String> CATEGORY = ConfigKeys.newStringConfigKey("category");
 
     @Override
     public void populateFromShorthand(String value) {
@@ -41,11 +45,30 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         String message = context.getInput(MESSAGE);
-        if (Strings.isBlank(message))  {
+        String level = context.getInput(LEVEL);
+        String category = context.getInput(CATEGORY);
+        if (Strings.isBlank(message)) {
             throw new IllegalArgumentException("Log message is required");
         }
+        Logger log = LoggerFactory.getLogger(LogWorkflowStep.class);
+        if (!Strings.isBlank(category)) {
+            log = LoggerFactory.getLogger(category);
+        }
+        String messageLogged = message;
+        if(!Strings.isBlank(level)) {
+            Boolean levelExists = Arrays.stream(BrooklynLogging.LoggingLevel.values()).anyMatch((t) -> t.name().equals(level.toUpperCase()));
+            if (levelExists) {
+                BrooklynLogging.log(log, BrooklynLogging.LoggingLevel.valueOf(level.toUpperCase()), message);
+                messageLogged = "["+level.toUpperCase()+"]  "+messageLogged;
+            } else {
+                log.info("{}", message);
+            }
+        } else {
+            log.info("{}", message);
+        }
+        context.noteOtherMetadata("Message", messageLogged, false);  // show this so it is displayed on the step in the UI
+
         // TODO all workflow log messages should include step id as logging MDC, or message to start/end each workflow/task
-        LOG.info("{}", message);
         return context.getPreviousStepOutput();
     }
 

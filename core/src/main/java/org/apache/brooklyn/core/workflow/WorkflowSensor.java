@@ -64,9 +64,6 @@ public class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> implement
 
     public static final ConfigKey<EntityValueToSet> SENSOR = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
 
-    public static final ConfigKey<Map<String,Object>> INPUT = WorkflowCommonConfig.INPUT;
-    public static final ConfigKey<List<Object>> STEPS = WorkflowCommonConfig.STEPS;
-
     // do we need to have an option not to run when initialization is done?
 
     public WorkflowSensor() {}
