@@ -1026,7 +1026,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         entity.sensors().set(Sensors.newStringSensor("good_interpolation"), "run");
         EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "mySum"), v -> v!=null);
-        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "mySum"), 7D);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "mySum"), 7);
     }
 
     @Test
@@ -1050,7 +1050,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         entity.sensors().set(Sensors.newStringSensor("good_interpolation"), "run");
         EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "mySum"), v -> v!=null);
-        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "mySum"), 7D);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "mySum"), 7);
     }
 
     @Test

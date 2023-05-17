@@ -363,7 +363,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
         Maybe<Double> asDouble(Object x) {
             Maybe<Double> v = TypeCoercions.tryCoerce(x, Double.class);
-            if (v.isPresent() && !Double.isFinite(v.get())) return Maybe.absent("Value is undefined");
+            if (v.isPresent() && !Double.isFinite(v.get())) return Maybe.absent(() -> new IllegalArgumentException("Value cannot be coerced to double: "+v));
             return v;
         }
 

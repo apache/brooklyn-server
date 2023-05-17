@@ -32,6 +32,7 @@ import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.*;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -168,8 +169,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         });
         TRANSFORMATIONS.put("max", () -> v -> minmax(v, "max", i -> i>0));
         TRANSFORMATIONS.put("min", () -> v -> minmax(v, "min", i -> i<0));
-//        TRANSFORMATIONS.put("sum", () -> v -> sum(v, "sum"));
-        TRANSFORMATIONS.put("sum", () -> new TransformSum());
+        TRANSFORMATIONS.put("sum", () -> v -> sum(v, "sum"));
         TRANSFORMATIONS.put("average", () -> v -> average(v, "average"));
         TRANSFORMATIONS.put("size", () -> v -> size(v, "size"));
         TRANSFORMATIONS.put("get", () -> v -> {
@@ -190,43 +190,36 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         return result;
     }
 
-    static final Double sum(Object v, String word) {
+    static final Number sum(Object v, String word) {
         if (v==null) return null;
         if (!(v instanceof Iterable)) throw new IllegalArgumentException("Value is not an iterable; cannot take "+word);
         double result = 0;
         for (Object vi: (Iterable)v) {
-            if (!(vi instanceof Number)) throw new IllegalArgumentException("Argument is not a number; cannot compute "+word);
-            result += ((Number)vi).doubleValue();
+            result += asDouble(vi).get();
         }
-
-        // PROBLEM: context is supplied to getTransform dynamically, but sum() is static...
-//        final ConfigurableInterpolationEvaluation evaluation = new ConfigurableInterpolationEvaluation(/* ... */);
-//        final Iterable<List<String>> list = (Iterable)v;
-//        final Iterator<List<String>> it = list.iterator();
-//        final int numberOfSums = Iterables.size(list) - 1;
-//
-//        if (numberOfSums < 1) { // add the one item to the sum, if any
-//            for (Object vi: list) {
-//                checkIsSummable(vi);
-//                result += ((Number)vi).doubleValue();
-//            }
-//        } else { // process items via handleAdd() to coerce numbers from Strings
-//            Object left = it.next();
-//            Object right;
-//            for (int count=1; count<= numberOfSums; count++) {
-//                right = it.next();
-//                checkIsSummable(left);
-//                checkIsSummable(right);
-//
-//                result += ((Number)evaluation.handleAdd(Arrays.asList(left), Arrays.asList(right))).doubleValue();
-//
-//                left = right;
-//            }
-//        }
-        return result;
+        return simplifiedToIntOrLongIfPossible(result);
     }
 
+    static Maybe<Double> asDouble(Object x) {
+        Maybe<Double> v = TypeCoercions.tryCoerce(x, Double.class);
+        if (v.isPresent() && !Double.isFinite(v.get())) return Maybe.absent(() -> new IllegalArgumentException("Value cannot be coerced to double: "+v));
+        return v;
+    }
 
+    static Number simplifiedToIntOrLongIfPossible(Number x) {
+        if (x instanceof Integer) return x;
+        if (x instanceof Long) {
+            if (x.longValue() == x.intValue()) return x.intValue();
+            return x;
+        }
+        if (x instanceof Double || x instanceof Float) {
+            double xd = x.doubleValue();
+            if (Math.abs(xd - Math.round(xd)) < 0.000000001) {
+                return simplifiedToIntOrLongIfPossible(Math.round(xd));
+            }
+        }
+        return x;
+    }
 
     static final Integer size(Object v, String word) {
         if (v==null) return null;
@@ -239,7 +232,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         if (v==null) return null;
         Integer count = size(v, "average");
         if (count==null || count==0) throw new IllegalArgumentException("Value is empty; cannot take "+word);
-        return sum(v, "average") / count;
+        return simplifiedToIntOrLongIfPossible(asDouble(sum(v, "average")).get() / count);
     }
 
     @Override protected Boolean isDefaultIdempotent() { return true; }
