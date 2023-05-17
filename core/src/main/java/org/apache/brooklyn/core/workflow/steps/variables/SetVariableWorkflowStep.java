@@ -33,11 +33,14 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Timestamp;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.time.Instant;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -370,6 +373,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         Object applyMathOperator(String op, List<String> lhs0, List<String> rhs0, BiFunction<Integer,Integer,Number> ifInt, BiFunction<Double,Double,Number> ifDouble) {
             Object lhs = process(lhs0, null);
             Object rhs = process(rhs0, null);
+
+            if (lhs instanceof Instant) return TypeCoercions.coerce(rhs, Duration.class).addTo((Instant)lhs);
+            if (lhs instanceof Date) return new Timestamp((Instant) TypeCoercions.coerce(rhs, Duration.class).addTo( ((Date)lhs).toInstant() ));
 
             Maybe<Integer> lhsI = asInteger(lhs);
             Maybe<Integer> rhsI = asInteger(rhs);

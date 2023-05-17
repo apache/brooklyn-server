@@ -233,9 +233,9 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         };
         Asserts.assertEquals(transform.apply("min"), 1);
         Asserts.assertEquals(transform.apply("max"), 2);
-        Asserts.assertEquals(transform.apply("sum"), 3d);
+        Asserts.assertEquals(transform.apply("sum"), 3);
         Asserts.assertEquals(transform.apply("size"), 2);
-        Asserts.assertEquals(transform.apply("average"), 1.5d);
+        Asserts.assertEquals(transform.apply("average"), 1.5);
         Asserts.assertEquals(transform.apply("first"), 1);
         Asserts.assertEquals(transform.apply("last"), 2);
     }

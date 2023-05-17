@@ -74,6 +74,9 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -1024,7 +1027,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
 
-        entity.sensors().set(Sensors.newStringSensor("good_interpolation"), "run");
         EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "mySum"), v -> v!=null);
         EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "mySum"), 7);
     }
@@ -1048,9 +1050,78 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
 
-        entity.sensors().set(Sensors.newStringSensor("good_interpolation"), "run");
         EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "mySum"), v -> v!=null);
         EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "mySum"), 7);
+    }
+
+    @Test
+    public void testSumListOfDurations() throws Exception {
+        // same as above except list is of durations
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  name: old-name",
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init",
+                "      steps:",
+                "        - let duration d1 = 1d",
+                "        - step: transform y",
+                "          value:",
+                "            - ${d1}",
+                "            - 1h 1m",  // if first is a duration the others will be coerced
+                "          transform:",
+                "            - sum",
+                "            - to_string",
+                "        - set-sensor my_total_duration = ${y}",
+                "        - step: transform z",
+                "          value:",
+                "            - ${d1}",
+                "            - 1d 1s",
+                "            - ${d1}",
+                "          transform:",
+                "            - average",
+                "            - to_string",
+                "        - set-sensor my_average_duration = ${z}",
+                "");
+        waitForApplicationTasks(app);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+
+        EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "my_total_duration"), v -> v!=null);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "my_total_duration"), "1d 1h 1m");
+
+        EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "my_average_duration"), v -> v!=null);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "my_average_duration"), "1d 333ms");
+    }
+
+    @Test
+    public void testAddDurationToInstant() throws Exception {
+        // same as above except list is of durations
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  name: old-name",
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init",
+                "      steps:",
+                "        - let instant x = ${workflow.util.now_iso}",
+                "        - let duration y = 7 days",
+                "        - let in_a_week = ${x} + ${y}",
+                "        - set-sensor in_a_week = ${in_a_week}",
+                "");
+        waitForApplicationTasks(app);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+
+        EntityAsserts.assertAttributeEventually(entity, Sensors.newSensor(Object.class, "in_a_week"), v -> v!=null);
+        Object inAWeek = entity.sensors().get(Sensors.newSensor(Object.class, "in_a_week"));
+        Asserts.assertInstanceOf(inAWeek, Instant.class);
+        Asserts.assertThat((Instant)inAWeek, t -> t.isAfter(Instant.now().plus(6, ChronoUnit.DAYS)));
+        Asserts.assertThat((Instant)inAWeek, t -> t.isBefore(Instant.now().plus(8, ChronoUnit.DAYS)));
     }
 
     @Test

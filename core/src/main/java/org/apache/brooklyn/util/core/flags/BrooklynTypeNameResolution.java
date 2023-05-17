@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.time.Instant;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -78,6 +79,7 @@ public class BrooklynTypeNameResolution {
 
             .put("duration", Duration.class)
             .put("timestamp", Timestamp.class)
+            .put("instant", Instant.class)
             .put("port", PortRange.class)
             .build();
 

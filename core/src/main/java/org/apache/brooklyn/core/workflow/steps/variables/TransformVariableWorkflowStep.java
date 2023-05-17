@@ -35,6 +35,7 @@ import org.apache.brooklyn.util.collections.*;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,7 +58,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
 
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
-    public static final ConfigKey<String> TRANSFORM = ConfigKeys.newConfigKey(String.class, "transform");
+    public static final ConfigKey<Object> TRANSFORM = ConfigKeys.newConfigKey(Object.class, "transform");
 
 
     @Override
@@ -83,8 +84,14 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         String name = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, variable.name, String.class);
         if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
 
-        String transform = context.getInput(TRANSFORM);
-        List<String> transforms = MutableList.copyOf(Arrays.stream(transform.split("\\|")).map(String::trim).collect(Collectors.toList()));
+        Object transformO = context.getInput(TRANSFORM);
+        if (!(transformO instanceof Iterable)) transformO = MutableList.of(transformO);
+        List<String> transforms = MutableList.of();
+        for (Object t: (Iterable)transformO) {
+            if (t instanceof String) transforms.addAll(MutableList.copyOf(Arrays.stream( ((String)t).split("\\|") ).map(String::trim).collect(Collectors.toList())));
+            else throw new IllegalArgumentException("Argument to transform should be a string or list of strings, not: "+t);
+        }
+
 
         Object v;
         if (input.containsKey(VALUE.getName())) v = input.get(VALUE.getName());
@@ -176,6 +183,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
             if (v instanceof Supplier) return ((Supplier)v).get();
             return v;
         });
+        TRANSFORMATIONS.put("to_string", () -> v -> Strings.toString(v));
     }
 
     static final Object minmax(Object v, String word, Predicate<Integer> test) {
@@ -190,12 +198,21 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         return result;
     }
 
-    static final Number sum(Object v, String word) {
+    static final Object sum(Object v, String word) {
         if (v==null) return null;
         if (!(v instanceof Iterable)) throw new IllegalArgumentException("Value is not an iterable; cannot take "+word);
+        Iterable<?> vi = (Iterable<?>) v;
+        if (vi.iterator().hasNext() && vi.iterator().next() instanceof Duration) {
+            Duration result = Duration.ZERO;
+            for (Object vii: vi) {
+                result = result.add(TypeCoercions.coerce(vii, Duration.class));
+            }
+            return result;
+        }
+
         double result = 0;
-        for (Object vi: (Iterable)v) {
-            result += asDouble(vi).get();
+        for (Object vii: vi) {
+            result += asDouble(vii).get();
         }
         return simplifiedToIntOrLongIfPossible(result);
     }
@@ -232,7 +249,11 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         if (v==null) return null;
         Integer count = size(v, "average");
         if (count==null || count==0) throw new IllegalArgumentException("Value is empty; cannot take "+word);
-        return simplifiedToIntOrLongIfPossible(asDouble(sum(v, "average")).get() / count);
+        Object sum = sum(v, "average");
+        if (sum instanceof Duration) {
+            return Duration.millis(Math.round(asDouble( ((Duration)sum).toMilliseconds() ).get() / count) );
+        }
+        return simplifiedToIntOrLongIfPossible(asDouble(sum).get() / count);
     }
 
     @Override protected Boolean isDefaultIdempotent() { return true; }

@@ -22,12 +22,16 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.time.temporal.ChronoUnit.NANOS;
+import static java.time.temporal.ChronoUnit.SECONDS;
+
 import com.google.common.base.Stopwatch;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.temporal.Temporal;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import org.apache.brooklyn.util.text.Strings;
@@ -344,6 +348,10 @@ public class Duration implements Comparable<Duration>, Serializable {
     public Duration upperBound(Duration alternateMaximumValue) {
         if (isLongerThan(alternateMaximumValue)) return alternateMaximumValue;
         return this;
+    }
+
+    public Object addTo(Temporal temporal) {
+        return temporal.plus(nanos, NANOS);
     }
 
 }
