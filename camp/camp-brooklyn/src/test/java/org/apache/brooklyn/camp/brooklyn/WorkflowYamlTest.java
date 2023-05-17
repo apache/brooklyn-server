@@ -1314,7 +1314,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "result"), "yes");
     }
 
-    @Test
+    @Test(groups="Integration")
     public void testSshStepOnLocalhostLocation() throws Exception {
         String yaml =
                 "location: localhost\n" +
@@ -1324,7 +1324,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Entity app = createStartWaitAndLogApplication(yaml);
 
         WorkflowExecutionContext x1 = WorkflowBasicTest.runWorkflow(app.getChildren().iterator().next(), Strings.lines(
-                "lock: x",
                 "steps:",
                 "- type: ssh\n" +
                 "  command: |\n" +
@@ -1333,7 +1332,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(((Map)result).get("exit_code"), 0);
     }
 
-    @Test
+    @Test(groups="Integration")
     public void testSshStepOnLocalhostDefinition() throws Exception {
         String yaml =
                     "brooklyn.config:\n" +
@@ -1350,7 +1349,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Entity app = createStartWaitAndLogApplication(yaml);
 
         WorkflowExecutionContext x1 = WorkflowBasicTest.runWorkflow(app.getChildren().iterator().next(), Strings.lines(
-                "lock: x",
                 "steps:",
                 "- type: ssh\n" +
                         "  command: |\n" +
@@ -1359,7 +1357,8 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(((Map)result).get("exit_code"), 0);
     }
 
-    @Test
+
+    @Test(groups="Integration")
     public void testSshStepOnLocalhostDefinitionWithExternalConfig() throws Exception {
         String yaml =
                         "services:\n" +
@@ -1380,7 +1379,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         WorkflowExecutionContext x1 = WorkflowBasicTest.
                 runWorkflow(Iterables.get(app.getChildren(), 1),
                 Strings.lines(
-                "lock: x",
                 "steps:",
                 "- type: ssh\n" +
                         "  command: |\n" +
