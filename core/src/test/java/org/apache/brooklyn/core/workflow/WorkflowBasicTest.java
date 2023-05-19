@@ -202,7 +202,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testWorkflowDefinitionResolution() {
+    public void testWorkflowStepsResolution() {
         loadTypes();
 
         List<Object> stepsDefinition =
@@ -215,6 +215,34 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
         List<WorkflowStepDefinition> steps = WorkflowStepResolution.resolveSteps(mgmt, stepsDefinition);
         Asserts.assertSize(steps, 4);
+    }
+
+    @Test
+    public void testWorkflowObjectResolution() throws JsonProcessingException {
+        loadTypes();
+
+        Consumer<Object> test = wf -> {
+            Asserts.assertInstanceOf(wf, WorkflowStepDefinition.class);
+            Asserts.assertInstanceOf(wf, CustomWorkflowStep.class);
+            Asserts.assertSize(((CustomWorkflowStep) wf).peekSteps(), 1);
+            Asserts.assertInstanceOf(
+                    WorkflowStepResolution.resolveSteps( mgmt, ((CustomWorkflowStep) wf).peekSteps() ).get(0), LogWorkflowStep.class);
+        };
+
+        test.accept( BeanWithTypeUtils.convert(mgmt,
+                MutableMap.of(
+                        "type", "workflow",
+                        "steps", MutableList.of("log hi: bob")),
+                    TypeToken.of(Object.class), true, null, true) );
+
+        test.accept( BeanWithTypeUtils.convert(mgmt,
+                MutableMap.of(
+                        "steps", MutableList.of("log hi: bob")),
+                TypeToken.of(CustomWorkflowStep.class), true, null, true) );
+
+        test.accept( BeanWithTypeUtils.convert(mgmt,
+                MutableList.of("log hi: bob"),
+                TypeToken.of(CustomWorkflowStep.class), true, null, true) );
     }
 
     @Test

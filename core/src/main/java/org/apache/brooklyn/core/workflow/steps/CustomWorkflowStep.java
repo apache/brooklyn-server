@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -69,6 +70,13 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     public CustomWorkflowStep() {}
     public CustomWorkflowStep(String name, List<Object> steps) {
         this.name = name;
+        this.steps = steps;
+    }
+
+    @JsonCreator
+    /** special creator for when a list is supplied as the workflow; treat those as steps, without requiring a superfluous `steps` entry in a map.
+     *  this is useful especially for config key / parameters of type `workflow` ({@link CustomWorkflowStep)}. */
+    public CustomWorkflowStep(List<Object> steps) {
         this.steps = steps;
     }
 
