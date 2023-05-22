@@ -44,6 +44,7 @@ import org.apache.brooklyn.core.workflow.utils.WorkflowRetentionParser;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -119,6 +120,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     // inferred from `output` where a workflow is saved as a new registered type, and can be extended (once) by setting `output` on the referring workflow
     Object workflowOutput;
 
+    Map<String,Object> reducing;
+
     @Override
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
         super.validateStep(mgmt, workflow);
@@ -158,11 +161,12 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     @Override
     public Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions) {
         boolean wasList = Boolean.TRUE.equals(getStepState(context).wasList);
-        return runSubworkflowsWithConcurrency(context, subworkflows, wasList, true, instructions);
+        return runSubworkflowsWithConcurrency(context, subworkflows, getStepState(context).reducing, wasList, true, instructions);
     }
 
     static class StepState {
         Boolean wasList;
+        Map reducing;
     }
     void setStepState(WorkflowStepInstanceExecutionContext context, StepState state, boolean persist) {
         context.setStepState(state, persist);
@@ -180,7 +184,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         // 'replayable from here' configured elsewhere
 
-        // 'retention xxx'
+        // 'retention <value>'
         if (retention!=null) {
             context.getWorkflowExectionContext().updateRetentionFrom(WorkflowRetentionParser.parse(retention, context.getWorkflowExectionContext()).init(context.getWorkflowExectionContext()));
         }
@@ -210,6 +214,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
             targetR = MutableList.of(targetR);
         }
 
+        Map reducingV = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, reducing, Map.class);
+
         AtomicInteger index = new AtomicInteger(0);
         ((Iterable<?>) targetR).forEach(t -> {
             WorkflowExecutionContext nw = newWorkflow(context, t, wasList ? index.getAndIncrement() : null);
@@ -226,37 +232,47 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
         StepState state = getStepState(context);
         state.wasList = wasList;
+        state.reducing = reducingV;
         setStepState(context, state, false); // persist in next line
         WorkflowReplayUtils.setNewSubWorkflows(context, nestedWorkflowContext.stream().map(BrooklynTaskTags::tagForWorkflow).collect(Collectors.toList()), Tasks.current().getId());
         // persist children now in case they aren't run right away, so that they are known in case of replay, we can incrementally resume (but after parent list)
         nestedWorkflowContext.forEach(n -> n.persist());
 
-        return runSubworkflowsWithConcurrency(context, nestedWorkflowContext, wasList, false, null);
+        return runSubworkflowsWithConcurrency(context, nestedWorkflowContext, reducingV, wasList, false, null);
     }
 
-    private Object runSubworkflowsWithConcurrency(WorkflowStepInstanceExecutionContext context, List<WorkflowExecutionContext> nestedWorkflowContexts, boolean wasList, boolean isReplaying, WorkflowStepDefinition.ReplayContinuationInstructions instructionsIfReplaying) {
-        List result = MutableList.of();
+    private Object runSubworkflowsWithConcurrency(WorkflowStepInstanceExecutionContext context, List<WorkflowExecutionContext> nestedWorkflowContexts, Map reducingV, boolean wasList, boolean isReplaying, ReplayContinuationInstructions instructionsIfReplaying) {
         LOG.debug("Running sub-workflows "+nestedWorkflowContexts);
-        if (nestedWorkflowContexts.isEmpty()) return result;
+        if (nestedWorkflowContexts.isEmpty()) return reducingV!=null ? reducingV : MutableList.of();
 
         long ci = 1;
         Object c = concurrency;
         if (c != null && wasList) {
-            c = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, c, Object.class);
-            if (c instanceof Number) {
-                // okay
-            } else if (c instanceof String) {
-                c = WorkflowConcurrencyParser.parse((String) c).apply((double) nestedWorkflowContexts.size());
+            if (reducingV!=null) {
+                // if reducing, force concurrency 1, and also disallow dynamic concurrency (to prevent things that work in tests with dynamic value resolving to 1 but fail in real life when not 1)
+                Maybe<Integer> cm = TypeCoercions.tryCoerce(c, Integer.class);
+                if (cm.isAbsent() || cm.get()!=1)
+                    throw new IllegalArgumentException("Concurrency cannot be used unless static value 1 when reducing");
+                ci = 1;
             } else {
-                throw new IllegalArgumentException("Unsupported concurrency object: '" + c + "'");
+                c = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, c, Object.class);
+                if (c instanceof Number) {
+                    // okay
+                } else if (c instanceof String) {
+                    c = WorkflowConcurrencyParser.parse((String) c).apply((double) nestedWorkflowContexts.size());
+                } else {
+                    throw new IllegalArgumentException("Unsupported concurrency object: '" + c + "'");
+                }
+                ci = (long) Math.floor(0.000001 + ((Number) c).doubleValue());
+                if (ci <= 0)
+                    throw new IllegalArgumentException("Invalid concurrency value: " + ci + " (concurrency " + c + ", target size " + nestedWorkflowContexts.size() + ")");
             }
-            ci = (long) Math.floor(0.000001 + ((Number) c).doubleValue());
-            if (ci <= 0)
-                throw new IllegalArgumentException("Invalid concurrency value: " + ci + " (concurrency " + c + ", target size " + nestedWorkflowContexts.size() + ")");
         }
 
         AtomicInteger availableThreads = ci == 1 ? null : new AtomicInteger((int) ci);
         List<Task<?>> submitted = MutableList.of();
+        List<Pair<WorkflowExecutionContext,Task<?>>> delayedBecauseReducing = MutableList.of();
+        WorkflowExecutionContext lastWorkflowRunBeforeReplay = null;
         List<Throwable> errors = MutableList.of();
         for (int i = 0; i < nestedWorkflowContexts.size(); i++) {
             if (availableThreads != null) while (availableThreads.get() <= 0) {
@@ -287,6 +303,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                     } else {
                         // completed, skip run; workflow output will be set and used by caller (so can ignore check.getRight() here)
                         task = null;
+                        // unless we are reducing, in which case we need to track which one ran last
+                        lastWorkflowRunBeforeReplay = nestedWorkflowContexts.get(i);
                     }
                 } catch (Exception e) {
                     errors.add(e);
@@ -298,46 +316,95 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                     // on shutdown don't keep running tasks
                     task.cancel(false);
                 } else {
-                    if (availableThreads != null) {
-                        availableThreads.decrementAndGet();
-                        ((EntityInternal) context.getEntity()).getExecutionContext().submit(MutableMap.of("newTaskEndCallback", (Runnable) () -> {
-                                    availableThreads.incrementAndGet();
-                                    synchronized (availableThreads) {
-                                        availableThreads.notifyAll();
-                                    }
-                                }),
-                                task);
+                    if (reducingV!=null) {
+                        delayedBecauseReducing.add(Pair.of(nestedWorkflowContexts.get(i), task));
+                    } else {
+                        if (availableThreads != null) {
+                            availableThreads.decrementAndGet();
+                            ((EntityInternal) context.getEntity()).getExecutionContext().submit(MutableMap.of("newTaskEndCallback", (Runnable) () -> {
+                                        availableThreads.incrementAndGet();
+                                        synchronized (availableThreads) {
+                                            availableThreads.notifyAll();
+                                        }
+                                    }),
+                                    task);
+                        }
+                        DynamicTasks.queue(task);
+                        submitted.add(task);
                     }
-                    DynamicTasks.queue(task);
-                    submitted.add(task);
                 }
             }
         }
 
-        submitted.forEach(t -> {
-            try {
-                if (!t.isSubmitted() && !errors.isEmpty()) {
-                    // if concurrent, all tasks will be submitted, and we should wait;
-                    // if not, then there might be queued tasks not yet submitted; if there are errors, they will never be submitted
-                    return;
+        if (reducingV==null) {
+            assert delayedBecauseReducing.isEmpty();
+            submitted.forEach(t -> {
+                try {
+                    if (!t.isSubmitted() && !errors.isEmpty()) {
+                        // if concurrent, all tasks will be submitted, and we should wait;
+                        // if not, then there might be queued tasks not yet submitted; if there are errors, they will never be submitted
+                        return;
+                    }
+                    t.get();
+                } catch (Throwable tt) {
+                    errors.add(tt);
                 }
-                t.get();
-            } catch (Throwable tt) {
-                errors.add(tt);
+            });
+
+            if (!errors.isEmpty()) {
+                throw Exceptions.propagate("Error"+(errors.size()>1 ? "s" : "")+" running sub-workflow"+(nestedWorkflowContexts.size()>1 ? "s" : "")+" in "+context.getWorkflowStepReference(), errors);
+            }
+
+        } else {
+            // if reducing we need to wrap each execution to get/set last values
+
+            assert submitted.isEmpty();
+            if (lastWorkflowRunBeforeReplay!=null) {
+                // if interrupted we need to explicitly take from the last step
+                reducingV = updateReducingWorkflowVarsFromLastStep(lastWorkflowRunBeforeReplay, reducingV);
+            }
+            for (Pair<WorkflowExecutionContext, Task<?>> p : delayedBecauseReducing) {
+                WorkflowExecutionContext wc = p.getLeft();
+                if (wc.getCurrentStepIndex()==null || wc.getCurrentStepIndex()==WorkflowExecutionContext.STEP_INDEX_FOR_START) {
+                    // initialize to last if it hasn't started
+                    wc.getWorkflowScratchVariables().putAll(reducingV);
+                }
+
+                DynamicTasks.queue(p.getRight()).getUnchecked();
+
+                reducingV = updateReducingWorkflowVarsFromLastStep(wc, reducingV);
+            }
+        }
+
+        Object returnValue;
+        if (reducingV==null) {
+            List result = MutableList.of();
+            nestedWorkflowContexts.forEach(nw -> result.add(nw.getOutput()));
+            if (!wasList && result.size() != 1) {
+                throw new IllegalStateException("Result mismatch, non-list target " + target + " yielded output " + result);
+            }
+            context.setOutput(result);
+            returnValue = !wasList ? Iterables.getOnlyElement(result) : result;
+        } else {
+            context.setOutput(reducingV);
+            context.getWorkflowExectionContext().getWorkflowScratchVariables().putAll(reducingV);
+            returnValue = reducingV;
+        }
+
+        return returnValue;
+    }
+
+    private static MutableMap<String, Object> updateReducingWorkflowVarsFromLastStep(WorkflowExecutionContext lastStep, Map<String, Object> prevWorkflowVars) {
+        Map<String, Object> lastStepReducingWorkflowVars = lastStep.getWorkflowScratchVariables();
+        Object lastStepOutput = lastStep.getOutput();
+        MutableMap<String, Object> result = MutableMap.copyOf(prevWorkflowVars);
+        prevWorkflowVars.keySet().forEach(k -> {
+            result.put(k, lastStepReducingWorkflowVars.get(k));
+            if (lastStepOutput instanceof Map && ((Map) lastStepOutput).containsKey(k)) {
+                result.put(k, ((Map) lastStepOutput).get(k));
             }
         });
-        nestedWorkflowContexts.forEach(nw -> result.add(nw.getOutput()));
-
-        if (!wasList && result.size() != 1) {
-            throw new IllegalStateException("Result mismatch, non-list target " + target + " yielded output " + result);
-        }
-        context.setOutput(result);
-
-        if (!errors.isEmpty()) {
-            throw Exceptions.propagate("Error"+(errors.size()>1 ? "s" : "")+" running sub-workflow"+(nestedWorkflowContexts.size()>1 ? "s" : "")+" in "+context.getWorkflowStepReference(), errors);
-        }
-
-        return !wasList ? Iterables.getOnlyElement(result) : result;
+        return result;
     }
 
     protected Object getTargetFromString(WorkflowStepInstanceExecutionContext context, String target) {

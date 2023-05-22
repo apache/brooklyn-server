@@ -47,7 +47,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
@@ -195,9 +194,9 @@ public class WorkflowExecutionContext {
         Boolean replayableFromHere;
         /** scratch for last _started_ instance of step */
         Map<String,Object> workflowScratch;
-        /** steps that immediately preceded this, updated when _this_ step started */
+        /** steps that immediately preceded this, updated when _this_ step started, with most recent first */
         Set<Integer> previous;
-        /** steps that immediately followed this, updated when _next_ step started */
+        /** steps that immediately followed this, updated when _next_ step started, with most recent first */
         Set<Integer> next;
 
         String previousTaskId;
@@ -476,7 +475,11 @@ public class WorkflowExecutionContext {
             if (continuationInstructions==null || !continuationInstructions.forced) checkNotDisabled();
             if (task != null && !task.isDone()) {
                 if (!task.isSubmitted()) {
-                    log.warn("Abandoning workflow task that was never submitted: " + task + " for " + WorkflowExecutionContext.this);
+                    if (parent!=null && parent.getReplays().size()>1) {
+                        log.debug("Abandoning sub-workflow task that was never submitted, not unusual as parent seems to be replaying: " + task + " for " + WorkflowExecutionContext.this);
+                    } else {
+                        log.warn("Abandoning workflow task that was never submitted: " + task + " for " + WorkflowExecutionContext.this);
+                    }
                 } else {
                     if (isSubmitterAncestor(Tasks.current(), task)) {
                         // not sure we need this check
@@ -650,6 +653,7 @@ public class WorkflowExecutionContext {
     @JsonIgnore
     public Object getPreviousStepOutput() {
         if (lastErrorHandlerOutput!=null) return lastErrorHandlerOutput;
+        if (previousStepIndex==null) return null;
 
         OldStepRecord last = oldStepInfo.get(previousStepIndex);
         if (last!=null && last.context!=null) return last.context.output;
@@ -1140,18 +1144,40 @@ public class WorkflowExecutionContext {
             });
         }
 
+        private void resetWorkflowContextPreviousAndScratchVarsToStep(Integer step, boolean requireLastStep) {
+            if (step==null) {
+                // when resuming, keep them as they were set
+                return;
+            }
+            OldStepRecord last = oldStepInfo.get(step);
+            if (last != null) {
+                workflowScratchVariables = last.workflowScratch;
+                previousStepIndex = last.previous==null ? null : last.previous.stream().findFirst().orElse(null);
+
+            } else {
+                if (requireLastStep) {
+                    throw new IllegalStateException("Last step record required for step "+step+" to replay from there");
+                } else {
+                    // no such step; probably starting something which has never been run (not uncommon), or at a step which was never run (not sure if possible);
+                    // in any case just keep the scratch vars as they were
+                }
+            }
+            // and ensure not null
+            if (workflowScratchVariables == null) workflowScratchVariables = MutableMap.of();
+        }
+
         private void initializeFromContinuationInstructions(Integer replayFromStep) {
             if (replayFromStep != null && replayFromStep == STEP_INDEX_FOR_START) {
                 log.debug("Replaying workflow '" + name + "', from start " +
                         "(was at " + (currentStepIndex == null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex)) + ")");
+                resetWorkflowContextPreviousAndScratchVarsToStep(replayFromStep, false);
                 currentStepIndex = 0;
-                workflowScratchVariables = MutableMap.of();
 
             } else if (replayFromStep != null && replayFromStep == STEP_INDEX_FOR_END) {
                 log.debug("Replaying workflow '" + name + "', from end " +
                         "(was at " + (currentStepIndex == null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex)) + ")");
                 currentStepIndex = STEP_INDEX_FOR_END;
-                workflowScratchVariables = MutableMap.of();
+                resetWorkflowContextPreviousAndScratchVarsToStep(replayFromStep, false);
                 currentStepInstance = null;
 
             } else {
@@ -1165,17 +1191,16 @@ public class WorkflowExecutionContext {
                     } else if (currentStepInstance == null || currentStepInstance.stepIndex != currentStepIndex) {
                         throw new IllegalStateException("Invalid instructions to continue from last step which is unknown, bypassing convenience method");
                     }
-                }
-                if (replayFromStep != null) {
-                    OldStepRecord last = oldStepInfo.get(replayFromStep);
-                    if (last != null) workflowScratchVariables = last.workflowScratch;
-                    if (workflowScratchVariables == null) workflowScratchVariables = MutableMap.of();
+                } else {
                     currentStepIndex = replayFromStep;
                 }
+                // must reset, but okay if null, in that case we are continuing to a step which hasn't been initialized yet; use scratch vars
+                resetWorkflowContextPreviousAndScratchVarsToStep(currentStepIndex, false);
+            }
+            if (continuationInstructions.customWorkflowScratchVariables!=null) {
+                workflowScratchVariables.putAll(continuationInstructions.customWorkflowScratchVariables);
             }
 
-            // clear this so that output is sensible
-            previousStepIndex = null;
         }
 
         private void initializeWithoutContinuationInstructions(Integer replayFromStep) {

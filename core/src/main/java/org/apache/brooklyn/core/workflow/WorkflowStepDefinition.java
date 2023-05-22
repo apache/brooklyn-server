@@ -308,6 +308,7 @@ public abstract class WorkflowStepDefinition {
         /** if supplied, custom behavior run before the primary doTaskBody; may throw exceptions or set things in stepState which are interpreted by the body */
         public final Runnable customBehavior;
         public final boolean forced;
+        public Map<String,Object> customWorkflowScratchVariables;
 
         public ReplayContinuationInstructions(Integer stepToReplayFrom, String customBehaviourExplanation, Runnable customBehavior, boolean forced) {
             this.stepToReplayFrom = stepToReplayFrom;

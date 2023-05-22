@@ -359,6 +359,11 @@ public class WorkflowReplayUtils {
         public String getTaskId() {
             return taskId;
         }
+
+        @Override
+        public String toString() {
+            return super.toString()+"[task="+taskId+"]";
+        }
     }
 
     /** called when the task is being created */
