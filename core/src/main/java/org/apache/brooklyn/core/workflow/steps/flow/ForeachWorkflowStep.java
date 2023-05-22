@@ -33,6 +33,8 @@ public class ForeachWorkflowStep extends CustomWorkflowStep {
 
     public static final String SHORTHAND = "${target_var_name} [ \" in \" ${target...} ]";
 
+    public static final String SHORTHAND_TYPE_NAME_DEFAULT = "foreach";
+
     @Override
     public void populateFromShorthand(String value) {
         if (input==null) input = MutableMap.of();
@@ -49,7 +51,7 @@ public class ForeachWorkflowStep extends CustomWorkflowStep {
     }
 
     protected boolean isPermittedToSetSteps(String typeBestGuess) {
-        return "foreach".equals(typeBestGuess);
+        return typeBestGuess==null || SHORTHAND_TYPE_NAME_DEFAULT.equals(typeBestGuess) || ForeachWorkflowStep.class.getName().equals(typeBestGuess);
     }
 
 }

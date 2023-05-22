@@ -230,6 +230,11 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.appmodel.ApplyInitializerWorkflowStep
+  - id: update-children
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.UpdateChildrenWorkflowStep
 
   - id: ssh
     format: java-type-name

@@ -68,6 +68,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     private static final Logger LOG = LoggerFactory.getLogger(CustomWorkflowStep.class);
 
     // Name of the scratch variable used to store the target of a nested workflow when being run as a subworkflow over a target collection
+    public static final String SHORTHAND_TYPE_NAME_DEFAULT = "workflow";
+
     public static final String TARGET_VAR_NAME_DEFAULT = "target";
     // Name of the scratch variable used to store the index of a nested workflow when being run as a subworkflow over a target collection
     public static final String TARGET_INDEX_VAR_NAME_DEFAULT = "target_index";
@@ -91,7 +93,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     @Override
     public void populateFromShorthand(String value) {
         if (shorthand==null) {
-            if ("workflow".equals(shorthandTypeName)) {
+            if (SHORTHAND_TYPE_NAME_DEFAULT.equals(shorthandTypeName)) {
                 shorthand = WORKFLOW_SETTING_SHORTHAND;
             } else {
                 throw new IllegalStateException("Shorthand not supported for " + getNameOrDefault());
@@ -494,7 +496,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     }
 
     protected boolean isPermittedToSetSteps(String typeBestGuess) {
-        return "workflow".equals(typeBestGuess);
+        return typeBestGuess==null || SHORTHAND_TYPE_NAME_DEFAULT.equals(typeBestGuess) || CustomWorkflowStep.class.getName().equals(typeBestGuess);
     }
 
     private WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target, Integer targetIndexOrNull) {

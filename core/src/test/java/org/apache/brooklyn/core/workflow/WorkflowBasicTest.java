@@ -120,6 +120,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "add-policy", AddPolicyWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "delete-policy", DeletePolicyWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "apply-initializer", ApplyInitializerWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "update-children", UpdateChildrenWorkflowStep.class);
 
         addRegisteredTypeBean(mgmt, "retry", RetryWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "workflow", CustomWorkflowStep.class);
