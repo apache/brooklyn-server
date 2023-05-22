@@ -240,10 +240,6 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
     }
 
     protected void checkTargetReducing(Object output) {
-        if (output==null) {
-            Map<String, WorkflowExecutionContext> wfs = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app);
-            log.info("WF - "+wfs);
-        }
         Asserts.assertEquals(output, MutableMap.of("sum", 6, "squares", MutableList.of(0, 1, 4, 9)));
     }
 
@@ -869,6 +865,25 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                 "      step: fail message deliberate failure on ${target}",
                 ""
         )))), error -> Asserts.expectedFailureContainsIgnoreCase(error, "error running sub-workflows ", "deliberate failure on B"));
+    }
+
+    @Test
+    public void testForeachBasic() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let list L = [ \"a\" , 1 ]",
+                MutableMap.of("step", "foreach x in ${L}",
+                        "steps", MutableList.of("return element-${x}"))));
+        Asserts.assertEquals(output, MutableList.of("element-a", "element-1"));
+    }
+
+    @Test
+    public void testForeachReducingAndSeparateValue() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.of("step", "foreach x",
+                        "target", "1..3",
+                        "reducing", MutableMap.of("answer", 0),
+                        "steps", MutableList.of("let answer = ${answer} + ${x}"))));
+        Asserts.assertEquals(output, MutableMap.of("answer", 6));
     }
 
 }

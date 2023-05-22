@@ -123,6 +123,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
         addRegisteredTypeBean(mgmt, "retry", RetryWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "workflow", CustomWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "foreach", ForeachWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "ssh", SshWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "http", HttpWorkflowStep.class);
 

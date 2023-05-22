@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -66,6 +67,11 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     private static final Logger LOG = LoggerFactory.getLogger(CustomWorkflowStep.class);
 
+    // Name of the scratch variable used to store the target of a nested workflow when being run as a subworkflow over a target collection
+    public static final String TARGET_VAR_NAME_DEFAULT = "target";
+    // Name of the scratch variable used to store the index of a nested workflow when being run as a subworkflow over a target collection
+    public static final String TARGET_INDEX_VAR_NAME_DEFAULT = "target_index";
+
     private static final String WORKFLOW_SETTING_SHORTHAND = "[ \"replayable\" ${replayable...} ] [ \"retention\" ${retention...} ] ";
 
     public CustomWorkflowStep() {}
@@ -99,28 +105,31 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         retention = (String) input.remove("retention");
     }
 
-    String retention;
+    protected String retention;
 
     /** What to run this set of steps against, either an entity to run in that context, 'children' or 'members' to run over those, a range eg 1..10,  or a list (often in a variable) to run over elements of the list */
-    Object target;
+    protected Object target;
+
+    protected Object target_var_name;
+    protected Object target_index_var_name;
 
     // see WorkflowCommonConfig.LOCK
-    Object lock;
+    protected Object lock;
 
     // usually a string; see utils/WorkflowConcurrency
-    Object concurrency;
+    protected Object concurrency;
 
-    Map<String,Object> parameters;
+    protected Map<String,Object> parameters;
 
     // should be treated as raw json
     @JsonDeserialize(contentUsing = JsonPassThroughDeserializer.class)
-    List<Object> steps;
+    protected List<Object> steps;
 
     // output transform to be applied to the result of each sub-workflow (if there are multiple ones, and/or if it is saved as a type)
     // inferred from `output` where a workflow is saved as a new registered type, and can be extended (once) by setting `output` on the referring workflow
-    Object workflowOutput;
+    protected Object workflowOutput;
 
-    Map<String,Object> reducing;
+    protected Map<String,Object> reducing;
 
     @Override
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
@@ -203,16 +212,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
         boolean wasList = targetR instanceof Iterable;
 
-        if (!wasList) {
-            if (targetR == null) { /* fine if no target supplied */ }
-            else if (targetR instanceof Entity) { /* entity is also supported */ }
-
-            else {
-                throw new IllegalArgumentException("Target of workflow must be an entity, a list, or an expression that resolves to a list");
-            }
-
-            targetR = MutableList.of(targetR);
-        }
+        targetR = checkTarget(targetR);
 
         Map reducingV = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, reducing, Map.class);
 
@@ -239,6 +239,19 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         nestedWorkflowContext.forEach(n -> n.persist());
 
         return runSubworkflowsWithConcurrency(context, nestedWorkflowContext, reducingV, wasList, false, null);
+    }
+
+    protected Iterable checkTarget(Object targetR) {
+        if (targetR instanceof Iterable) return (Iterable)targetR;
+
+        if (targetR == null) { /* fine if no target supplied */ }
+        else if (targetR instanceof Entity) { /* entity is also supported */ }
+
+        else {
+            throw new IllegalArgumentException("Target of workflow must be an entity, a list, or an expression that resolves to a list");
+        }
+
+        return MutableList.of(targetR);
     }
 
     private Object runSubworkflowsWithConcurrency(WorkflowStepInstanceExecutionContext context, List<WorkflowExecutionContext> nestedWorkflowContexts, Map reducingV, boolean wasList, boolean isReplaying, ReplayContinuationInstructions instructionsIfReplaying) {
@@ -456,7 +469,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                 throw new IllegalArgumentException("Not permitted to override '" + forbiddenKey + "' when using a workflow step");
             }
         }
-        if (!"workflow".equals(typeBestGuess)) {
+        if (!isPermittedToSetSteps(typeBestGuess)) {
             // custom workflow step
             for (String forbiddenKey : new String[]{"steps"}) {
                 if (m.containsKey(forbiddenKey)) {
@@ -480,6 +493,10 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         return result;
     }
 
+    protected boolean isPermittedToSetSteps(String typeBestGuess) {
+        return "workflow".equals(typeBestGuess);
+    }
+
     private WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target, Integer targetIndexOrNull) {
         if (steps==null) throw new IllegalArgumentException("Cannot make new workflow with no steps");
 
@@ -496,8 +513,11 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                 getConfigForSubWorkflow(false), null,
                 ConfigBag.newInstance(getInput()), null);
 
-        nestedWorkflowContext.getWorkflowScratchVariables().put("target", target);
-        if (targetIndexOrNull!=null) nestedWorkflowContext.getWorkflowScratchVariables().put("target_index", targetIndexOrNull);
+
+        String tvn = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, target_var_name, String.class);
+        nestedWorkflowContext.getWorkflowScratchVariables().put(tvn==null ? TARGET_VAR_NAME_DEFAULT : tvn, target);
+        String tivn = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, target_index_var_name, String.class);
+        if (targetIndexOrNull!=null) nestedWorkflowContext.getWorkflowScratchVariables().put(tivn==null ? TARGET_INDEX_VAR_NAME_DEFAULT : tivn, targetIndexOrNull);
 
         return nestedWorkflowContext;
     }
