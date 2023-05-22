@@ -102,5 +102,8 @@ public class EffectorBase<T> implements Effector<T> {
             Objects.equal(getParameters(), ((EffectorBase<?>)other).getParameters()) &&
             Objects.equal(getDescription(), ((EffectorBase<?>)other).getDescription());
     }
-    
+
+    public static <T> EffectorBase<T> of(Effector<T> eff) {
+        return new EffectorBase<T>(eff.getName(), eff.getReturnType(), eff.getParameters(), eff.getDescription());
+    }
 }

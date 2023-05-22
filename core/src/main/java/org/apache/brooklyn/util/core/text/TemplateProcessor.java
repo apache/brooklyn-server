@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.text;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 import freemarker.cache.StringTemplateLoader;
 import freemarker.core.Environment;
@@ -37,6 +38,7 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.effector.EffectorBase;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
@@ -752,6 +754,7 @@ public class TemplateProcessor {
             if ("attributeWhenReady".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_WHEN_READY);
             // new option
             if ("sensor_definition".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.SENSOR_DEFINITION);
+            if ("effector".equals(key)) return wrapAsTemplateModel(Maps.transformValues(entity.getMutableEntityType().getEffectors(), EffectorBase::of));
 
 //            // getters work for these
 //            if ("id".equals(key)) return wrapAsTemplateModel(entity.getId());

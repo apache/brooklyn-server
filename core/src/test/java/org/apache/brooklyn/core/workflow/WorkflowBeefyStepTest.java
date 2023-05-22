@@ -93,17 +93,22 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
         Object result = runSteps(MutableList.of(
                 "let x = ${entity.sensor.x} + 1 ?? 0",
                 "set-sensor x = ${x}",
+                "set-sensor myWorkflow-ret-type = ${entity.effector[\"myWorkflow\"].returnType}",
                 "set-sensor last-param = ${p1}",
                 MutableMap.of(
                         "s", "invoke-effector myWorkflow",
                         "args", MutableMap.of("p1", "from-invocation"),
                         "condition", MutableMap.of("target", "${x}", "less-than", 2),
                         "next", "end"),
+                MutableMap.of(
+                        "s", "invoke-effector nonExistentEffector",
+                        "condition", MutableMap.of("target", "${entity.effector[\"nonExistentEffector\"]}")),
                 "return ${x}"  // if effector isn't invoked
         ), null);
         Asserts.assertEquals(result, 2);
         EntityAsserts.assertAttributeEquals(lastApp, Sensors.newSensor(Object.class, "x"), 2);
         EntityAsserts.assertAttributeEquals(lastApp, Sensors.newSensor(Object.class, "last-param"), "from-invocation");
+        EntityAsserts.assertAttributeEquals(lastApp, Sensors.newSensor(Object.class, "myWorkflow-ret-type"), Object.class);
     }
 
     @Test
