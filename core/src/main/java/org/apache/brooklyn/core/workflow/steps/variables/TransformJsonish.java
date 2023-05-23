@@ -25,6 +25,7 @@ import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -51,8 +52,7 @@ public class TransformJsonish extends WorkflowTransformDefault {
     }
 
     @Override
-    public void init(WorkflowExecutionContext context, List<String> definition) {
-        super.init(context, null);
+    protected void initCheckingDefinition() {
         Set<String> d = MutableSet.copyOf(definition);
         json |= d.remove("json");
         yaml |= d.remove("yaml");
