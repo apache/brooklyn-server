@@ -82,6 +82,32 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         this.steps = steps;
     }
 
+    public CustomWorkflowStep(CustomWorkflowStep base) {
+        this.retention = base.retention;
+        this.target = base.target;
+        this.target_var_name = base.target_var_name;
+        this.target_index_var_name = base.target_index_var_name;
+        this.lock = base.lock;
+        this.concurrency = base.concurrency;
+        this.parameters = base.parameters;
+        this.steps = base.steps;
+        this.workflowOutput = base.workflowOutput;
+        this.reducing = base.reducing;
+        this.id = base.id;
+        this.name = base.name;
+        this.metadata = base.metadata;
+        this.userSuppliedShorthand = base.userSuppliedShorthand;
+        this.shorthandTypeName = base.shorthandTypeName;
+        this.input = base.input;
+        this.next = base.next;
+        this.condition = base.condition;
+        this.output = base.output;
+        this.replayable = base.replayable;
+        this.idempotent = base.idempotent;
+        this.timeout = base.timeout;
+        this.onError = base.onError;
+    }
+
     @JsonCreator
     /** special creator for when a list is supplied as the workflow; treat those as steps, without requiring a superfluous `steps` entry in a map.
      *  this is useful especially for config key / parameters of type `workflow` ({@link CustomWorkflowStep)}. */

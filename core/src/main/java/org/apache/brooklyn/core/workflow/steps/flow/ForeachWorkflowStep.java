@@ -31,6 +31,15 @@ public class ForeachWorkflowStep extends CustomWorkflowStep {
 
     public static final String SHORTHAND_TYPE_NAME_DEFAULT = "foreach";
 
+    public ForeachWorkflowStep() {}
+
+    public ForeachWorkflowStep(CustomWorkflowStep base) {
+        super(base);
+    }
+
+    public void setTarget(Object x) { this.target = x; }
+    public void setTargetVarName(Object x) { this.target_var_name = x; }
+
     @Override
     public void populateFromShorthand(String value) {
         if (input==null) input = MutableMap.of();
@@ -66,6 +75,26 @@ public class ForeachWorkflowStep extends CustomWorkflowStep {
         }
 
         super.initializeSubWorkflowForTarget(context, target, nestedWorkflowContext);
+    }
+
+    public void setIdempotent(String idempotent) {
+        this.idempotent = idempotent;
+    }
+
+    public String getIdempotent() {
+        return idempotent;
+    }
+
+    public void setConcurrency(Object concurrency) {
+        this.concurrency = concurrency;
+    }
+
+    public Object getConcurrency() {
+        return concurrency;
+    }
+
+    public void setWorkflowOutput(Object x) {
+        this.workflowOutput = x;
     }
 
 }
