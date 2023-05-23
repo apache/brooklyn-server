@@ -18,16 +18,12 @@
  */
 package org.apache.brooklyn.core.workflow.steps.flow;
 
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
+
+import java.util.Map;
 
 public class ForeachWorkflowStep extends CustomWorkflowStep {
 
@@ -52,6 +48,24 @@ public class ForeachWorkflowStep extends CustomWorkflowStep {
 
     protected boolean isPermittedToSetSteps(String typeBestGuess) {
         return typeBestGuess==null || SHORTHAND_TYPE_NAME_DEFAULT.equals(typeBestGuess) || ForeachWorkflowStep.class.getName().equals(typeBestGuess);
+    }
+
+    protected void initializeSubWorkflowForTarget(WorkflowStepInstanceExecutionContext context, Object target, WorkflowExecutionContext nestedWorkflowContext) {
+        if (target_var_name instanceof String) {
+            String tvn = ((String) target_var_name).trim();
+            if (tvn.startsWith("{") && tvn.endsWith("}")) {
+                String[] spreadVars = tvn.substring(1, tvn.length() - 1).split(",");
+                if (!(target instanceof Map)) throw new IllegalStateException("Spread vars indicated in foreach but target is not a map");
+                nestedWorkflowContext.getWorkflowScratchVariables().put(TARGET_VAR_NAME_DEFAULT, target);
+                for (String spreadVar: spreadVars) {
+                    String svt = spreadVar.trim();
+                    nestedWorkflowContext.getWorkflowScratchVariables().put(svt, ((Map)target).get(svt));
+                }
+                return;
+            }
+        }
+
+        super.initializeSubWorkflowForTarget(context, target, nestedWorkflowContext);
     }
 
 }

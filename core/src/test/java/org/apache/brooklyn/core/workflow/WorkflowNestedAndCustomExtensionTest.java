@@ -886,4 +886,13 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
         Asserts.assertEquals(output, MutableMap.of("answer", 6));
     }
 
+    @Test
+    public void testForeachSpread() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.of("step", "let LM",
+                    "value", MutableList.of(MutableMap.of("key", "K1", "value", "V1"), MutableMap.of("key", "K2", "value", "V2"))),
+                MutableMap.of("step", "foreach {key,value} in ${LM}",
+                        "steps", MutableList.of("return element-${key}-${value}"))));
+        Asserts.assertEquals(output, MutableList.of("element-K1-V1", "element-K2-V2"));
+    }
 }
