@@ -156,7 +156,10 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
         UpdateChildrenStepState stepState = getStepState(context);
         if (stepState.matchCheck!=null && stepState.matchCheck.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.matchCheck.workflowTag.getWorkflowId()));
         if (stepState.creationCheck!=null && stepState.creationCheck.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.creationCheck.workflowTag.getWorkflowId()));
+        if (stepState.onCreate !=null && stepState.onCreate.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.onCreate.workflowTag.getWorkflowId()));
+        if (stepState.onUpdate!=null && stepState.onUpdate.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.onUpdate.workflowTag.getWorkflowId()));
         if (stepState.deletionCheck!=null && stepState.deletionCheck.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.deletionCheck.workflowTag.getWorkflowId()));
+        if (stepState.onDelete!=null && stepState.onDelete.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.onDelete.workflowTag.getWorkflowId()));
         return Collections.emptyList();
     }
 
@@ -177,7 +180,7 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
 
         WorkflowTagWithResult<List> matchCheck = new WorkflowTagWithResult<>();
         WorkflowTagWithResult<List<Map>> creationCheck = new WorkflowTagWithResult<>();
-        WorkflowTagWithResult<Object> onCreation = new WorkflowTagWithResult<>();
+        WorkflowTagWithResult<Object> onCreate = new WorkflowTagWithResult<>();
         WorkflowTagWithResult<Object> onUpdate = new WorkflowTagWithResult<>();
         WorkflowTagWithResult<List> deletionCheck = new WorkflowTagWithResult<>();
         WorkflowTagWithResult<Object> onDelete = new WorkflowTagWithResult<>();
@@ -309,7 +312,7 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
                 MutableMap.copyOf(x).add("child", ((TransientEntityReference) x.get("child")).getEntity(mgmt))
         ).collect(Collectors.toList());
         runOrResumeSubWorkflowForPhaseOrReturnPreviousIfCompleted(context, instructionsForResuming, subworkflowTargetForResuming,
-                "Calling onCreate on newly created children ("+stringMatchesToCreate.size()+")", stepState.onCreation, ON_CREATE_WORKFLOW,
+                "Calling on_create on newly created children ("+stringMatchesToCreate.size()+")", stepState.onCreate, ON_CREATE_WORKFLOW,
                 () -> new CustomWorkflowStep(MutableList.of(
                         MutableMap.of(
                                 "step", "invoke-effector on_create",
@@ -335,7 +338,7 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
             }
         }
         runOrResumeSubWorkflowForPhaseOrReturnPreviousIfCompleted(context, instructionsForResuming, subworkflowTargetForResuming,
-                "Calling onCreate on newly created children ("+stringMatchesToCreate.size()+")", stepState.onUpdate, ON_UPDATE_WORKFLOW,
+                "Calling on_update on item-matched children ("+onUpdateTargets.size()+")", stepState.onUpdate, ON_UPDATE_WORKFLOW,
                 () -> new CustomWorkflowStep(MutableList.of(
                         MutableMap.of(
                                 "step", "invoke-effector on_update",
@@ -356,7 +359,7 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
 
         List<Entity> entitiesToPossiblyDelete = MutableList.copyOf(oldChildren.values());
         List<TransientEntityReference> deletionChecks = runOrResumeSubWorkflowForPhaseOrReturnPreviousIfCompleted(context, instructionsForResuming, subworkflowTargetForResuming,
-                "Creating new children ("+stringMatchesToCreate.size()+")", stepState.deletionCheck, DELETION_CHECK_WORKFLOW,
+                "Checking old children ("+entitiesToPossiblyDelete.size()+") for deletion", stepState.deletionCheck, DELETION_CHECK_WORKFLOW,
                 () -> new CustomWorkflowStep(MutableList.of("return true")),
                 checkWorkflow -> outerWorkflowCustomers.apply(checkWorkflow,
                         foreach -> {
@@ -375,7 +378,7 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
 
         List<Map<String,Object>> onDeleteTargets = (List) deletionChecks.stream().map(t -> t.getEntity(mgmt)).filter(x -> x!=null).map(x -> MutableMap.of("child", x)).collect(Collectors.toList());
         runOrResumeSubWorkflowForPhaseOrReturnPreviousIfCompleted(context, instructionsForResuming, subworkflowTargetForResuming,
-                "Calling onCreate on newly created children ("+stringMatchesToCreate.size()+")", stepState.onDelete, ON_DELETE_WORKFLOW,
+                "Calling on_delete on children to delete ("+onDeleteTargets.size()+")", stepState.onDelete, ON_DELETE_WORKFLOW,
                 () -> new CustomWorkflowStep(MutableList.of(
                         MutableMap.of(
                                 "step", "invoke-effector on_delete",
@@ -419,15 +422,16 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
                         name,
                         outerWorkflowConfig, null, null, null);
                 stepSubState.workflowTag = BrooklynTaskTags.tagForWorkflow(matchWorkflow);
-                WorkflowReplayUtils.addNewSubWorkflow(context, stepState.matchCheck.workflowTag);
+                WorkflowReplayUtils.addNewSubWorkflow(context, stepSubState.workflowTag);
                 setStepState(context, stepState);
 
                 stepSubState.result = postprocess.apply((List) DynamicTasks.queue(matchWorkflow.getTask(true).get()).getUnchecked());
             } else {
                 stepSubState.result = postprocess.apply((List) WorkflowReplayUtils.replayResumingInSubWorkflow("workflow effector", context, subworkflowTargetForResuming, instructionsForResuming,
                         (w, e)-> {
-                            LOG.debug("Sub workflow "+w+" is not replayable; running anew ("+ Exceptions.collapseText(e)+")");
-                            return doTaskBody(context);
+                            throw Exceptions.propagate(e);
+                            //LOG.debug("Sub workflow "+w+" is not replayable; running anew ("+ Exceptions.collapseText(e)+")");
+                            //return doTaskBody(context);
                         }, true));
             }
             stepSubState.workflowTag = null;

@@ -306,8 +306,9 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                 WorkflowExecutionContext lastWf = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).get(wfId);
                 log.info("replaying from last");
                 lastInvocation = lastWf.factory(false).createTaskReplaying(lastWf.factory(false)
-//                        .makeInstructionsForReplayingFromLastReplayable("test", true));
                         .makeInstructionsForReplayResuming("test", true));
+                // can also test this, but less interesting
+//                        .makeInstructionsForReplayingFromLastReplayable("test", true));
                 Entities.submit(app, lastInvocation);
             }
             log.info("success for iteration "+(i+1)+"\n");

@@ -169,7 +169,7 @@ public abstract class WorkflowStepDefinition {
         Task<?> t = Tasks.builder().displayName(specialName!=null ? specialName : computeName(context, true))
                 .tag(tagOverride != null ? tagOverride : BrooklynTaskTags.tagForWorkflow(context))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
-                .tag(TaskTags.INESSENTIAL_TASK)  // we handle this specially, don't want the thread to fail
+                .tag(TaskTags.INESSENTIAL_TASK)   // need this so parent's queue doesn't abort if this fails, parent is able to run error handling
                 .body(() -> {
             log.debug("Starting " +
                     (specialName!=null ? specialName : "step "+context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this))
