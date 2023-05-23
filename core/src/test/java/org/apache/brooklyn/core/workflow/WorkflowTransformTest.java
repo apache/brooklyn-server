@@ -264,4 +264,19 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(result, MutableMap.of("key", "Value", "key2", "VALUE", "key3", "value", "key4", "true", "key5", true));
     }
 
+
+    @Test
+    public void testResolveTransform() {
+        loadTypes();
+
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        Object result = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "- let a = b",
+                "- let b = c",
+                "- let x = \"${\" ${a} \"}\"",
+                "- transform x | resolve_expression | return",
+                ""), "test").getTask(false).get().getUnchecked();
+        Asserts.assertEquals(result, "c");
+    }
+
 }

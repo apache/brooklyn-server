@@ -211,6 +211,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         TRANSFORMATIONS.put("to_lower_case", () -> v -> ((String)v).toLowerCase());
         TRANSFORMATIONS.put("return", () -> new TransformReturn());
         TRANSFORMATIONS.put("set", () -> new TransformSetWorkflowVariable());
+        TRANSFORMATIONS.put("resolve_expression", () -> new TransformResolveExpression());
     }
 
     static final Object minmax(Object v, String word, Predicate<Integer> test) {
