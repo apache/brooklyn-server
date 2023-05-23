@@ -78,6 +78,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static org.apache.brooklyn.core.workflow.WorkflowReplayUtils.ReplayResumeDepthCheck.RESUMABLE_WHENEVER_NESTED_WORKFLOWS_PRESENT;
+
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class WorkflowExecutionContext {
 
@@ -451,7 +453,8 @@ public class WorkflowExecutionContext {
             }
 
             if (!forced && replayFromStep == null) {
-                if (!WorkflowReplayUtils.isReplayResumable(WorkflowExecutionContext.this, false, allowInternallyEvenIfDisabled)) {
+                // instructions should be made even if subworkflows might reject them; that's the intention of "resume" without force, vs replay from last
+                if (!WorkflowReplayUtils.isReplayResumable(WorkflowExecutionContext.this, RESUMABLE_WHENEVER_NESTED_WORKFLOWS_PRESENT, allowInternallyEvenIfDisabled)) {
                     if (code != null) {
                         // we could allow this, but we don't need it
                         throw new IllegalArgumentException("Cannot supply code to here without forcing as workflow does not support replay resuming at this point");
@@ -933,6 +936,7 @@ public class WorkflowExecutionContext {
                         if (!replaying) initializeWithoutContinuationInstructions(replayFromStep);
 
                         continueOnErrorHandledOrNextReplay = false;
+                        lastErrorHandlerOutput = null;
 
                         WorkflowReplayUtils.updateOnWorkflowTaskStartupOrReplay(WorkflowExecutionContext.this, task, getStepsResolved(), !replaying, replayFromStep);
 

@@ -36,6 +36,7 @@ import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowReplayUtils;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.steps.flow.SwitchWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -70,8 +71,14 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
     }
 
     @Override @JsonIgnore
-    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
-        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced, peekingOnly, allowInternallyEvenIfDisabled);
+    public SubWorkflowsForReplay getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
+        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced, peekingOnly, allowInternallyEvenIfDisabled, sw -> {
+            // comes here if subworkflows were abnormal
+            StepState state = getStepState(context);
+            if (!state.submitted) sw.isResumableOnlyAtParent = true;  // no subworkflows, fine to resume
+            else if (state.nonWorkflowEffector) sw.isResumableOnlyAtParent = false;  // subworkflows definitely not resumable, can't resume
+            else sw.isResumableOnlyAtParent = true; // odd case, subworkflows perhaps cancelled and superseded but then not submitted or something odd like that
+        });
     }
 
     @Override
@@ -81,6 +88,21 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
                     LOG.debug("Sub workflow "+w+" is not replayable; running anew ("+ Exceptions.collapseText(e)+")");
                     return doTaskBody(context);
                 }, true);
+    }
+
+    static class StepState {
+        boolean submitted;
+        boolean nonWorkflowEffector;
+    }
+
+    @Override
+    protected StepState getStepState(WorkflowStepInstanceExecutionContext context) {
+        StepState result = (StepState) super.getStepState(context);
+        if (result==null) result = new StepState();
+        return result;
+    }
+    void setStepState(WorkflowStepInstanceExecutionContext context, StepState state) {
+        context.setStepState(state, true);
     }
 
     @Override
@@ -110,6 +132,11 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
             WorkflowReplayUtils.setNewSubWorkflows(context, MutableList.of(workflowTag), workflowTag.getWorkflowId());
             // unlike nested case, no need to persist as single child workflow will persist themselves imminently, and if not no great shakes to recompute
         });
+
+        StepState state = getStepState(context);
+        state.nonWorkflowEffector = context.getSubWorkflows().isEmpty();
+        state.submitted = true;
+        setStepState(context, state);
 
         return DynamicTasks.queue(invocation).asTask().getUnchecked();
     }

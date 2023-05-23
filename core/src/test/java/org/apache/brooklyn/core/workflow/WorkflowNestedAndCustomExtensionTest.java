@@ -743,7 +743,12 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                     if (!t.isDone()) {
                         Asserts.fail("Workflow task should have finished: " + t.getStatusDetail(true));
                     }
-                    if (!t.isError() || expectRightAnswer) result.add((Integer) t.getUnchecked());
+                    if (!t.isError() || expectRightAnswer) {
+                        if (!(t.getUnchecked() instanceof Integer)) {
+                            log.warn("ERROR - task "+t+" did not return integer; returned: "+t.getUnchecked());
+                        }
+                        result.add((Integer) t.getUnchecked());
+                    }
                 }
             }
 

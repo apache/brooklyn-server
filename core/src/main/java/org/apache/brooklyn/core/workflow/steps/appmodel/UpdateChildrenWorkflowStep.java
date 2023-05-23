@@ -47,7 +47,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -150,17 +149,27 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
     }
 
     @Override
-    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
-        //return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced, peekingOnly, allowInternallyEvenIfDisabled);
-
+    public SubWorkflowsForReplay getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
+        WorkflowExecutionContext resultW = getSubWorkflowForReplay(context, forced, peekingOnly, allowInternallyEvenIfDisabled);
+        SubWorkflowsForReplay result;
+        if (resultW==null) {
+            result = new SubWorkflowsForReplay();
+            result.isResumableOnlyAtParent = true;  // always resumable betwen subworkflows
+        } else {
+            result = WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced, peekingOnly, allowInternallyEvenIfDisabled, sw -> sw.isResumableOnlyAtParent = true /* always resumable if subworkflows not interrupted */ );
+            result.subworkflows = MutableList.of(resultW);
+        }
+        return result;
+    }
+    protected WorkflowExecutionContext getSubWorkflowForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
         UpdateChildrenStepState stepState = getStepState(context);
-        if (stepState.matchCheck!=null && stepState.matchCheck.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.matchCheck.workflowTag.getWorkflowId()));
-        if (stepState.creationCheck!=null && stepState.creationCheck.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.creationCheck.workflowTag.getWorkflowId()));
-        if (stepState.onCreate !=null && stepState.onCreate.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.onCreate.workflowTag.getWorkflowId()));
-        if (stepState.onUpdate!=null && stepState.onUpdate.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.onUpdate.workflowTag.getWorkflowId()));
-        if (stepState.deletionCheck!=null && stepState.deletionCheck.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.deletionCheck.workflowTag.getWorkflowId()));
-        if (stepState.onDelete!=null && stepState.onDelete.workflowTag!=null) return MutableList.of(retrieveSubWorkflow(context, stepState.onDelete.workflowTag.getWorkflowId()));
-        return Collections.emptyList();
+        if (stepState.matchCheck!=null && stepState.matchCheck.workflowTag!=null) return retrieveSubWorkflow(context, stepState.matchCheck.workflowTag.getWorkflowId());
+        if (stepState.creationCheck!=null && stepState.creationCheck.workflowTag!=null) return retrieveSubWorkflow(context, stepState.creationCheck.workflowTag.getWorkflowId());
+        if (stepState.onCreate !=null && stepState.onCreate.workflowTag!=null) return retrieveSubWorkflow(context, stepState.onCreate.workflowTag.getWorkflowId());
+        if (stepState.onUpdate!=null && stepState.onUpdate.workflowTag!=null) return retrieveSubWorkflow(context, stepState.onUpdate.workflowTag.getWorkflowId());
+        if (stepState.deletionCheck!=null && stepState.deletionCheck.workflowTag!=null) return retrieveSubWorkflow(context, stepState.deletionCheck.workflowTag.getWorkflowId());
+        if (stepState.onDelete!=null && stepState.onDelete.workflowTag!=null) return retrieveSubWorkflow(context, stepState.onDelete.workflowTag.getWorkflowId());
+        return null;
     }
 
     private WorkflowExecutionContext retrieveSubWorkflow(WorkflowStepInstanceExecutionContext context, String workflowId) {

@@ -83,7 +83,7 @@ public class SwitchWorkflowStep extends WorkflowStepDefinition implements Workfl
         StepState state = new StepState();
         state.selectedStepDefinition = selectedStepDefinition;
         state.selectedStepContext = selectedStepContext;
-        context.setStepState(context, persist);
+        context.setStepState(state, persist);
     }
     protected <T> Maybe<T> runOnStepStateIfHasSubWorkflows(WorkflowStepInstanceExecutionContext context, Function<WorkflowStepDefinitionWithSubWorkflow,T> fn) {
         StepState state = getStepState(context);
@@ -141,7 +141,7 @@ public class SwitchWorkflowStep extends WorkflowStepDefinition implements Workfl
     }
 
     @Override
-    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
+    public SubWorkflowsForReplay getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
         return runOnStepStateIfHasSubWorkflows(context, s -> s.getSubWorkflowsForReplay(context, forced, peekingOnly, allowInternallyEvenIfDisabled)).get();
     }
 
