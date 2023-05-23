@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
@@ -297,6 +298,7 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
                     List<Object> result = new ArrayList<Object>();
                     try { 
                         while (!secondaryQueueAborted && (!primaryFinished || !secondaryJobsRemaining.isEmpty())) {
+                            if (isCancelled()) throw new CancellationException();
                             synchronized (jobTransitionLock) {
                                 if (!primaryFinished && secondaryJobsRemaining.isEmpty()) {
                                     currentSecondary = null;
@@ -306,6 +308,7 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
                             @SuppressWarnings("rawtypes")
                             Task secondaryJob = secondaryJobsRemaining.poll();
                             if (secondaryJob != null) {
+                                if (isCancelled()) throw new CancellationException();
                                 synchronized (jobTransitionLock) {
                                     currentSecondary = secondaryJob;
                                     submitBackgroundInheritingContext(secondaryJob);
