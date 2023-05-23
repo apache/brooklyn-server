@@ -83,7 +83,7 @@ public class Secret<T> implements Supplier<T> {
 
         static ThreadLocal<Integer> permitJacksonSerializationInThisThread = new ThreadLocal<>();
 
-        static <T> T runWithJacksonSerializationEnabledInThread(Callable<T> callable) throws Exception {
+        public static <T> T runWithJacksonSerializationEnabledInThread(Callable<T> callable) throws Exception {
             try {
                 Integer old = permitJacksonSerializationInThisThread.get();
                 if (old==null) old = 0;
