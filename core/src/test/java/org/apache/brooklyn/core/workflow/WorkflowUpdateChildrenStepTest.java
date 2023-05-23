@@ -88,4 +88,53 @@ public class WorkflowUpdateChildrenStepTest extends BrooklynMgmtUnitTestSupport 
         childrenIds = app.getChildren().stream().map(c -> c.config().get(BrooklynConfigKeys.PLAN_ID)).collect(Collectors.toSet());
         Asserts.assertSize(childrenIds, 0);
     }
+
+    @Test
+    public void testCustomMatch() {
+        WorkflowExecutionContext execution = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                        "- step: let items",
+                        "  value:",
+                        "  - x_id: one",
+                        "    x_name: name1",
+                        "  - x_id: two",
+                        "    x_name: name2",
+                        "- step: update-children type " + BasicEntity.class.getName() + " id ${item.x_id} from ${items}",
+                        "  match_check:",
+                        "  - condition:",
+                        "      target: ${item.x_id}",
+                        "      equals: one",
+                        "    return: ",
+                        "",
+                        ""),
+                "first run at children");
+        execution.getTask(false).get().getUnchecked();
+
+        Set<String> childrenIds = app.getChildren().stream().map(c -> c.config().get(BrooklynConfigKeys.PLAN_ID)).collect(Collectors.toSet());
+        Asserts.assertEquals(childrenIds, MutableSet.of("one", "two"));
+
+        execution = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                        "- step: let items",
+                        "  value:",
+                        "  - x_id: one",
+                        "    x_name: name1",
+                        "  - x_id: two",
+                        "    x_name: name-too",
+                        "- update-children type " + BasicEntity.class.getName() + " id ${item.x_id} from ${items}"),
+                "first run at children");
+        execution.getTask(false).get().getUnchecked();
+
+        childrenIds = app.getChildren().stream().map(c -> c.config().get(BrooklynConfigKeys.PLAN_ID)).collect(Collectors.toSet());
+        Asserts.assertEquals(childrenIds, MutableSet.of("one", "two"));
+
+        execution = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                        "- step: let list items",
+                        "  value: []",
+                        "- update-children type " + BasicEntity.class.getName() + " id ${item.x_id} from ${items}"),
+                "first run at children");
+        execution.getTask(false).get().getUnchecked();
+
+        childrenIds = app.getChildren().stream().map(c -> c.config().get(BrooklynConfigKeys.PLAN_ID)).collect(Collectors.toSet());
+        Asserts.assertSize(childrenIds, 0);
+    }
+
 }

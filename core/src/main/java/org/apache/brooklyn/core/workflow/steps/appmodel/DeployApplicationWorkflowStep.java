@@ -84,7 +84,7 @@ public class DeployApplicationWorkflowStep extends WorkflowStepDefinition implem
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        Object blueprint = resolveBlueprint(context, () -> "services: [ { type: " + StringEscapes.JavaStringEscapes.wrapJavaString(context.getInput(TYPE)) + " } ]");
+        Object blueprint = resolveBlueprint(context, () -> "services: [ { type: " + StringEscapes.JavaStringEscapes.wrapJavaString(context.getInput(TYPE)) + " } ]", null, null);
 
         String createdAppId = getStepState(context);
         Application app = null;

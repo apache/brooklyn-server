@@ -443,9 +443,17 @@ public class WorkflowReplayUtils {
     public static void setNewSubWorkflows(WorkflowStepInstanceExecutionContext context, List<BrooklynTaskTags.WorkflowTaskTag> tags, String supersededId) {
         // make sure parent knows about child before child workflow is persisted, otherwise there is a chance the child workflow gets orphaned (if interrupted before parent persists)
         // supersede old and save the new sub-workflow ID before submitting it, and before child knows about parent, per invoke effector step notes
-        context.getSubWorkflows().forEach(tag -> tag.setSupersededByTaskId(supersededId));
-        tags.forEach(nw ->  context.getSubWorkflows().add(nw));
+        markSubWorkflowsSupersededByTask(context, supersededId);
+        tags.forEach(nw -> addNewSubWorkflow(context, nw));
         context.getWorkflowExectionContext().persist();
+    }
+
+    public static void markSubWorkflowsSupersededByTask(WorkflowStepInstanceExecutionContext context, String supersededId) {
+        context.getSubWorkflows().forEach(tag -> tag.setSupersededByTaskId(supersededId));
+    }
+
+    public static boolean addNewSubWorkflow(WorkflowStepInstanceExecutionContext context, BrooklynTaskTags.WorkflowTaskTag nw) {
+        return context.getSubWorkflows().add(nw);
     }
 
     public static List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {

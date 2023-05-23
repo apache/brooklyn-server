@@ -59,17 +59,18 @@ public interface HasBlueprintWorkflowStep {
             String type = context.getInput(TYPE);
             if (Strings.isBlank(type)) throw new IllegalStateException("blueprint or type must be supplied"); // should've been caught earlier but check again for good measure
             return "type: " + StringEscapes.JavaStringEscapes.wrapJavaString(type);
-        });
+        }, null, null);
     }
 
-    default Object resolveBlueprint(WorkflowStepInstanceExecutionContext context, Supplier<String> defaultValue) {
+    default Object resolveBlueprint(WorkflowStepInstanceExecutionContext context, Supplier<String> defaultValue, SetVariableWorkflowStep.InterpolationMode interpolationMode, TemplateProcessor.InterpolationErrorMode interpolationErrorMode) {
         Object blueprint = getInput().get(BLUEPRINT.getName());
         if (blueprint == null) {
             return defaultValue.get();
         }
         logger().debug("Blueprint (pre-resolution) is: "+blueprint);
         Object result = new SetVariableWorkflowStep.ConfigurableInterpolationEvaluation(context, null, blueprint,
-                context.getInputOrDefault(INTERPOLATION_MODE), context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();
+                interpolationMode!=null ? interpolationMode : context.getInputOrDefault(INTERPOLATION_MODE),
+                interpolationErrorMode!=null ? interpolationErrorMode : context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();
         logger().debug("Blueprint (post-resolution: "+context.getInputOrDefault(INTERPOLATION_MODE)+"/"+context.getInputOrDefault(INTERPOLATION_ERRORS)+") is: "+result);
         if (result instanceof String && ((String)result).matches("[^\\s]+")) {
             // single word value treated as a type
