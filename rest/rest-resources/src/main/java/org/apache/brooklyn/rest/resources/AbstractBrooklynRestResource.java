@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.rest.domain.ApiError;
+import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
@@ -235,7 +236,7 @@ public abstract class AbstractBrooklynRestResource {
 
             }
             return getValueForDisplayAfterSecretsCheck(mgmt, mapper(), valueResult, preferJson, isJerseyReturnValue,
-                    Boolean.TRUE.equals(suppressSecrets) && !Boolean.TRUE.equals(suppressBecauseSecret));
+                    Boolean.TRUE.equals(suppressSecrets) && !Boolean.TRUE.equals(suppressBecauseSecret), false);
         }
 
         private static Object UNRESOLVED = "UNRESOLVED".toCharArray();
@@ -255,15 +256,20 @@ public abstract class AbstractBrooklynRestResource {
         public Object getValueForDisplay(Object value, Boolean preferJson, Boolean isJerseyReturnValue, Boolean suppressNestedSecrets) {
             return getValueForDisplay(mgmt, mapper(), value,
                     preferJson!=null ? preferJson : this.preferJson, isJerseyReturnValue!=null ? isJerseyReturnValue : this.isJerseyReturnValue,
-                    suppressNestedSecrets!=null ? suppressNestedSecrets : this.suppressSecrets);
+                    suppressNestedSecrets!=null ? suppressNestedSecrets : this.suppressSecrets, false);
+        }
+        public Object getValueForDisplay(Object value, Boolean preferJson, Boolean isJerseyReturnValue, Boolean suppressNestedSecrets, boolean suppressOutput) {
+            return getValueForDisplay(mgmt, mapper(), value,
+                    preferJson!=null ? preferJson : this.preferJson, isJerseyReturnValue!=null ? isJerseyReturnValue : this.isJerseyReturnValue,
+                    suppressNestedSecrets!=null ? suppressNestedSecrets : this.suppressSecrets, suppressOutput);
         }
 
-        public static Object getValueForDisplay(ManagementContext mgmt, ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue, Boolean suppressNestedSecrets) {
+        public static Object getValueForDisplay(ManagementContext mgmt, ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue, Boolean suppressNestedSecrets, Boolean suppressOutput) {
             suppressNestedSecrets = checkAndGetSecretsSuppressed(mgmt, suppressNestedSecrets, false);
-            return getValueForDisplayAfterSecretsCheck(mgmt, mapper, value, preferJson, isJerseyReturnValue, suppressNestedSecrets);
+            return getValueForDisplayAfterSecretsCheck(mgmt, mapper, value, preferJson, isJerseyReturnValue, suppressNestedSecrets, suppressOutput);
         }
 
-        static Object getValueForDisplayAfterSecretsCheck(ManagementContext mgmt, ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue, Boolean suppressNestedSecrets) {
+        static Object getValueForDisplayAfterSecretsCheck(ManagementContext mgmt, ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue, Boolean suppressNestedSecrets, Boolean suppressOutput) {
             if (preferJson) {
                 if (value==null) return null;
                 Object result = value;
@@ -292,6 +298,9 @@ public abstract class AbstractBrooklynRestResource {
                         try {
                             String resultS = mapper.writeValueAsString(result);
                             result = BeanWithTypeUtils.newSimpleMapper().readValue(resultS, Object.class);
+                            if (suppressOutput){
+                                result = TaskTransformer.suppressOutputs(result);
+                            }
                             //the below treats all numbers as doubles
                             //new Gson().fromJson(resultS, Object.class);
                             return Sanitizer.suppressNestedSecretsJson(result, true);

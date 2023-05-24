@@ -18,9 +18,9 @@
  */
 package org.apache.brooklyn.rest.transform;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Collections2;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import org.apache.brooklyn.api.entity.Entity;
@@ -49,6 +49,8 @@ import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
@@ -58,14 +60,16 @@ public class TaskTransformer {
     private static final Logger log = LoggerFactory.getLogger(TaskTransformer.class);
 
     public static final Function<Task<?>, TaskSummary> fromTask(final UriBuilder ub, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets) {
+        return fromTask(ub,resolver,suppressSecrets,true);
+    };
+    public static final Function<Task<?>, TaskSummary> fromTask(final UriBuilder ub, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets, boolean includeDetail) {
         return new Function<Task<?>, TaskSummary>() {
             @Override
             public TaskSummary apply(@Nullable Task<?> input) {
-                return taskSummary(input, ub, resolver, suppressSecrets);
+                return taskSummary(input, ub, resolver, suppressSecrets, includeDetail);
             }
         };
     };
-
     public static TaskSummary taskSummary(Task<?> task, UriBuilder ub, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets) {
         return taskSummary(task, ub, resolver, suppressSecrets, true);
     }
@@ -165,11 +169,13 @@ public class TaskTransformer {
         URI taskUri = serviceUriBuilder(ub, ActivityApi.class, "get").build(t.getId());
         return new LinkWithMetadata(taskUri.toString(), data);
     }
-    
-    public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, @Nullable Entity entity, UriInfo ui, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets) {
-        return fromTasks(tasksToScan, limit, recurse, entity, ui, resolver, suppressSecrets, !Boolean.TRUE.equals(recurse));
+    public enum TaskSummaryMode{
+        ALL, NONE, SUBSET
     }
-    public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, @Nullable Entity entity, UriInfo ui, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets, boolean includeDetail) {
+    public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, @Nullable Entity entity, UriInfo ui, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets) {
+        return fromTasks(tasksToScan, limit, recurse, entity, ui, resolver, suppressSecrets, TaskSummaryMode.ALL);
+    }
+    public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, @Nullable Entity entity, UriInfo ui, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets, TaskSummaryMode taskSummaryMode) {
         int sizeRemaining = limit;
         InterestingTasksFirstComparator comparator = new InterestingTasksFirstComparator(entity);
         if (limit>0 && tasksToScan.size() > limit) {
@@ -206,21 +212,53 @@ public class TaskTransformer {
         tasksToScan = MutableList.copyOf(Ordering.from(comparator).sortedCopy(tasksToScan));
 
         Map<String,Task<?>> tasksLoaded = MutableMap.of();
-        
+
+        boolean isRecurse = Boolean.TRUE.equals(recurse);
         while (!tasksToScan.isEmpty()) {
             Task<?> t = tasksToScan.remove(0);
             if (tasksLoaded.put(t.getId(), t)==null) {
                 if (--sizeRemaining==0) {
                     break;
                 }
-                if (Boolean.TRUE.equals(recurse)) {
+                if (isRecurse) {
                     if (t instanceof HasTaskChildren) {
                         Iterables.addAll(tasksToScan, ((HasTaskChildren) t).getChildren() );
                     }
                 }
             }
         }
-        return new LinkedList<TaskSummary>(Collections2.transform(tasksLoaded.values(), 
-            TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolver, suppressSecrets)));
+        List<Task<?>> finalTasksToScan = ImmutableList.copyOf(tasksToScan);
+        return tasksLoaded.values().stream().map(task->{
+            boolean includeDetail = (taskSummaryMode == TaskSummaryMode.ALL && !isRecurse) || (taskSummaryMode == TaskSummaryMode.SUBSET && finalTasksToScan.contains(task));
+            Function<Task<?>, TaskSummary> taskTaskSummaryFunction = TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolver, suppressSecrets, includeDetail);
+            return taskTaskSummaryFunction.apply(task);
+        }).collect(Collectors.toList());
     }
+    public static Object suppressOutputs(Object x) {
+        if (x instanceof Map) {
+            Map y = MutableMap.of();
+            ((Map)x).forEach((k,v) -> {
+                y.put(k, v!=null && TaskTransformer.IS_OUTPUT.apply(k) ? "(output suppressed)": suppressOutputs(v) );
+            });
+            return y;
+        }else if (x instanceof Iterable){
+            List y = MutableList.of();
+            ((Iterable)x).forEach(xi -> y.add(suppressOutputs(xi)));
+            return y;
+        }else {
+            return x;
+        }
+    }
+
+    public static final Predicate<Object> IS_OUTPUT = new IsOutputPredicate();
+
+    static final ImmutableList<String> OUTPUT_VALUES = ImmutableList.of("output", "stdout", "stderr");
+    private static class IsOutputPredicate implements Predicate<Object> {
+        @Override
+        public boolean apply(Object name) {
+            if (name == null) return false;
+            return  OUTPUT_VALUES.contains(name.toString().toLowerCase());
+        }
+    }
+
 }

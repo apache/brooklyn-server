@@ -156,7 +156,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     public List<TaskSummary> listTasks(String applicationId, String entityId, int limit, Boolean recurse, Boolean suppressSecrets) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         return TaskTransformer.fromTasks(MutableList.copyOf(BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), entity)),
-            limit, recurse, entity, ui, resolving(null), suppressSecrets);
+            limit, recurse, entity, ui, resolving(null), suppressSecrets, TaskTransformer.TaskSummaryMode.NONE);
     }
 
     /** API does not guarantee order, but this is a the one we use (when there are lots of tasks):
@@ -387,7 +387,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     @Override
     public Response getWorkflows(String applicationId, String entityId, Boolean suppressSecrets) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
-        return Response.ok(resolving(null).getValueForDisplay(MutableList.copyOf(new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).values()), true, true, suppressSecrets)).build();
+        return Response.ok(resolving(null).getValueForDisplay(MutableList.copyOf(new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).values()), true, true, suppressSecrets, true)).build();
     }
 
     @Override
