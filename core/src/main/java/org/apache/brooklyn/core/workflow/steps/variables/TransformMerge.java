@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -49,8 +50,7 @@ public class TransformMerge extends WorkflowTransformDefault {
     boolean set;
 
     @Override
-    public void init(WorkflowExecutionContext context, List<String> definition) {
-        super.init(context, null);
+    protected void initCheckingDefinition() {
         Set<String> d = MutableSet.copyOf(definition.subList(1, definition.size()));
         deep = d.remove("deep");
         wait = d.remove("wait");

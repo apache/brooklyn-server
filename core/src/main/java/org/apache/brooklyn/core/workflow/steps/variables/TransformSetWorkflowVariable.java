@@ -19,29 +19,28 @@
 package org.apache.brooklyn.core.workflow.steps.variables;
 
 import com.google.common.collect.Iterables;
-import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
-import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.MutableSet;
 
-import java.util.List;
 import java.util.Set;
 
-public class TransformType extends WorkflowTransformDefault {
-    private TypeToken<?> type;
+public class TransformSetWorkflowVariable extends WorkflowTransformDefault {
+    private String name;
 
     @Override
     protected void initCheckingDefinition() {
         Set<String> d = MutableSet.copyOf(definition.subList(1, definition.size()));
-        if (d.isEmpty()) throw new IllegalArgumentException("Transform 'type' requires a type argument");
+        if (d.isEmpty()) throw new IllegalArgumentException("Transform 'set' requires a variable name");
         if (d.size() > 1)
-            throw new IllegalArgumentException("Transform 'type' requires a single argument being the type; not " + d);
-        type = context.lookupType(Iterables.getOnlyElement(d), () -> null);
+            throw new IllegalArgumentException("Transform 'set' requires a single argument being the variable name; not " + d);
+        name = Iterables.getOnlyElement(d);
     }
 
     @Override
     public Object apply(Object v) {
-        return context.resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, v, type);
+        String nameToSet = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, name, String.class);
+        SetVariableWorkflowStep.setWorkflowScratchVariableDotSeparated(stepContext, nameToSet, v);
+        return v;
     }
+
 }

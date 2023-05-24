@@ -25,7 +25,6 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -49,7 +48,12 @@ public class WorkflowReplayUtils {
     private static final Logger log = LoggerFactory.getLogger(WorkflowReplayUtils.class);
 
 
-    public static boolean isReplayResumable(WorkflowExecutionContext workflowExecutionContext, boolean requireDeeplyReplayable, boolean allowInternallyEvenIfDisabled) {
+    public enum ReplayResumeDepthCheck {
+        RESUMABLE_IFF_NESTED_WORKFLOWS_RESUMABLE,
+        RESUMABLE_IFF_NESTED_WORKFLOWS_REPLAYABLE_OR_RESUMABLE,
+        RESUMABLE_WHENEVER_NESTED_WORKFLOWS_PRESENT,
+    }
+    public static boolean isReplayResumable(WorkflowExecutionContext workflowExecutionContext, ReplayResumeDepthCheck requireDeeplyReplayable, boolean allowInternallyEvenIfDisabled) {
         WorkflowStepInstanceExecutionContext csi = workflowExecutionContext.currentStepInstance;
         if (csi!=null) {
             if (csi.getStepIndex()!=workflowExecutionContext.currentStepIndex) {
@@ -64,17 +68,28 @@ public class WorkflowReplayUtils {
                 // 'no' is (currently) not overridable by auto-detection, but `yes` is.
                 if (Boolean.FALSE.equals(idempotence)) return false;
 
-                // if 'yes' or null, we check.
+                // if 'yes' or null, we check subworkflows
                 if (stepDefinition instanceof WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) {
-                    List<WorkflowExecutionContext> subWorkflows = ((WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) stepDefinition).getSubWorkflowsForReplay(csi, false, true, allowInternallyEvenIfDisabled);
-                    if (subWorkflows == null) return false;
-                    if (!requireDeeplyReplayable) return true;
-                    return subWorkflows.stream().allMatch(sub -> isReplayResumable(sub, requireDeeplyReplayable, allowInternallyEvenIfDisabled));
+                    WorkflowStepDefinition.SubWorkflowsForReplay subWorkflowReplayable = ((WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) stepDefinition).getSubWorkflowsForReplay(csi, false, true, allowInternallyEvenIfDisabled);
+
+                    if (!subWorkflowReplayable.isResumableAtSubworkflows) {
+                        if (subWorkflowReplayable.hasNonResumableWorkflows && requireDeeplyReplayable==ReplayResumeDepthCheck.RESUMABLE_IFF_NESTED_WORKFLOWS_RESUMABLE) return false;
+                        return subWorkflowReplayable.isResumableOnlyAtParent;
+                    }
+
+                    // non-null subworkflows, so need to inspect subworkflows
+                    if (requireDeeplyReplayable==ReplayResumeDepthCheck.RESUMABLE_WHENEVER_NESTED_WORKFLOWS_PRESENT) return true;
+                    if (requireDeeplyReplayable==ReplayResumeDepthCheck.RESUMABLE_IFF_NESTED_WORKFLOWS_REPLAYABLE_OR_RESUMABLE)
+                        return subWorkflowReplayable.subworkflows.stream().allMatch(sub -> isReplayableAnywhere(sub, allowInternallyEvenIfDisabled));
+                    if (requireDeeplyReplayable==ReplayResumeDepthCheck.RESUMABLE_IFF_NESTED_WORKFLOWS_RESUMABLE)
+                        return subWorkflowReplayable.subworkflows.stream().allMatch(sub -> isReplayResumable(sub, requireDeeplyReplayable, allowInternallyEvenIfDisabled));
+                    // shouldn't come here
+                    throw new IllegalArgumentException("Invalid requireDeeply mode: "+requireDeeplyReplayable);
                 }
 
                 if (idempotence!=null) return idempotence;
 
-                // shouldn't come here
+                // comes here if a workflow step without subworkflows declares null default idempotence, which should not normally happen
                 return false;
 
             } else {
@@ -115,7 +130,7 @@ public class WorkflowReplayUtils {
                 || (workflowExecutionContext.currentStepInstance!=null && workflowExecutionContext.currentStepInstance.getStepIndex()!=workflowExecutionContext.currentStepIndex)
                 || workflowExecutionContext.currentStepIndex==WorkflowExecutionContext.STEP_INDEX_FOR_START
                 || workflowExecutionContext.currentStepIndex==WorkflowExecutionContext.STEP_INDEX_FOR_END
-                || isReplayResumable(workflowExecutionContext, true, allowInternallyEvenIfDisabled);
+                || isReplayResumable(workflowExecutionContext, ReplayResumeDepthCheck.RESUMABLE_IFF_NESTED_WORKFLOWS_REPLAYABLE_OR_RESUMABLE, allowInternallyEvenIfDisabled);
     }
 
     /** throws error if any argument non-blank invalid; null if nothing to do; otherwise a consumer which will initialize the WEC */
@@ -128,7 +143,7 @@ public class WorkflowReplayUtils {
         boolean idempotentAll = "all".equals(idempotent);
         if (idempotentAll) idempotent = "";
 
-        if (!Strings.isBlank(idempotent)) throw new IllegalArgumentException("Invalid value for `idemopotent` on workflow step");
+        if (!Strings.isBlank(idempotent)) throw new IllegalArgumentException("Invalid value for `idempotent` on workflow step");
 
         // replayable:
         //
@@ -359,6 +374,11 @@ public class WorkflowReplayUtils {
         public String getTaskId() {
             return taskId;
         }
+
+        @Override
+        public String toString() {
+            return super.toString()+"[task="+taskId+"]";
+        }
     }
 
     /** called when the task is being created */
@@ -426,7 +446,7 @@ public class WorkflowReplayUtils {
             }
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            log.debug("Step " + context.getWorkflowStepReference() + " could not resume nested workflow " + w.getWorkflowId() + " (running anew): "+e);
+            log.debug("Step " + context.getWorkflowStepReference() + " could not resume nested workflow " + (w==null ? "<null>" : w.getWorkflowId()) + " (running alternate): "+e);
 
             return Pair.of(false, ifNotReplayable.apply(w, e));
         }
@@ -438,13 +458,24 @@ public class WorkflowReplayUtils {
     public static void setNewSubWorkflows(WorkflowStepInstanceExecutionContext context, List<BrooklynTaskTags.WorkflowTaskTag> tags, String supersededId) {
         // make sure parent knows about child before child workflow is persisted, otherwise there is a chance the child workflow gets orphaned (if interrupted before parent persists)
         // supersede old and save the new sub-workflow ID before submitting it, and before child knows about parent, per invoke effector step notes
-        context.getSubWorkflows().forEach(tag -> tag.setSupersededByTaskId(supersededId));
-        tags.forEach(nw ->  context.getSubWorkflows().add(nw));
+        markSubWorkflowsSupersededByTask(context, supersededId);
+        tags.forEach(nw -> addNewSubWorkflow(context, nw));
         context.getWorkflowExectionContext().persist();
     }
 
-    public static List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
+    public static void markSubWorkflowsSupersededByTask(WorkflowStepInstanceExecutionContext context, String supersededId) {
+        context.getSubWorkflows().forEach(tag -> tag.setSupersededByTaskId(supersededId));
+    }
+
+    public static boolean addNewSubWorkflow(WorkflowStepInstanceExecutionContext context, BrooklynTaskTags.WorkflowTaskTag nw) {
+        if (nw==null) throw new IllegalArgumentException("Workflow tag must not be null");
+        return context.getSubWorkflows().add(nw);
+    }
+
+    public static WorkflowStepDefinition.SubWorkflowsForReplay getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled,
+                                                                                        Consumer<WorkflowStepDefinition.SubWorkflowsForReplay> ifNoSubworkflows) {
         Set<BrooklynTaskTags.WorkflowTaskTag> sws = context.getSubWorkflows();
+        WorkflowStepDefinition.SubWorkflowsForReplay result = new WorkflowStepDefinition.SubWorkflowsForReplay();
         if (sws!=null && !sws.isEmpty()) {
             // replaying
 
@@ -458,25 +489,32 @@ public class WorkflowReplayUtils {
                         return new WorkflowStatePersistenceViaSensors(context.getManagementContext()).getWorkflows(targetEntity).get(tag.getWorkflowId());
                     }).collect(Collectors.toList());
 
+            result.subworkflows = nestedWorkflowsToReplay;
+
             if (nestedWorkflowsToReplay.isEmpty()) {
                 if (!peekingOnly) log.info("Step "+context.getWorkflowStepReference()+" has all sub workflows superseded; replaying from start");
                 if (!peekingOnly) log.debug("Step "+context.getWorkflowStepReference()+" superseded sub workflows detail: "+sws+" -> "+nestedWorkflowsToReplay);
-                // fall through to below
+                ifNoSubworkflows.accept(result);
+
             } else if (nestedWorkflowsToReplay.contains(null)) {
                 if (!peekingOnly) log.info("Step "+context.getWorkflowStepReference()+" has uninitialized sub workflows; replaying from start");
                 if (!peekingOnly) log.debug("Step "+context.getWorkflowStepReference()+" uninitialized/unpersisted sub workflow detail: "+sws+" -> "+nestedWorkflowsToReplay);
-                // fall through to below
+                ifNoSubworkflows.accept(result);
+
             } else if (!forced && nestedWorkflowsToReplay.stream().anyMatch(nest -> !isReplayableAnywhere(nest, allowInternallyEvenIfDisabled))) {
                 if (!peekingOnly) log.info("Step "+context.getWorkflowStepReference()+" has non-replayable sub workflows; replaying from start");
                 if (!peekingOnly) log.debug("Step "+context.getWorkflowStepReference()+" non-replayable sub workflow detail: "+sws+" -> "+nestedWorkflowsToReplay);
-                // fall through to below
-            } else {
+                result.hasNonResumableWorkflows = true;
+                // parent not resumable
 
+            } else {
                 if (!peekingOnly) log.debug("Step "+context.getWorkflowStepReference()+" replay sub workflow detail: "+sws+" -> "+nestedWorkflowsToReplay);
-                return nestedWorkflowsToReplay;
+                result.isResumableAtSubworkflows = true;
             }
+        } else {
+            ifNoSubworkflows.accept(result);
         }
-        return null;
+        return result;
     }
 
     public static Object getNext(Object ...sources) {

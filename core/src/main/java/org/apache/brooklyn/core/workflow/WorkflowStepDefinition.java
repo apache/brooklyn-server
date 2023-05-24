@@ -54,27 +54,32 @@ public abstract class WorkflowStepDefinition {
     private static final Logger log = LoggerFactory.getLogger(WorkflowStepDefinition.class);
 
     protected String id;
+
     public String getId() {
         return id;
     }
 
     //    name:  a name to display in the UI; if omitted it is constructed from the step ID and step type
     protected String name;
+
     public String getName() {
         return name;
     }
+
     public void setName(String name) {
         this.name = name;
     }
 
-    /** freeform data for use by tools and clients */
+    /**
+     * freeform data for use by tools and clients
+     */
     protected Object metadata;
 
     protected String userSuppliedShorthand;
     protected String shorthandTypeName;
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    protected Map<String,Object> input = MutableMap.of();
+    protected Map<String, Object> input = MutableMap.of();
 
     //    next:  the next step to go to, assuming the step runs and succeeds; if omitted, or if the condition does not apply, it goes to the next step per the ordering (described below)
     @JsonProperty("next")  //use this field for access, not the getter/setter
@@ -82,31 +87,38 @@ public abstract class WorkflowStepDefinition {
 
     //    condition:  a condition to require for the step to run; if false, the step is skipped
     protected Object condition;
+
     @JsonIgnore
     public Object getConditionRaw() {
         return condition;
     }
+
     @JsonIgnore
     public DslPredicates.DslPredicate getConditionResolved(WorkflowStepInstanceExecutionContext context) {
         try {
             return context.resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, getConditionRaw(), TypeToken.of(DslPredicates.DslPredicate.class));
         } catch (Exception e) {
-            throw Exceptions.propagateAnnotated("Unresolveable condition ("+getConditionRaw()+")", e);
+            throw Exceptions.propagateAnnotated("Unresolveable condition (" + getConditionRaw() + ")", e);
         }
     }
 
     // output of steps can be overridden
     protected Object output;
-    protected boolean isOutputHandledByTask() { return false; }
+
+    protected boolean isOutputHandledByTask() {
+        return false;
+    }
 
     protected String replayable;
     protected String idempotent;
+
     protected Pair<WorkflowReplayUtils.ReplayableAtStepOption, Boolean> validateReplayableAndIdempotent() {
         return WorkflowReplayUtils.validateReplayableAndIdempotentAtStep(replayable, idempotent, false);
     }
 
     @JsonProperty("timeout")
     protected Duration timeout;
+
     @JsonIgnore
     public Duration getTimeout() {
         return timeout;
@@ -115,6 +127,7 @@ public abstract class WorkflowStepDefinition {
     // TODO: might be nice to support a shorthand for on-error; but not yet
     @JsonProperty("on-error")
     protected Object onError = MutableList.of();
+
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     public Object getOnError() {
         return onError;
@@ -133,20 +146,26 @@ public abstract class WorkflowStepDefinition {
         this.input.putAll(input);
     }
 
-    /** Returns the unresolved map of inputs */
+    /**
+     * Returns the unresolved map of inputs
+     */
     public Map<String, Object> getInput() {
         return input;
     }
 
-    /** note, this should _not_ have the type string first, whereas in YAML the shorthand must have the type string first */
+    /**
+     * note, this should _not_ have the type string first, whereas in YAML the shorthand must have the type string first
+     */
     abstract public void populateFromShorthand(String value);
 
     protected void populateFromShorthandTemplate(String template, String value) {
         populateFromShorthandTemplate(template, value, false, true);
     }
+
     protected Maybe<Map<String, Object>> populateFromShorthandTemplate(String template, String value, boolean finalMatchRaw, boolean failOnMismatch) {
         Maybe<Map<String, Object>> result = new ShorthandProcessor(template).withFinalMatchRaw(finalMatchRaw).withFailOnMismatch(failOnMismatch).process(value);
-        if (result.isAbsent()) throw new IllegalArgumentException("Invalid shorthand expression: '"+value+"'", Maybe.Absent.getException(result));
+        if (result.isAbsent())
+            throw new IllegalArgumentException("Invalid shorthand expression: '" + value + "'", Maybe.Absent.getException(result));
 
         input.putAll((Map<? extends String, ?>) CollectionMerger.builder().build().merge(input, result.get()));
         return result;
@@ -166,43 +185,51 @@ public abstract class WorkflowStepDefinition {
 
     protected Task<?> newTask(WorkflowStepInstanceExecutionContext context, ReplayContinuationInstructions continuationInstructions,
                               String specialName, BrooklynTaskTags.WorkflowTaskTag tagOverride) {
-        Task<?> t = Tasks.builder().displayName(specialName!=null ? specialName : computeName(context, true))
+        Task<?> t = Tasks.builder().displayName(specialName != null ? specialName : computeName(context, true))
                 .tag(tagOverride != null ? tagOverride : BrooklynTaskTags.tagForWorkflow(context))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
-                .tag(TaskTags.INESSENTIAL_TASK)  // we handle this specially, don't want the thread to fail
+                .tag(TaskTags.INESSENTIAL_TASK)   // need this so parent's queue doesn't abort if this fails, parent is able to run error handling
                 .body(() -> {
-            log.debug("Starting " +
-                    (specialName!=null ? specialName : "step "+context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this))
-                    + (Strings.isNonBlank(name) ? " '"+name+"'" : "")
-                    + (continuationInstructions!=null ? " (continuation"
-                            + (continuationInstructions.customBehaviorExplanation !=null ? " - "+continuationInstructions.customBehaviorExplanation : "")
+                    log.debug("Starting " +
+                            (specialName != null ? specialName : "step " + context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this))
+                            + (Strings.isNonBlank(name) ? " '" + name + "'" : "")
+                            + (continuationInstructions != null ? " (continuation"
+                            + (continuationInstructions.customBehaviorExplanation != null ? " - " + continuationInstructions.customBehaviorExplanation : "")
                             + ")"
-                        : "")
-                    + " in task "+Tasks.current().getId());
-            Callable<Object> handler = null;
+                            : "")
+                            + " in task " + Tasks.current().getId());
+                    Callable<Object> handler = null;
 
-            if (continuationInstructions!=null && this instanceof WorkflowStepDefinitionWithSubWorkflow) {
-                List<WorkflowExecutionContext> unfinished = ((WorkflowStepDefinitionWithSubWorkflow) this).getSubWorkflowsForReplay(context, continuationInstructions.forced, false, true);
-                if (unfinished!=null) {
-                    handler = () ->
-                            ((WorkflowStepDefinitionWithSubWorkflow) this).doTaskBodyWithSubWorkflowsForReplay(context, unfinished, continuationInstructions);
-                } else {
-                    // fall through to below; the sub-workflows were not persisted so shouldn't have been started
-                }
-            }
-            if (handler==null) {
-                handler = () -> {
-                    if (continuationInstructions != null && continuationInstructions.customBehavior != null) {
-                        continuationInstructions.customBehavior.run();
+                    if (continuationInstructions != null && this instanceof WorkflowStepDefinitionWithSubWorkflow) {
+                        // what is the difference between this block and
+                        // WorkflowReplayUtils.replayResumingInSubWorkflow(...)
+
+                        SubWorkflowsForReplay unfinished = ((WorkflowStepDefinitionWithSubWorkflow) this).getSubWorkflowsForReplay(context, continuationInstructions.forced, false, true);
+                        if (unfinished.isResumableAtSubworkflows) {
+                            handler = () ->
+                                    ((WorkflowStepDefinitionWithSubWorkflow) this).doTaskBodyWithSubWorkflowsForReplay(context, unfinished.subworkflows, continuationInstructions);
+                        } else if (!unfinished.isResumableOnlyAtParent) {
+                            if (!continuationInstructions.forced) throw new IllegalStateException("Cannot continue, due to non-idempotent workflows and not forced");
+                            // fall through to below because forced
+                        } else {
+                            // fall through to below; no sub-workflows
+                        }
                     }
-                    return doTaskBody(context);
-                };
-            };
+                    if (handler == null) {
+                        handler = () -> {
+                            if (continuationInstructions != null && continuationInstructions.customBehavior != null) {
+                                continuationInstructions.customBehavior.run();
+                            }
+                            // if continuing, all the info needed is now in the step state on the context and should be used by the method below
+                            return doTaskBody(context);
+                        };
+                    };
 
-            Object result = handler.call();
-            if (log.isTraceEnabled()) log.trace("Completed task for "+computeName(context, true)+", output "+result);
-            return result;
-        }).build();
+                    Object result = handler.call();
+                    if (log.isTraceEnabled())
+                        log.trace("Completed task for " + computeName(context, true) + ", output " + result);
+                    return result;
+                }).build();
         context.taskId = t.getId();
         return t;
     }
@@ -233,9 +260,9 @@ public abstract class WorkflowStepDefinition {
 
         if (Strings.isNonBlank(context.name)) {
             // if there is a name, add that also, removing id if name starts with id
-            String last = parts.isEmpty() ? null : parts.get(parts.size()-1);
-            if (last!=null && context.name.startsWith(last)) {
-                parts.remove(parts.size()-1);
+            String last = parts.isEmpty() ? null : parts.get(parts.size() - 1);
+            if (last != null && context.name.startsWith(last)) {
+                parts.remove(parts.size() - 1);
             }
             parts.add(context.name);
         } else if (!hasId) {
@@ -251,7 +278,10 @@ public abstract class WorkflowStepDefinition {
         return Strings.join(parts, " - ");
     }
 
-    public void setShorthandTypeName(String shorthandTypeDefinition) { this.shorthandTypeName = shorthandTypeDefinition; }
+    public void setShorthandTypeName(String shorthandTypeDefinition) {
+        this.shorthandTypeName = shorthandTypeDefinition;
+    }
+
     @JsonProperty("shorthandTypeName")  // REST API should prefer this accessor
     public String getShorthandTypeName() {
         if (Strings.isNonBlank(shorthandTypeName)) return shorthandTypeName;
@@ -262,7 +292,9 @@ public abstract class WorkflowStepDefinition {
         return name;
     }
 
-    /** allows subclasses to throw exception early if required fields not set */
+    /**
+     * allows subclasses to throw exception early if required fields not set
+     */
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
         validateReplayableAndIdempotent();
     }
@@ -272,28 +304,50 @@ public abstract class WorkflowStepDefinition {
         return context.getStepState();
     }
 
+    /**
+     * whether a step is idempotent, meaning it can be re-run if interrupted there;
+     * false is a hard no; true or null mean that for {@link WorkflowStepDefinitionWithSubWorkflow}, it depends on subworkflows if they have been computed and stored;
+     * and for other (non-subworkflow) steps, null means not sure, defaulting to false.
+     * <p>
+     * computed based on replayable and idempotent settings, then falling back to workflow-level setting 'idempotent: all' then step default idempotence
+     */
     Boolean isIdempotent(WorkflowStepInstanceExecutionContext csi) {
         Boolean idempotence = validateReplayableAndIdempotent().getRight();
 
-        if (idempotence==null) {
-            if (csi!=null && csi.getWorkflowExectionContext()!=null) idempotence = csi.getWorkflowExectionContext().idempotentAll;
+        if (idempotence == null) {
+            if (csi != null && csi.getWorkflowExectionContext() != null)
+                idempotence = csi.getWorkflowExectionContext().idempotentAll;
         }
-        if (idempotence==null) {
+        if (idempotence == null) {
             idempotence = isDefaultIdempotent();
         }
 
         return idempotence;
     }
 
+    /**
+     * default value for whether this step type is idempotent; can be overridden if idempotent is set on the step or workflow;
+     * see {@link #isIdempotent(WorkflowStepInstanceExecutionContext)};
+     * for {@link WorkflowStepDefinitionWithSubWorkflow}, null is preferred and is equivalent to true (in both cases meaning to check subworkflow state),
+     * otherwise null is discouraged and is equivalent to false
+     */
     protected abstract Boolean isDefaultIdempotent();
 
     public interface WorkflowStepDefinitionWithSpecialDeserialization {
         WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, WorkflowStepDefinitionWithSpecialDeserialization firstParse);
     }
 
+    public static class SubWorkflowsForReplay {
+        public String notes;
+        public boolean hasNonResumableWorkflows;
+        public boolean isResumableOnlyAtParent;
+        public boolean isResumableAtSubworkflows;
+        /** subworkflows, or null if not available. in either case, this does not imply whether it is valid to resume the step. */
+        public List<WorkflowExecutionContext> subworkflows;
+    }
+
     public interface WorkflowStepDefinitionWithSubWorkflow {
-        /** returns null if this task hasn't yet recorded its subworkflows; otherwise list of those which are replayable, empty if none need to be replayed (ended successfully) */
-        @JsonIgnore List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled);
+        @JsonIgnore SubWorkflowsForReplay getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled);
         /** called by framework if {@link #getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext, boolean, boolean, boolean)} returns non-null (empty is okay),
          * and the implementation pass the replay and optional custom behaviour to the subworkflows before doing any finalization;
          * if the subworkflow for replay is null,  the normal {@link #doTaskBody(WorkflowStepInstanceExecutionContext)} is called. */
@@ -308,6 +362,7 @@ public abstract class WorkflowStepDefinition {
         /** if supplied, custom behavior run before the primary doTaskBody; may throw exceptions or set things in stepState which are interpreted by the body */
         public final Runnable customBehavior;
         public final boolean forced;
+        public Map<String,Object> customWorkflowScratchVariables;
 
         public ReplayContinuationInstructions(Integer stepToReplayFrom, String customBehaviourExplanation, Runnable customBehavior, boolean forced) {
             this.stepToReplayFrom = stepToReplayFrom;

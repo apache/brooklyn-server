@@ -207,7 +207,12 @@ public class EntityManagementUtils {
                 try {
                     Object yo = Iterables.getOnlyElement(Yamls.parseAll(yaml));
                     // coercion does this at: org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon.registerSpecCoercionAdapter
+                    // but is too forgiving -- will coerce an empty map; so we do an extra check
                     spec = TypeCoercions.tryCoerce(yo, EntitySpec.class).orNull();
+                    if (spec.getType()==null && spec.getImplementation()==null) {
+                        if (log.isTraceEnabled()) log.trace("Failed converting entity spec YAML as YAML, transformer error will throw, but also created a bogus empty spec: "+spec+", from "+yo);
+                        spec = null;
+                    }
                 } catch (Exception e2) {
                     log.debug("Failed converting entity spec YAML as YAML, transformer error will throw, but also encountered: "+e2);
                 }

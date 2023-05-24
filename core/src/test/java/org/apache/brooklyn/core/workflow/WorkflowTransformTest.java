@@ -31,9 +31,11 @@ import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.text.Strings;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 
 public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
 
@@ -201,7 +203,6 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
 
     @Test
     public void testMapDirect() {
-
         loadTypes();
 
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
@@ -221,6 +222,61 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
         Object result = invocation.getUnchecked();
         Asserts.assertNotNull(result);
         Asserts.assertEquals(result, "2");
+    }
+
+    @Test
+    public void testReturnTransformWithMapYaml() {
+        loadTypes();
+
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        Object result = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "- step: let s",
+                "  value: |",
+                "    bogus",
+                "    - not valid: yaml: here",
+                "    that's: okay",
+                "    ---",
+                "     key: value",
+                "- transform s | yaml | return",
+                "- return should not come here",
+        ""), "test").getTask(false).get().getUnchecked();
+        Asserts.assertInstanceOf(result, Map.class);
+        Asserts.assertEquals(result, MutableMap.of("key", "value"));
+    }
+
+    @Test
+    public void testSetVarTransform() {
+        loadTypes();
+
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        Object result = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "- step: let s",
+                "  value: \"key: Value\"",
+                "- transform s | yaml | set y",
+                "- transform y.key2 = ${output.key} | to_upper_case",
+                "- transform output.key | to_lower_case",  // output should still be the yaml map transformed from ${s}
+                "- transform output | set y.key3",   // output passed in here will be 'value' from previous step
+                "- transform value true | set y.key4",
+                "- transform boolean value true | set y.key5",
+                "- return ${y}",
+                ""), "test").getTask(false).get().getUnchecked();
+        Asserts.assertInstanceOf(result, Map.class);
+        Asserts.assertEquals(result, MutableMap.of("key", "Value", "key2", "VALUE", "key3", "value", "key4", "true", "key5", true));
+    }
+
+
+    @Test
+    public void testResolveTransform() {
+        loadTypes();
+
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        Object result = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "- let a = b",
+                "- let b = c",
+                "- let x = \"${\" ${a} \"}\"",
+                "- transform x | resolve_expression | return",
+                ""), "test").getTask(false).get().getUnchecked();
+        Asserts.assertEquals(result, "c");
     }
 
 }

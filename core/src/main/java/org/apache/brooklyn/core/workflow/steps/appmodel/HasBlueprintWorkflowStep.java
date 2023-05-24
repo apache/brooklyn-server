@@ -26,8 +26,10 @@ import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.text.StringEscapes;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 
 import javax.annotation.Nullable;
@@ -53,17 +55,27 @@ public interface HasBlueprintWorkflowStep {
     }
 
     default Object resolveBlueprint(WorkflowStepInstanceExecutionContext context) {
-        return resolveBlueprint(context, () -> "type: " + StringEscapes.JavaStringEscapes.wrapJavaString(context.getInput(TYPE)));
+        return resolveBlueprint(context, () -> {
+            String type = context.getInput(TYPE);
+            if (Strings.isBlank(type)) throw new IllegalStateException("blueprint or type must be supplied"); // should've been caught earlier but check again for good measure
+            return "type: " + StringEscapes.JavaStringEscapes.wrapJavaString(type);
+        }, null, null);
     }
-    default Object resolveBlueprint(WorkflowStepInstanceExecutionContext context, Supplier<String> defaultValue) {
+
+    default Object resolveBlueprint(WorkflowStepInstanceExecutionContext context, Supplier<String> defaultValue, SetVariableWorkflowStep.InterpolationMode interpolationMode, TemplateProcessor.InterpolationErrorMode interpolationErrorMode) {
         Object blueprint = getInput().get(BLUEPRINT.getName());
         if (blueprint == null) {
             return defaultValue.get();
         }
         logger().debug("Blueprint (pre-resolution) is: "+blueprint);
         Object result = new SetVariableWorkflowStep.ConfigurableInterpolationEvaluation(context, null, blueprint,
-                context.getInputOrDefault(INTERPOLATION_MODE), context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();
+                interpolationMode!=null ? interpolationMode : context.getInputOrDefault(INTERPOLATION_MODE),
+                interpolationErrorMode!=null ? interpolationErrorMode : context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();
         logger().debug("Blueprint (post-resolution: "+context.getInputOrDefault(INTERPOLATION_MODE)+"/"+context.getInputOrDefault(INTERPOLATION_ERRORS)+") is: "+result);
+        if (result instanceof String && ((String)result).matches("[^\\s]+")) {
+            // single word value treated as a type
+            result = "type: " + StringEscapes.JavaStringEscapes.wrapJavaString((String)result);
+        }
         return result;
     }
 

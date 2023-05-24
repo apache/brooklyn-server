@@ -19,21 +19,32 @@
 package org.apache.brooklyn.core.workflow.steps.variables;
 
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 
 import java.util.List;
 
+import static org.apache.brooklyn.core.workflow.WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END;
+
 public abstract class WorkflowTransformDefault implements WorkflowTransformWithContext {
     protected WorkflowExecutionContext context;
+    protected WorkflowStepInstanceExecutionContext stepContext;
+    protected List<String> definition;
+    protected String transformDef;
 
     @Override
-    public void init(WorkflowExecutionContext context, List<String> definition, String transformDef) {
-        init(context, definition);
+    public void init(WorkflowExecutionContext context, WorkflowStepInstanceExecutionContext stepContext, List<String> definition, String transformDef) {
+        this.context = context;
+        this.stepContext = stepContext;
+        this.definition = definition;
+        this.transformDef = transformDef;
+        initCheckingDefinition();
+        initCheckingTransformPermitted();
     }
 
-    @Override
-    public void init(WorkflowExecutionContext context, List<String> definition) {
-        this.context = context;
-        if (definition != null) checkDefinitionSize1(definition);
+    protected void initCheckingTransformPermitted() {
+        if (stepContext.next == STEP_TARGET_NAME_FOR_END) {
+            throw new IllegalStateException("Cannot perform transform after 'return'");
+        }
     }
 
     @Override
@@ -41,7 +52,8 @@ public abstract class WorkflowTransformDefault implements WorkflowTransformWithC
         return false;
     }
 
-    static void checkDefinitionSize1(List<String> definition) {
-        if (definition.size()>1) throw new IllegalArgumentException("Transform '"+ definition.get(0)+"' does not accept args: " + definition.subList(1, definition.size()));
+    /** default is to fail if any arguments (size>1) but subclasses can put in different constraints, eg requiring arguments or inspecting the first word */
+    protected void initCheckingDefinition() {
+        if (definition!=null && definition.size()>1) throw new IllegalArgumentException("Transform '"+ definition.get(0)+"' does not accept args: " + definition.subList(1, definition.size()));
     }
 }

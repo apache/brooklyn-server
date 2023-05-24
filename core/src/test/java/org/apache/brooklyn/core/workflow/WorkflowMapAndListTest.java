@@ -47,7 +47,7 @@ public class WorkflowMapAndListTest  extends BrooklynMgmtUnitTestSupport {
                 .configure(WorkflowEffector.STEPS, (List) steps)
         );
         eff.apply((EntityLocal)app);
-        return app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).getUnchecked();
+        return app.invoke(app.getEntityType().getEffectorByName ("myWorkflow").get(), null).getUnchecked();
     }
 
     @Test

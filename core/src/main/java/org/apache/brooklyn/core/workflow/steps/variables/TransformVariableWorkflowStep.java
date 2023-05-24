@@ -46,6 +46,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static org.apache.brooklyn.core.workflow.WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END;
 import static org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep.setWorkflowScratchVariableDotSeparated;
 
 public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
@@ -53,10 +54,11 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
     private static final Logger log = LoggerFactory.getLogger(TransformVariableWorkflowStep.class);
 
     public static final String SHORTHAND =
-            "[ [ ${variable.type} ] ${variable.name} " +
+            "[ [ ${variable.type} ] [ ?${value_is_initial} \"value\" ] ${variable.name} " +
             "[ [ \"=\" ${value...} ] \"|\" ${transform...} ] ]";
 
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
+    public static final ConfigKey<Boolean> VALUE_IS_INITIAL = ConfigKeys.newConfigKey(Boolean.class, "value_is_initial");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
     public static final ConfigKey<Object> TRANSFORM = ConfigKeys.newConfigKey(Object.class, "transform");
 
@@ -80,7 +82,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         TypedValueToSet variable = context.getInput(VARIABLE);
-        if (variable ==null) throw new IllegalArgumentException("Variable name is required");
+        if (variable==null) throw new IllegalArgumentException("Variable name is required");
         String name = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, variable.name, String.class);
         if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
 
@@ -92,12 +94,25 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
             else throw new IllegalArgumentException("Argument to transform should be a string or list of strings, not: "+t);
         }
 
-
         Object v;
-        if (input.containsKey(VALUE.getName())) v = input.get(VALUE.getName());
-        else v = "${"+variable.name+"}";
+        if (input.containsKey(VALUE.getName())) {
+            if (Boolean.TRUE.equals(context.getInput(VALUE_IS_INITIAL))) throw new IllegalArgumentException("Cannot specifiy value_is_initial (keyword \"value\") with an = value");
 
-        if (Strings.isNonBlank(variable.type)) transforms.add("type "+variable.type);
+            v = input.get(VALUE.getName());
+            if (Strings.isNonBlank(variable.type)) transforms.add("type "+variable.type);
+        } else {
+            v = "${" + variable.name + "}";
+            if (Boolean.TRUE.equals(context.getInput(VALUE_IS_INITIAL)) || "value".equals(variable.type)) {
+                // special keyword to treat name as a literal expression
+                v = variable.name;
+            }
+            if (Strings.isNonBlank(variable.type)) {
+                if (Boolean.TRUE.equals(context.getInput(VALUE_IS_INITIAL)) || !"value".equals(variable.type)) {
+                    transforms.add(0, "type " + variable.type);
+                }
+            }
+            name = null;
+        }
 
         boolean isResolved = false;
         for (String t: transforms) {
@@ -116,10 +131,18 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
             v = tt.apply(v);
         }
 
-        Object oldValue = setWorkflowScratchVariableDotSeparated(context, name, v);
-        context.noteOtherMetadata("Value set", v);
-        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
-        return context.getPreviousStepOutput();
+        if (name!=null) {
+            Object oldValue = setWorkflowScratchVariableDotSeparated(context, name, v);
+            context.noteOtherMetadata("Value set", v);
+            if (oldValue != null) context.noteOtherMetadata("Previous value", oldValue);
+
+            if (context.getOutput()!=null) throw new IllegalStateException("Transform that produces output results cannot be used when setting a variable");
+            if (STEP_TARGET_NAME_FOR_END.equals(context.next)) throw new IllegalStateException("Return transform cannot be used when setting a variable");
+
+            return context.getPreviousStepOutput();
+        } else {
+            return v;
+        }
     }
 
     static WorkflowTransformWithContext transformOf(final Function f) {
@@ -145,7 +168,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         }
         if (t==null) throw new IllegalStateException("Unknown transform '"+transformType+"'");
         WorkflowTransformWithContext ta = transformOf(t);
-        ta.init(context.getWorkflowExectionContext(), transformWords, transformDef);
+        ta.init(context.getWorkflowExectionContext(), context, transformWords, transformDef);
         return ta;
     }
 
@@ -184,6 +207,11 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
             return v;
         });
         TRANSFORMATIONS.put("to_string", () -> v -> Strings.toString(v));
+        TRANSFORMATIONS.put("to_upper_case", () -> v -> ((String)v).toUpperCase());
+        TRANSFORMATIONS.put("to_lower_case", () -> v -> ((String)v).toLowerCase());
+        TRANSFORMATIONS.put("return", () -> new TransformReturn());
+        TRANSFORMATIONS.put("set", () -> new TransformSetWorkflowVariable());
+        TRANSFORMATIONS.put("resolve_expression", () -> new TransformResolveExpression());
     }
 
     static final Object minmax(Object v, String word, Predicate<Integer> test) {

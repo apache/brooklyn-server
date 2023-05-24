@@ -46,9 +46,11 @@ public interface WorkflowCommonConfig {
     ConfigKey<String> RETENTION = ConfigKeys.newStringConfigKey("retention",
             "Specification for how long workflow should be retained");
 
+    // see docs settings.md - eg 'from start' on workflow, or 'from here [only]' on step
     ConfigKey<String> REPLAYABLE = ConfigKeys.newStringConfigKey("replayable",
             "Indication of from what points the workflow is replayable");
 
+    // see docs settings.md - 'all' if set on workflow (use with case), or yes/no/default on a step; consider also 'replayable'
     ConfigKey<String> IDEMPOTENT = ConfigKeys.newStringConfigKey("idempotent",
             "Indication of which steps in the workflow are idempotent");
 

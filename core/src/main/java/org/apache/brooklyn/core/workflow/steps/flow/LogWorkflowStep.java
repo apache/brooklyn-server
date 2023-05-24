@@ -68,7 +68,8 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
         }
         context.noteOtherMetadata("Message", messageLogged, false);  // show this so it is displayed on the step in the UI
 
-        // TODO all workflow log messages should include step id as logging MDC, or message to start/end each workflow/task
+        // TODO workflow log messages should include step id as logging MDC, or message to start/end each workflow/task
+
         return context.getPreviousStepOutput();
     }
 

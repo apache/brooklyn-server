@@ -18,14 +18,14 @@
  */
 package org.apache.brooklyn.core.workflow.steps.variables;
 
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
-import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import static org.apache.brooklyn.core.workflow.WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END;
 
-import java.util.List;
+public class TransformReturn extends WorkflowTransformDefault {
 
-public interface WorkflowTransformWithContext extends WorkflowTransform {
+    @Override
+    public Object apply(Object v) {
+        stepContext.next = STEP_TARGET_NAME_FOR_END;
+        return v;
+    }
 
-    void init(WorkflowExecutionContext context, WorkflowStepInstanceExecutionContext stepContext, List<String> definition, String transformDef);
-
-    boolean isResolver();
 }

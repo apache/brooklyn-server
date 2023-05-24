@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
@@ -38,8 +39,8 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowRetentionAndExpiration;
-import org.apache.brooklyn.core.workflow.utils.WorkflowConcurrencyParser;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
+import org.apache.brooklyn.core.workflow.utils.WorkflowConcurrencyParser;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -47,6 +48,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
@@ -60,6 +62,8 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -228,6 +232,90 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
     public void testTargetRangeSyntax() throws Exception {
         doTestTargetExplicitList("1..5");
     }
+
+    @Test
+    public void testTargetReducing() throws Exception {
+        Object output = doTestTargetReducing(null);
+        checkTargetReducing(output);
+    }
+
+    protected void checkTargetReducing(Object output) {
+        Asserts.assertEquals(output, MutableMap.of("sum", 6, "squares", MutableList.of(0, 1, 4, 9)));
+    }
+
+    protected Object doTestTargetReducing(Duration sleep) throws Exception {
+        return invokeWorkflowStepsWithLogging(MutableList.of(Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
+                "type: workflow",
+                "name: reducing-test-main",
+                "steps:",
+                "  - log starting workflow",
+                "  - let list<integer> squares = [ 0 ]",
+                "  - type: workflow",
+                "    name: reducing-test-sub",
+                "    target: 1..3",
+                "    reducing:",
+                "      squares: ${squares}",
+                "      sum: 0",
+                "    steps:",
+                "    - log starting subworkflow ${target_index}",
+                (sleep==null ? "" : "    - sleep "+sleep),
+                "    - let sum = ${sum} + ${target}",
+                "    - let square = ${target} * ${target}",
+                "    - step: transform squares2",
+                "      value:",
+                "        - ${squares}",
+                "        -",
+                "          - ${square}",
+                "      transform: merge",
+                "    - log ending subworkflow ${target_index}",
+                "    - step: return",
+                "      value:",
+                "        squares: ${squares2}",   // test that output overrides local vars
+                "  - log ending workflow",
+                ""
+        )))));
+    }
+
+    @Test(groups="Integration", invocationCount = 10)  // because slow
+    public void testTargetReducingInterrupted() throws Exception {
+        checkTargetReducing(doTestTargetReducing(Duration.millis(10)));
+
+        for (int i=0; i<10; i++) {
+            log.info("submitting for iteration "+(i+1));
+            lastInvocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+            String wfId = lastInvocation.getId();
+            for (int j=0; ; j++) {
+                // increase in case running on slow system, if 200ms not enough will never exit, and because retention is forever, persistence takes longer each time
+                Duration sleep = Duration.millis((int) ((200+100*j) * Math.random() * Math.random()));
+                log.info("sleeping "+sleep);
+                Time.sleep(sleep);
+                lastInvocation.cancel(true);
+                try {
+                    Object result = lastInvocation.get(Duration.ONE_SECOND);
+                    checkTargetReducing(result);
+                    // completed without error
+                    break;
+                } catch (Exception e) {
+                    if (Exceptions.getFirstThrowableMatching(e, e2 -> (e2 instanceof InterruptedException || e2 instanceof CancellationException))==null) {
+                        throw Exceptions.propagate(e);
+                    } else {
+                        // interrupted
+                    }
+                }
+
+                WorkflowExecutionContext lastWf = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).get(wfId);
+                log.info("replaying from last");
+                lastInvocation = lastWf.factory(false).createTaskReplaying(lastWf.factory(false)
+                        .makeInstructionsForReplayResuming("test", true));
+                // can also test this, but less interesting
+//                        .makeInstructionsForReplayingFromLastReplayable("test", true));
+                Entities.submit(app, lastInvocation);
+            }
+            log.info("success for iteration "+(i+1)+"\n");
+        }
+    }
+
+
 
     public void doTestTargetExplicitList(String body) throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
@@ -655,7 +743,12 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                     if (!t.isDone()) {
                         Asserts.fail("Workflow task should have finished: " + t.getStatusDetail(true));
                     }
-                    if (!t.isError() || expectRightAnswer) result.add((Integer) t.getUnchecked());
+                    if (!t.isError() || expectRightAnswer) {
+                        if (!(t.getUnchecked() instanceof Integer)) {
+                            log.warn("ERROR - task "+t+" did not return integer; returned: "+t.getUnchecked());
+                        }
+                        result.add((Integer) t.getUnchecked());
+                    }
                 }
             }
 
@@ -780,4 +873,32 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
         )))), error -> Asserts.expectedFailureContainsIgnoreCase(error, "error running sub-workflows ", "deliberate failure on B"));
     }
 
+    @Test
+    public void testForeachBasic() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let list L = [ \"a\" , 1 ]",
+                MutableMap.of("step", "foreach x in ${L}",
+                        "steps", MutableList.of("return element-${x}"))));
+        Asserts.assertEquals(output, MutableList.of("element-a", "element-1"));
+    }
+
+    @Test
+    public void testForeachReducingAndSeparateValue() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.of("step", "foreach x",
+                        "target", "1..3",
+                        "reducing", MutableMap.of("answer", 0),
+                        "steps", MutableList.of("let answer = ${answer} + ${x}"))));
+        Asserts.assertEquals(output, MutableMap.of("answer", 6));
+    }
+
+    @Test
+    public void testForeachSpread() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.of("step", "let LM",
+                    "value", MutableList.of(MutableMap.of("key", "K1", "value", "V1"), MutableMap.of("key", "K2", "value", "V2"))),
+                MutableMap.of("step", "foreach {key,value} in ${LM}",
+                        "steps", MutableList.of("return element-${key}-${value}"))));
+        Asserts.assertEquals(output, MutableList.of("element-K1-V1", "element-K2-V2"));
+    }
 }

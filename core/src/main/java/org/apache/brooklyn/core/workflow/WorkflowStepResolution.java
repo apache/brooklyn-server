@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow;
 
 import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -90,7 +91,18 @@ public class WorkflowStepResolution {
                 if (s == null) s = defM.remove("shorthand");
                 if (s == null) s = defM.remove("s");
                 if (s == null) {
-                    throw new IllegalArgumentException("Step definition must indicate a `type` or a `step` / `shorthand` / `s` ("+def+")");
+                    if (defM.size()==1) {
+                        // assume the colon caused it accidentally to be a map
+                        s = Iterables.getOnlyElement(defM.keySet());
+                        if (s instanceof String && ((String)s).contains(" ")) {
+                            s = s + " : " + Iterables.getOnlyElement(defM.values());
+                        } else {
+                            s = null;
+                        }
+                    }
+                    if (s==null) {
+                        throw new IllegalArgumentException("Step definition must indicate a `type` or a `step` / `shorthand` / `s` (" + def + ")");
+                    }
                 }
                 if (!(s instanceof String)) {
                     throw new IllegalArgumentException("step shorthand must be a string");

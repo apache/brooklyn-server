@@ -37,9 +37,7 @@ public class TransformReplace extends WorkflowTransformDefault {
     String SHORTHAND = "\"replace\" [ ?${all} \"all\" ] [ ?${regex} \"regex\" ] [ ?${glob} \"glob\" ] [ ?${literal} \"literal\" ] ${patternToMatch} ${replacement}";
 
     @Override
-    public void init(WorkflowExecutionContext context, List<String> definition, String transformDef) {
-        super.init(context, null);
-
+    protected void initCheckingDefinition() {
         Maybe<Map<String, Object>> maybeResult = new ShorthandProcessor(SHORTHAND)
                 .withFinalMatchRaw(true)
                 .withFailOnMismatch(true)

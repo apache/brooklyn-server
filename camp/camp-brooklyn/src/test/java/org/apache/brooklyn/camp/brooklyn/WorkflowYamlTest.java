@@ -119,6 +119,42 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     }
 
     @Test
+    public void testWorkflowInitializeBasicSensor() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      steps:",
+                "        - set-sensor foo = bar",
+                "");
+        waitForApplicationTasks(app);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "foo"), "bar");
+    }
+
+    @Test
+    public void testWorkflowParsesAColonSetsSensorType() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      steps:",
+                // special trickery is done to allow this (with one colon; two colons still not allowed)
+                "        - set-sensor map foo = { k: v }",
+//                "        - \"set-sensor map foo = { k: v }\"",
+                "");
+        waitForApplicationTasks(app);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "foo"), MutableMap.of("k", "v"));
+    }
+
+    @Test
     public void testWorkflowEffector() throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
