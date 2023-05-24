@@ -90,7 +90,7 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
             Set<Task<?>> thisLayer = nextLayer;
             nextLayer = MutableSet.of();
             for (final Task<?> childTask : thisLayer) {
-                TaskSummary wasThere = result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null), suppressSecrets).apply(childTask));
+                TaskSummary wasThere = result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null), suppressSecrets, false).apply(childTask));
                 if (wasThere==null) {
                     if (--limit == 0) {
                         break outer;

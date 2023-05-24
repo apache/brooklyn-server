@@ -124,6 +124,7 @@ public abstract class AbstractBrooklynRestResource {
         private @Nullable Boolean skipResolution;
         private @Nullable Boolean suppressBecauseSecret;
         private @Nullable Boolean suppressSecrets;
+        private boolean filterOutputFields = false;
 
         public static RestValueResolver resolving(ManagementContext mgmt, Object v) { return new RestValueResolver(mgmt, v); }
         
@@ -221,6 +222,7 @@ public abstract class AbstractBrooklynRestResource {
         public RestValueResolver timeout(Duration timeout) { this.timeout = timeout; return this; }
         public RestValueResolver immediately(boolean immediately) { this.immediately = immediately; return this; }
         public RestValueResolver renderAs(Object rendererHintSource) { this.rendererHintSource = rendererHintSource; return this; }
+        public RestValueResolver filterOutputFields(boolean filterOutputFields) { this.filterOutputFields = filterOutputFields; return this; }
 
         public Object resolve() {
             Object valueResult =
@@ -235,8 +237,8 @@ public abstract class AbstractBrooklynRestResource {
                 valueResult = suppressAsMinimalizedJson(mapper(), valueResult);
 
             }
-            return getValueForDisplayAfterSecretsCheck(mgmt, mapper(), valueResult, preferJson, isJerseyReturnValue,
-                    Boolean.TRUE.equals(suppressSecrets) && !Boolean.TRUE.equals(suppressBecauseSecret), false);
+            return getValueForDisplaySanitized(mgmt, mapper(), valueResult, preferJson, isJerseyReturnValue,
+                    Boolean.TRUE.equals(suppressSecrets) && !Boolean.TRUE.equals(suppressBecauseSecret), filterOutputFields);
         }
 
         private static Object UNRESOLVED = "UNRESOLVED".toCharArray();
@@ -258,18 +260,21 @@ public abstract class AbstractBrooklynRestResource {
                     preferJson!=null ? preferJson : this.preferJson, isJerseyReturnValue!=null ? isJerseyReturnValue : this.isJerseyReturnValue,
                     suppressNestedSecrets!=null ? suppressNestedSecrets : this.suppressSecrets, false);
         }
-        public Object getValueForDisplay(Object value, Boolean preferJson, Boolean isJerseyReturnValue, Boolean suppressNestedSecrets, boolean suppressOutput) {
+        public Object getValueForDisplay(Object value, Boolean preferJson, Boolean isJerseyReturnValue, Boolean suppressNestedSecrets, boolean filterOutputFields) {
             return getValueForDisplay(mgmt, mapper(), value,
                     preferJson!=null ? preferJson : this.preferJson, isJerseyReturnValue!=null ? isJerseyReturnValue : this.isJerseyReturnValue,
-                    suppressNestedSecrets!=null ? suppressNestedSecrets : this.suppressSecrets, suppressOutput);
+                    suppressNestedSecrets!=null ? suppressNestedSecrets : this.suppressSecrets, filterOutputFields);
         }
 
-        public static Object getValueForDisplay(ManagementContext mgmt, ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue, Boolean suppressNestedSecrets, Boolean suppressOutput) {
+        public static Object getValueForDisplay(ManagementContext mgmt, ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue, Boolean suppressNestedSecrets, Boolean filterOutputFields) {
             suppressNestedSecrets = checkAndGetSecretsSuppressed(mgmt, suppressNestedSecrets, false);
-            return getValueForDisplayAfterSecretsCheck(mgmt, mapper, value, preferJson, isJerseyReturnValue, suppressNestedSecrets, suppressOutput);
+            return getValueForDisplaySanitized(mgmt, mapper, value, preferJson, isJerseyReturnValue, suppressNestedSecrets, filterOutputFields);
         }
 
-        static Object getValueForDisplayAfterSecretsCheck(ManagementContext mgmt, ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue, Boolean suppressNestedSecrets, Boolean suppressOutput) {
+        static Object getValueForDisplaySanitized(ManagementContext mgmt, ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue, Boolean suppressNestedSecrets, Boolean filterOutputFields) {
+            if (suppressNestedSecrets==null) suppressNestedSecrets = false;
+            if (filterOutputFields==null) filterOutputFields = false;
+
             if (preferJson) {
                 if (value==null) return null;
                 Object result = value;
@@ -288,22 +293,29 @@ public abstract class AbstractBrooklynRestResource {
                     }
                 }
 
-                if (suppressNestedSecrets) {
+                if (suppressNestedSecrets || filterOutputFields) {
                     if (result==null || Boxing.isPrimitiveOrBoxedObject(result)) {
                         // no action needed
                     } else if (result instanceof CharSequence) {
-                        result = Sanitizer.sanitizeMultilineString(result.toString());
+                        if (suppressNestedSecrets) {
+                            result = Sanitizer.sanitizeMultilineString(result.toString());
+                        }
                     } else {
                         // go ahead and convert to json and suppress deep
                         try {
                             String resultS = mapper.writeValueAsString(result);
                             result = BeanWithTypeUtils.newSimpleMapper().readValue(resultS, Object.class);
-                            if (suppressOutput){
-                                result = TaskTransformer.suppressOutputs(result);
+
+                            if (filterOutputFields) {
+                                result = TaskTransformer.filterOutputFields(result);
                             }
-                            //the below treats all numbers as doubles
-                            //new Gson().fromJson(resultS, Object.class);
-                            return Sanitizer.suppressNestedSecretsJson(result, true);
+
+                            if (suppressNestedSecrets) {
+                                //the below treats all numbers as doubles
+                                //new Gson().fromJson(resultS, Object.class);
+                                result = Sanitizer.suppressNestedSecretsJson(result, true);
+                            }
+
                         } catch (JsonProcessingException e) {
                             throw Exceptions.propagateAnnotated("Cannot serialize REST result", e);
                         }

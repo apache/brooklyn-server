@@ -21,6 +21,7 @@ package org.apache.brooklyn.rest.transform;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import org.apache.brooklyn.api.entity.Entity;
@@ -38,6 +39,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.TaskInternal;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -117,7 +119,7 @@ public class TaskTransformer {
                 "children", new URI(selfLink+"/"+"children"));
         if (entityLink!=null) links.put("entity", entityLink);
 
-        Collection<Object> tags = (Collection<Object>) resolver.getValueForDisplay(task.getTags(), true, false, suppressSecrets);
+        Collection<Object> tags = (Collection<Object>) resolver.getValueForDisplay(task.getTags(), true, false, suppressSecrets, !includeDetail);
 
         Object result = null;
         String detailedStatus = null;
@@ -227,6 +229,7 @@ public class TaskTransformer {
                 }
             }
         }
+
         List<Task<?>> finalTasksToScan = ImmutableList.copyOf(tasksToScan);
         return tasksLoaded.values().stream().map(task->{
             boolean includeDetail = (taskSummaryMode == TaskSummaryMode.ALL && !isRecurse) || (taskSummaryMode == TaskSummaryMode.SUBSET && finalTasksToScan.contains(task));
@@ -234,25 +237,36 @@ public class TaskTransformer {
             return taskTaskSummaryFunction.apply(task);
         }).collect(Collectors.toList());
     }
-    public static Object suppressOutputs(Object x) {
+    public static Object filterOutputFields(Object x) {
         if (x instanceof Map) {
             Map y = MutableMap.of();
             ((Map)x).forEach((k,v) -> {
-                y.put(k, v!=null && TaskTransformer.IS_OUTPUT.apply(k) ? "(output suppressed)": suppressOutputs(v) );
+                y.put(k, v!=null && TaskTransformer.IS_OUTPUT_FIELD.apply(k) ? filterOutputValue(v) : filterOutputFields(v) );
             });
             return y;
         }else if (x instanceof Iterable){
             List y = MutableList.of();
-            ((Iterable)x).forEach(xi -> y.add(suppressOutputs(xi)));
+            ((Iterable)x).forEach(xi -> y.add(filterOutputFields(xi)));
             return y;
         }else {
             return x;
         }
     }
 
-    public static final Predicate<Object> IS_OUTPUT = new IsOutputPredicate();
+    static Object filterOutputValue(Object v) {
+        if (v==null || Boxing.isPrimitiveOrBoxedObject(v)) return v;
+        if (v instanceof CharSequence) {
+            if (((CharSequence) v).length() < 80) return v;
+            return "<filtered>";
+        }
+        return "<filtered (type "+v.getClass().getName()+")>";
+    }
 
-    static final ImmutableList<String> OUTPUT_VALUES = ImmutableList.of("output", "stdout", "stderr");
+    public static final Predicate<Object> IS_OUTPUT_FIELD = new IsOutputPredicate();
+
+    static final Set<String> OUTPUT_VALUES = ImmutableSet.of("output", "stdout", "stderr",
+            "headers", "content", "content_bytes", "content_json");
+
     private static class IsOutputPredicate implements Predicate<Object> {
         @Override
         public boolean apply(Object name) {

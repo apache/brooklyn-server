@@ -159,7 +159,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
             limit, recurse, entity, ui, resolving(null), suppressSecrets, TaskTransformer.TaskSummaryMode.NONE);
     }
 
-    /** API does not guarantee order, but this is a the one we use (when there are lots of tasks):
+    /** API does not guarantee order, but this is the one we use (when there are lots of tasks):
      * prefer top-level tasks and to recent tasks, 
      * balanced such that the following are equal:
      * <li>something manually submitted here, submitted two hours ago

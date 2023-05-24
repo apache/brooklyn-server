@@ -95,7 +95,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
             Object value = EntityAttributesUtils.tryGetAttribute(entity, findSensor(entity, sensor.getName()));
             sensorMap.put(sensor.getName(),
                 resolving(value).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(useDisplayHints).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(sensor)
-                        .suppressIfSecret(sensor.getName(), suppressSecrets).resolve());
+                        .suppressIfSecret(sensor.getName(), suppressSecrets).filterOutputFields(sensor.getName().startsWith("internal")).resolve());
         }
         return sensorMap;
     }
