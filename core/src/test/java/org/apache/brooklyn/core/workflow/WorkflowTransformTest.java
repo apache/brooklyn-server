@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -31,11 +32,13 @@ import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
 
@@ -264,7 +267,6 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(result, MutableMap.of("key", "Value", "key2", "VALUE", "key3", "value", "key4", "true", "key5", true));
     }
 
-
     @Test
     public void testResolveTransform() {
         loadTypes();
@@ -277,6 +279,33 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
                 "- transform x | resolve_expression | return",
                 ""), "test").getTask(false).get().getUnchecked();
         Asserts.assertEquals(result, "c");
+    }
+
+    @Test
+    public void testSliceAndRemoveTransform() {
+        loadTypes();
+
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        Function<String,Object> transform = tx -> WorkflowBasicTest.runWorkflow(app, Strings.lines("- "+tx), "test").getTask(false).get().getUnchecked();
+
+        // slice list
+        Asserts.assertEquals(transform.apply("transform value ['a','bb','ccc'] | type list | slice 1"), MutableList.of("bb", "ccc"));
+        Asserts.assertEquals(transform.apply("transform value ['a','bb','ccc'] | type list | slice 1 -1"), MutableList.of("bb"));
+        Asserts.assertEquals(transform.apply("transform value ['a','bb','ccc'] | type list | slice -1"), MutableList.of("ccc"));
+
+        // slice string
+        Asserts.assertEquals(transform.apply("transform value abc | slice 1"), "bc");
+
+        // remove list
+        Asserts.assertEquals(transform.apply("transform value ['a','bb','ccc'] | type list | remove 1"), MutableList.of("a", "ccc"));
+
+        // remove map
+        Asserts.assertEquals(transform.apply("step: transform\n" +
+                "  transform: type map | remove b\n" +
+                "  value:\n" +
+                "    a: 1\n" +
+                "    b: 2"), MutableMap.of("a", 1));
     }
 
 }

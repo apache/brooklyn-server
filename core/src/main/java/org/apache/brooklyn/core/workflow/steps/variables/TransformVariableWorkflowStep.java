@@ -54,8 +54,8 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
     private static final Logger log = LoggerFactory.getLogger(TransformVariableWorkflowStep.class);
 
     public static final String SHORTHAND =
-            "[ [ ${variable.type} ] [ ?${value_is_initial} \"value\" ] ${variable.name} " +
-            "[ [ \"=\" ${value...} ] \"|\" ${transform...} ] ]";
+            "[ [ [ ${variable.type} ] [ ?${value_is_initial} \"value\" ] ${variable.name} " +
+            "[ [ \"=\" ${value...} ] \"|\" ${transform...} ] ] ]";
 
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
     public static final ConfigKey<Boolean> VALUE_IS_INITIAL = ConfigKeys.newConfigKey(Boolean.class, "value_is_initial");
@@ -71,9 +71,6 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
     @Override
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
         super.validateStep(mgmt, workflow);
-        if (!input.containsKey(VARIABLE.getName())) {
-            throw new IllegalArgumentException("Variable name is required");
-        }
         if (!input.containsKey(TRANSFORM.getName())) {
             throw new IllegalArgumentException("Transform is required");
         }
@@ -82,9 +79,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         TypedValueToSet variable = context.getInput(VARIABLE);
-        if (variable==null) throw new IllegalArgumentException("Variable name is required");
-        String name = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, variable.name, String.class);
-        if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
+        String name;
 
         Object transformO = context.getInput(TRANSFORM);
         if (!(transformO instanceof Iterable)) transformO = MutableList.of(transformO);
@@ -96,11 +91,20 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
 
         Object v;
         if (input.containsKey(VALUE.getName())) {
-            if (Boolean.TRUE.equals(context.getInput(VALUE_IS_INITIAL))) throw new IllegalArgumentException("Cannot specifiy value_is_initial (keyword \"value\") with an = value");
+            name = variable==null ? null : context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, variable.name, String.class);
+
+            if (!Strings.isBlank(name) && Boolean.TRUE.equals(context.getInput(VALUE_IS_INITIAL))) {
+                // allowed with no var name, we use the value as if "value" was specified, or with a var name, the var will be set
+                // but not allowed if "value" keyword was supplied because that means the var name is to be treated as the value
+                throw new IllegalArgumentException("Cannot specifiy value_is_initial (keyword \"value\") with an = value");
+            }
 
             v = input.get(VALUE.getName());
-            if (Strings.isNonBlank(variable.type)) transforms.add("type "+variable.type);
+            if (variable!=null && Strings.isNonBlank(variable.type)) transforms.add("type "+variable.type);
+
         } else {
+            if (variable==null || Strings.isBlank(variable.name)) throw new IllegalArgumentException("Variable name is required");
+
             v = "${" + variable.name + "}";
             if (Boolean.TRUE.equals(context.getInput(VALUE_IS_INITIAL)) || "value".equals(variable.type)) {
                 // special keyword to treat name as a literal expression
@@ -176,6 +180,8 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
     static {
         TRANSFORMATIONS.put("trim", () -> new TransformTrim());
         TRANSFORMATIONS.put("merge", () -> new TransformMerge());
+        TRANSFORMATIONS.put("slice", () -> new TransformSlice());
+        TRANSFORMATIONS.put("remove", () -> new TransformRemove());
         TRANSFORMATIONS.put("json", () -> new TransformJsonish(true, false, false));
         TRANSFORMATIONS.put("yaml", () -> new TransformJsonish(false, true, false));
         TRANSFORMATIONS.put("bash", () -> new TransformJsonish(true, false, true));
