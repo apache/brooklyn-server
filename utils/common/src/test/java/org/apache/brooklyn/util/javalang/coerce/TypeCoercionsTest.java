@@ -38,6 +38,7 @@ import java.util.TimeZone;
 
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.slf4j.Logger;
@@ -347,6 +348,9 @@ public class TypeCoercionsTest {
     public void testJsonStringToMapCoercion() {
         Map<?,?> s = coerce("{ \"a\" : \"1\", b : 2 }", Map.class);
         Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", 2));
+
+        Maybe<Map> result = coercer.tryCoerce("x", Map.class);
+        if (result.isPresent()) Asserts.fail("Should have failed, instead produced map "+result.get());
     }
 
     @Test
@@ -374,36 +378,7 @@ public class TypeCoercionsTest {
         Assert.assertEquals(s, ImmutableMap.of("a", 1, "b", 2));
     }
 
-    @Test
-    public void testKeyEqualsValueStringToMapCoercion() {
-        Map<?,?> s = coerce("a=1,b=2", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", "2"));
-    }
-
-    @Test
-    public void testJsonStringWithoutBracesOrSpaceDisallowedAsMapCoercion() {
-        Map<?,?> s = coerce("a:1,b:2", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", "2"));
-        // NB: snakeyaml 1.17 required spaces after the colon, but 1.21 accepts the above
-    }
-    
-    @Test
-    public void testEqualsInBracesMapCoercion() {
-        Map<?,?> s = coerce("{ a = 1, b = '2' }", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", 1, "b", "2"));
-    }
-
-    @Test
-    public void testKeyEqualsOrColonValueWithBracesStringToMapCoercion() {
-        Map<?,?> s = coerce("{ a=1, b: 2 }", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", 2));
-    }
-
-    @Test
-    public void testKeyEqualsOrColonValueWithoutBracesStringToMapCoercion() {
-        Map<?,?> s = coerce("a=1, b: 2", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", 2));
-    }
+    // map tests removed, tested in downstream core/internalTypeCoercionsTest
 
     @Test
     public void testURItoStringCoercion() {

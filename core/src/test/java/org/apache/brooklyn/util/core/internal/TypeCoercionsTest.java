@@ -20,9 +20,6 @@ package org.apache.brooklyn.util.core.internal;
 
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -41,7 +38,9 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.coerce.ClassCoercionException;
+import org.apache.brooklyn.util.javalang.coerce.CommonAdaptorTypeCoercions;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,10 +55,25 @@ import com.google.common.reflect.TypeToken;
 
 import groovy.lang.GString;
 
+import static org.testng.Assert.*;
+
 public class TypeCoercionsTest {
 
     private static final Logger log = LoggerFactory.getLogger(TypeCoercionsTest.class);
-    
+
+    // largely a duplicate of upstream common coerce/TypeCoercionsTest
+    // but with a few extras; ideally would be reconciled
+
+    private static void assertMapsEqual(Map actual, Map expected) {
+        Assert.assertEquals(actual, expected);
+
+        // workaround for bug in testng assert when values are null
+        // PR https://github.com/testng-team/testng/pull/2914 opened, hopefully included in testng 7.9 then this can be removed
+        if (actual instanceof Map && expected instanceof Map) {
+            assertEquals( ((Map)actual).keySet(), ((Map)expected).keySet(), "Keys in map differ: "+actual.keySet()+" / "+expected.keySet() );
+        }
+    }
+
     @Test
     public void testCoerceCharSequenceToString() {
         assertEquals(TypeCoercions.coerce(new StringBuilder("abc"), String.class), "abc");
@@ -156,7 +170,7 @@ public class TypeCoercionsTest {
         assertEquals(TypeCoercions.coerce(BigInteger.ONE, int.class), (Integer)1);
         assertEquals(TypeCoercions.coerce(BigInteger.valueOf(Long.MAX_VALUE), Long.class), (Long)Long.MAX_VALUE);
         assertEquals(TypeCoercions.coerce(BigInteger.valueOf(Long.MAX_VALUE), long.class), (Long)Long.MAX_VALUE);
-        
+
         assertEquals(TypeCoercions.coerce(BigDecimal.valueOf(0.5), Double.class), 0.5d, 0.00001d);
         assertEquals(TypeCoercions.coerce(BigDecimal.valueOf(0.5), double.class), 0.5d, 0.00001d);
     }
@@ -195,13 +209,13 @@ public class TypeCoercionsTest {
     @Test
     public void testListToSetCoercion() {
         Set<?> s = TypeCoercions.coerce(ImmutableList.of(1), Set.class);
-        Assert.assertEquals(s, ImmutableSet.of(1));
+        assertEquals(s, ImmutableSet.of(1));
     }
     
     @Test
     public void testSetToListCoercion() {
         List<?> s = TypeCoercions.coerce(ImmutableSet.of(1), List.class);
-        Assert.assertEquals(s, ImmutableList.of(1));
+        assertEquals(s, ImmutableList.of(1));
     }
     
     @Test
@@ -223,41 +237,41 @@ public class TypeCoercionsTest {
     public void testListEntryCoercion() {
         @SuppressWarnings("serial")
         List<?> s = TypeCoercions.coerce(ImmutableList.of("java.lang.Integer", "java.lang.Double"), new TypeToken<List<Class<?>>>() { });
-        Assert.assertEquals(s, ImmutableList.of(Integer.class, Double.class));
+        assertEquals(s, ImmutableList.of(Integer.class, Double.class));
     }
     
     @Test
     public void testListEntryToSetCoercion() {
         @SuppressWarnings("serial")
         Set<?> s = TypeCoercions.coerce(ImmutableList.of("java.lang.Integer", "java.lang.Double"), new TypeToken<Set<Class<?>>>() { });
-        Assert.assertEquals(s, ImmutableSet.of(Integer.class, Double.class));
+        assertEquals(s, ImmutableSet.of(Integer.class, Double.class));
     }
     
     @Test
     public void testListEntryToCollectionCoercion() {
         @SuppressWarnings("serial")
         Collection<?> s = TypeCoercions.coerce(ImmutableList.of("java.lang.Integer", "java.lang.Double"), new TypeToken<Collection<Class<?>>>() { });
-        Assert.assertEquals(s, ImmutableList.of(Integer.class, Double.class));
+        assertEquals(s, ImmutableList.of(Integer.class, Double.class));
     }
 
     @Test
     public void testMapValueCoercion() {
         @SuppressWarnings("serial")
         Map<?,?> s = TypeCoercions.coerce(ImmutableMap.of("int", "java.lang.Integer", "double", "java.lang.Double"), new TypeToken<Map<String, Class<?>>>() { });
-        Assert.assertEquals(s, ImmutableMap.of("int", Integer.class, "double", Double.class));
+        assertMapsEqual(s, ImmutableMap.of("int", Integer.class, "double", Double.class));
     }
     
     @Test
     public void testMapKeyCoercion() {
         @SuppressWarnings("serial")
         Map<?,?> s = TypeCoercions.coerce(ImmutableMap.of("java.lang.Integer", "int", "java.lang.Double", "double"), new TypeToken<Map<Class<?>, String>>() { });
-        Assert.assertEquals(s, ImmutableMap.of(Integer.class, "int", Double.class, "double"));
+        assertMapsEqual(s, ImmutableMap.of(Integer.class, "int", Double.class, "double"));
     }
 
     @Test
     public void testStringToListCoercion() {
         List<?> s = TypeCoercions.coerce("a,b,c", List.class);
-        Assert.assertEquals(s, ImmutableList.of("a", "b", "c"));
+        assertEquals(s, ImmutableList.of("a", "b", "c"));
     }
 
     @Test
@@ -269,97 +283,105 @@ public class TypeCoercionsTest {
     @Test
     public void testJsonStringToMapCoercion() {
         Map<?,?> s = TypeCoercions.coerce("{ \"a\" : \"1\", b : 2 }", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", 2));
+        assertMapsEqual(s, ImmutableMap.of("a", "1", "b", 2));
     }
 
     @Test
     public void testJsonStringWithoutQuotesToMapCoercion() {
         Map<?,?> s = TypeCoercions.coerce("{ a : 1 }", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", 1));
+        assertMapsEqual(s, ImmutableMap.of("a", 1));
     }
 
     @Test
     public void testJsonComplexTypesToMapCoercion() {
         Map<?,?> s = TypeCoercions.coerce("{ a : [1, \"2\", '\"3\"'], b: { c: d, 'e': \"f\" } }", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", ImmutableList.<Object>of(1, "2", "\"3\""), 
+        assertMapsEqual(s, ImmutableMap.of("a", ImmutableList.<Object>of(1, "2", "\"3\""),
             "b", ImmutableMap.of("c", "d", "e", "f")));
     }
 
     @Test
     public void testJsonStringWithoutBracesToMapCoercion() {
         Map<?,?> s = TypeCoercions.coerce("a : 1", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", 1));
+        assertMapsEqual(s, ImmutableMap.of("a", 1));
     }
 
     @Test
     public void testJsonStringWithoutBracesWithMultipleToMapCoercion() {
         Map<?,?> s = TypeCoercions.coerce("a : 1, b : 2", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", 1, "b", 2));
+        assertMapsEqual(s, ImmutableMap.of("a", 1, "b", 2));
     }
 
-    @Test
+    @Test(enabled = false) //never actually worked, only seemed to because of bug in assertEquals(Map,Map)
     public void testKeyEqualsValueStringToMapCoercion() {
+        if (!CommonAdaptorTypeCoercions.PARSE_MAPS_WITH_EQUALS_SYMBOL) Assert.fail("Known to be unsupported");
         Map<?,?> s = TypeCoercions.coerce("a=1,b=2", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", "2"));
+        assertMapsEqual(s, ImmutableMap.of("a", "1", "b", "2"));
     }
 
     @Test
     public void testJsonStringWithoutBracesOrSpaceDisallowedAsMapCoercion() {
-        Map<?,?> s = TypeCoercions.coerce("a:1,b:2", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", "2"));
-        // NB: snakeyaml 1.17 required spaces after the colon, but 1.21 accepts the above
+        Maybe<Map> s1 = TypeCoercions.tryCoerce("a:1,b:2", Map.class);
+        // NB: snakeyaml 1.17 required spaces after the colon, 1.21 accepts the above, but we explicitly disallow it
+        // (mileage may vary if you do something like a:1,b=2)
+        if (s1.isPresent()) Asserts.fail("Shouldn't allow colon without space when processing map; instead got: "+s1.get());
+
+        Map<?,?> s = TypeCoercions.coerce("a: 1,b: 2", Map.class);
+        assertMapsEqual(s, ImmutableMap.of("a", 1, "b", 2));
     }
-    
-    @Test
-    public void testEqualsInBracesMapCoercion() {
+
+    @Test(enabled = false) //never actually worked, only seemed to because of bug in assertEquals(Map,Map)
+    public void testEqualsInBracesMapCoercionLax() {
+        if (!CommonAdaptorTypeCoercions.PARSE_MAPS_WITH_EQUALS_SYMBOL) Assert.fail("Known to be unsupported");
         Map<?,?> s = TypeCoercions.coerce("{ a = 1, b = '2' }", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", 1, "b", "2"));
+        assertMapsEqual(s, ImmutableMap.of("a", 1, "b", "2"));
     }
 
-    @Test
+    @Test(enabled = false) //never actually worked, only seemed to because of bug in assertEquals(Map,Map)
     public void testKeyEqualsOrColonValueWithBracesStringToMapCoercion() {
+        if (!CommonAdaptorTypeCoercions.PARSE_MAPS_WITH_EQUALS_SYMBOL) Assert.fail("Known to be unsupported");
         Map<?,?> s = TypeCoercions.coerce("{ a=1, b: 2 }", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", 2));
+        assertMapsEqual(s, ImmutableMap.of("a", "1", "b", 2));
     }
 
-    @Test
+    @Test(enabled = false) //never actually worked, only seemed to because of bug in assertEquals(Map,Map)
     public void testKeyEqualsOrColonValueWithoutBracesStringToMapCoercion() {
+        if (!CommonAdaptorTypeCoercions.PARSE_MAPS_WITH_EQUALS_SYMBOL) Assert.fail("Known to be unsupported");
         Map<?,?> s = TypeCoercions.coerce("a=1, b: 2", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", 2));
+        assertMapsEqual(s, ImmutableMap.of("a", "1", "b", 2));
     }
 
     @SuppressWarnings("serial")
     @Test
     public void testYamlMapsDontGoTooFarWhenWantingListOfString() {
         List<?> s = TypeCoercions.coerce("[ a: 1, b: 2 ]", List.class);
-        Assert.assertEquals(s, ImmutableList.of(MutableMap.of("a", 1), MutableMap.of("b", 2)));
+        assertEquals(s, ImmutableList.of(MutableMap.of("a", 1), MutableMap.of("b", 2)));
         
         s = TypeCoercions.coerce("[ a: 1, b : 2 ]", new TypeToken<List<String>>() {});
-        Assert.assertEquals(s, ImmutableList.of("a: 1", "b : 2"));
+        assertEquals(s, ImmutableList.of("a: 1", "b : 2"));
     }
 
     @Test
     public void testURItoStringCoercion() {
         String s = TypeCoercions.coerce(URI.create("http://localhost:1234/"), String.class);
-        Assert.assertEquals(s, "http://localhost:1234/");
+        assertEquals(s, "http://localhost:1234/");
     }
 
     @Test
     public void testURLtoStringCoercion() throws MalformedURLException {
         String s = TypeCoercions.coerce(new URL("http://localhost:1234/"), String.class);
-        Assert.assertEquals(s, "http://localhost:1234/");
+        assertEquals(s, "http://localhost:1234/");
     }
 
     @Test
     public void testAs() {
         Integer x = TypeCoercions.coerce(new WithAs("3"), Integer.class);
-        Assert.assertEquals(x, (Integer)3);
+        assertEquals(x, (Integer)3);
     }
 
     @Test
     public void testFrom() {
         WithFrom x = TypeCoercions.coerce("3", WithFrom.class);
-        Assert.assertEquals(x.value, 3);
+        assertEquals(x.value, 3);
     }
 
     @Test
@@ -433,7 +455,7 @@ public class TypeCoercionsTest {
     public void testObjectInMapCoercion() {
         ClassWithMap r1 =
                 TypeCoercions.coerce(MutableMap.of("properties", MutableMap.of("x", 1)), ClassWithMap.class);
-        Assert.assertEquals(r1.properties.get("x"), 1);
+        assertEquals(r1.properties.get("x"), 1);
 
         r1 = TypeCoercions.coerce(MutableMap.of("properties", MutableMap.of("x", new MyClazz())), ClassWithMap.class);
         Asserts.assertInstanceOf(r1.properties.get("x"), MyClazz.class);
