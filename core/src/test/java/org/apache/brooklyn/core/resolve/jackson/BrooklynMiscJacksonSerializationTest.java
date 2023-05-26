@@ -18,36 +18,32 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.core.JacksonException;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
-import com.google.common.reflect.TypeToken;
+
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.GregorianCalendar;
-import java.util.Locale;
-import java.util.Map;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
-import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
-import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.units.ByteSize;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.Secret;
-import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -205,6 +201,33 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
     }
 
     @Test
+    public void testInstantConversionFromVarious() throws Exception {
+        mapper = BeanWithTypeUtils.newYamlMapper(null, false, null, true);
+        long utc = new Date().getTime();
+        Instant inst = mapper.readerFor(Instant.class).readValue( mapper.writeValueAsString(utc) );
+        // below known not to work, as long is converted to ["j...Long", utc] which we don't process
+        //mapper.readerFor(Instant.class).readValue( mapper.writerFor(Object.class).writeValueAsString(utc) );
+
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+
+        BeanWithTypeUtils.convertShallow(mgmt, utc, TypeToken.of(Instant.class), false, null, false);
+        BeanWithTypeUtils.convertDeeply(mgmt, utc, TypeToken.of(Instant.class), false, null, false);
+
+        BeanWithTypeUtils.convertShallow(mgmt, ""+utc, TypeToken.of(Instant.class), false, null, false);
+        BeanWithTypeUtils.convertDeeply(mgmt, ""+utc, TypeToken.of(Instant.class), false, null, false);
+
+        BeanWithTypeUtils.convertShallow(mgmt, inst, TypeToken.of(Instant.class), false, null, false);
+        BeanWithTypeUtils.convertDeeply(mgmt, inst, TypeToken.of(Instant.class), false, null, false);
+
+        // Date won't convert, either at root or nested; that is deliberate, we assume if you have a complex object it is already the right type,
+        // or you use coerce
+//        BeanWithTypeUtils.convertShallow(mgmt, Date.from(inst), TypeToken.of(Instant.class), false, null, false);
+//        BeanWithTypeUtils.convertDeeply(mgmt, Date.from(inst), TypeToken.of(Instant.class), false, null, false);
+//        BeanWithTypeUtils.convertShallow(mgmt, MutableList.of(Date.from(inst)), new TypeToken<List<Instant>>() {}, false, null, false);
+//        BeanWithTypeUtils.convertDeeply(mgmt, MutableList.of(Date.from(inst)), new TypeToken<List<Instant>>() {}, false, null, false);
+    }
+
+    @Test
     public void testFailsOnTrailing() throws Exception {
         try {
             Duration d = mapper().readValue("1 m", Duration.class);
@@ -251,6 +274,83 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
 
     static class WrappedSecretHolder {
         WrappedValue<Secret<String>> s1;
+    }
+
+
+    @JsonDeserialize(using = SampleFromStringDeserializer.class)
+    static class SampleFromStringDeserialized {
+        public Object subtypeWanted;
+        public String x;
+    }
+    @JsonDeserialize(using = JsonDeserializer.None.class)
+    static class SampleFromStringSubtype extends SampleFromStringDeserialized {}
+    @JsonDeserialize(using = JsonDeserializer.None.class)
+    static class SampleFromStringSubtype1 extends SampleFromStringSubtype {}
+    static class SampleFromStringSubtype2 extends SampleFromStringSubtype {}
+
+    static class SampleFromStringDeserializer extends JsonDeserializer {
+        @Override
+        public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JacksonException {
+            TokenBuffer buffer = BrooklynJacksonSerializationUtils.createBufferForParserCurrentObject(p, ctxt);
+            Object raw = new JsonPassThroughDeserializer().deserialize(
+                    BrooklynJacksonSerializationUtils.createParserFromTokenBufferAndParser(buffer, p),
+                    ctxt);
+
+            Integer rawi = null;
+            if (raw instanceof String) rawi = Integer.parseInt((String)raw);
+            if (raw instanceof Integer) rawi = (Integer)raw;
+            if (rawi!=null) {
+                SampleFromStringSubtype result = null;
+                if (rawi==1) result = new SampleFromStringSubtype1();
+                if (rawi==2) result = new SampleFromStringSubtype2();
+                if (result!=null) {
+                    result.subtypeWanted = raw;
+                }
+                return result;
+            }
+
+            if (raw instanceof Map) {
+                Integer stw = TypeCoercions.tryCoerce(((Map) raw).get("subtypeWanted"), Integer.class).orNull();
+                if (stw!=null && stw>=0) {
+                    try {
+                        return ctxt.findNonContextualValueDeserializer(ctxt.constructType(Class.forName(SampleFromStringSubtype.class.getName()+stw))).deserialize(
+                                BrooklynJacksonSerializationUtils.createParserFromTokenBufferAndParser(buffer, p), ctxt);
+                    } catch (ClassNotFoundException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+
+            return ctxt.findNonContextualValueDeserializer(ctxt.constructType(SampleFromStringSubtype.class)).deserialize(
+                    BrooklynJacksonSerializationUtils.createParserFromTokenBufferAndParser(buffer, p), ctxt);
+        }
+    }
+
+    @Test
+    public void testDeserializeFromStringOrMapOrEvenWithMapKey() throws JsonProcessingException {
+        Object s;
+        mapper = BeanWithTypeUtils.newSimpleYamlMapper();  //YAMLMapper.builder().build();
+        s = mapper.readerFor(SampleFromStringDeserialized.class).readValue("1");
+        Asserts.assertInstanceOf(s, SampleFromStringSubtype1.class);
+        Asserts.assertEquals( ((SampleFromStringSubtype)s).subtypeWanted, 1 );
+
+        s = mapper.readerFor(SampleFromStringDeserialized.class).readValue("\"2\"");
+        Asserts.assertInstanceOf(s, SampleFromStringSubtype2.class);
+        Asserts.assertEquals( ((SampleFromStringSubtype)s).subtypeWanted, "2" );
+
+        s = mapper.readerFor(SampleFromStringDeserialized.class).readValue("subtypeWanted: 1");
+        Asserts.assertInstanceOf(s, SampleFromStringSubtype1.class);
+        Asserts.assertEquals( ((SampleFromStringSubtype)s).subtypeWanted, 1 );
+
+        s = mapper.readerFor(SampleFromStringDeserialized.class).readValue("subtypeWanted: \"-1\"");
+        Asserts.assertEquals(s.getClass(), SampleFromStringSubtype.class);
+        Asserts.assertEquals( ((SampleFromStringSubtype)s).subtypeWanted, "-1" );
+
+        s = TypeCoercions.coerce("1", SampleFromStringDeserialized.class);
+        Asserts.assertInstanceOf(s, SampleFromStringSubtype1.class);
+        Asserts.assertEquals( ((SampleFromStringSubtype)s).subtypeWanted, "1" );
+        s = TypeCoercions.coerce(1, SampleFromStringDeserialized.class);
+        Asserts.assertEquals( ((SampleFromStringSubtype)s).subtypeWanted, 1 );
     }
 
 }

@@ -67,10 +67,14 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testImplicitEqualsAsRawPredicateNotSupported() {
         Asserts.assertFailsWith(() -> {
-                Predicate p = TypeCoercions.coerce("x", Predicate.class);
+            Predicate p = TypeCoercions.coerce("x", Predicate.class);
+            // we deliberately don't support this, because predicates of the form 'notNull' should resolve in a different way;
+            // but _given_ a predicate which should be DslPredicate, we _do_ want to allow it;
+            // see DslPredicates.JsonDeserializer registered/permitted classes
+            Asserts.fail("Should have failed, instead gave: "+p);  // probably implicit equals
         }, e -> {
-                Asserts.assertStringContainsIgnoreCase(e.toString(), "cannot coerce", "string", "predicate");
-                return true;
+            Asserts.assertStringContainsIgnoreCase(e.toString(), "cannot convert", "given input", " x ", "predicate");
+            return true;
         });
     }
 

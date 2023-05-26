@@ -375,8 +375,33 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             Object lhs = process(lhs0, null);
             Object rhs = process(rhs0, null);
 
-            if (lhs instanceof Instant) return TypeCoercions.coerce(rhs, Duration.class).addTo((Instant)lhs);
-            if (lhs instanceof Date) return new Timestamp((Instant) TypeCoercions.coerce(rhs, Duration.class).addTo( ((Date)lhs).toInstant() ));
+            if ("+".equals(op)) {
+                if (lhs instanceof Duration) {
+                    if (rhs instanceof Instant || rhs instanceof Date) {
+                        Object newRhs = lhs;
+                        lhs = rhs;
+                        rhs = newRhs;
+                        // fall through to below
+                    } else {
+                        return TypeCoercions.coerce(rhs, Duration.class).add((Duration) lhs);
+                    }
+                }
+                if (lhs instanceof Instant) return TypeCoercions.coerce(rhs, Duration.class).addTo((Instant) lhs);
+                if (lhs instanceof Date)
+                    return new Timestamp((Instant) TypeCoercions.coerce(rhs, Duration.class).addTo(((Date) lhs).toInstant()));
+            } else if ("-".equals(op)) {
+                if (lhs instanceof Duration) {
+                    return ((Duration)lhs).subtract(TypeCoercions.coerce(rhs, Duration.class));
+                }
+                if (lhs instanceof Instant) {
+                    if (rhs instanceof Instant) return Duration.between((Instant)rhs, (Instant)lhs);
+                    return TypeCoercions.coerce(rhs, Duration.class).multiply(-1).addTo((Instant) lhs);
+                }
+                if (lhs instanceof Date) {
+                    if (rhs instanceof Date) return Duration.between(((Date)rhs).toInstant(), ((Date)lhs).toInstant());
+                    return new Timestamp((Instant) TypeCoercions.coerce(rhs, Duration.class).multiply(-1).addTo(((Date) lhs).toInstant()));
+                }
+            }
 
             Maybe<Integer> lhsI = asInteger(lhs);
             Maybe<Integer> rhsI = asInteger(rhs);

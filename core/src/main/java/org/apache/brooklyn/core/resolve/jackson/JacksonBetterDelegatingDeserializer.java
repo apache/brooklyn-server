@@ -167,4 +167,21 @@ public abstract class JacksonBetterDelegatingDeserializer extends DelegatingDese
 
     protected abstract Object deserializeWrapper(JsonParser jp, DeserializationContext ctxt, BiFunctionThrowsIoException<JsonParser, DeserializationContext, Object> nestedDeserialize) throws IOException;
 
+    @Override
+    public JsonDeserializer<?> createContextual(DeserializationContext ctxt,
+                                                BeanProperty property)
+            throws JsonMappingException
+    {
+        JavaType vt = ctxt.constructType(_delegatee.handledType());
+
+        //override parent to make this available
+        if (vt==null) vt = ctxt.getContextualType();
+
+        JsonDeserializer<?> del = ctxt.handleSecondaryContextualization(_delegatee,
+                property, vt);
+        if (del == _delegatee) {
+            return this;
+        }
+        return newDelegatingInstance(del);
+    }
 }

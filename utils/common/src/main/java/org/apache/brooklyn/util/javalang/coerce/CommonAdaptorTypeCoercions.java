@@ -62,6 +62,11 @@ import com.google.common.reflect.TypeToken;
 
 public class CommonAdaptorTypeCoercions {
 
+    // It might be nice to support key=value syntax when trying to parse things as maps.
+    // We have never supported this, but a bug in testng made it look like we did.
+    // This flags relevant areas of code and tests
+    public static final boolean PARSE_MAPS_WITH_EQUALS_SYMBOL = false;
+
     @Beta public static final double DELTA_FOR_COERCION = 0.000001;
 
     private final TypeCoercerExtensible coercer;
@@ -473,9 +478,15 @@ public class CommonAdaptorTypeCoercions {
                 };
                 
                 Maybe<Map<?, ?>> r1 = null;
-                
+
+                if (PARSE_MAPS_WITH_EQUALS_SYMBOL) {
+                    // implement it here if we support it. could perhaps simply replace with ": " ?
+                    // but ideally want more sophisticated quote processing and splitting
+                    throw new IllegalStateException("Parsing maps with equals not currently supported");
+                }
+
                 // first try wrapping in braces if needed
-                if (!inputS.trim().startsWith("{")) {
+                if (!inputS.trim().startsWith("{") && (inputS.contains(": "))) {
                     r1 = parseYaml.apply("{ "+inputS+" }");
                     if (r1.isPresent()) return (Maybe<T>) r1;
                     // fall back to parsing without braces, e.g. if it's multiline

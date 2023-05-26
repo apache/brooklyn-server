@@ -26,8 +26,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import com.google.common.collect.*;
 import org.apache.brooklyn.core.validation.BrooklynValidation;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.AnyExceptionSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -43,12 +46,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Table;
 import com.google.common.reflect.TypeToken;
 
 /**
@@ -131,7 +128,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
     protected <T> Maybe<T> tryCoerceInternal2(Object value, TypeToken<T> targetTypeToken, Class<T> targetType) {
         if (value==null) return Maybe.of((T)null);
         Maybe<T> result = null;
-        Maybe<T> firstError = null;
+        List<Maybe<T>> errors = MutableList.of();
 
         //recursive coercion of parameterized collections and map entries
         targetType = TypeTokens.getRawType(targetTypeToken, targetType);
@@ -178,8 +175,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
                 }
             }
             
-            // remember any error if we were first
-            if (result!=null && firstError==null) firstError = result;
+            if (result!=null) errors.add(result);
         }
         
         //ENHANCEMENT could look in type hierarchy of both types for a conversion method...
@@ -217,7 +213,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
                                 if (resultM.isPresent()) return resultM;
                                 // if couldn't coerce parameterized types then back out of this coercer
                                 // but remember the error if we were first
-                                if (firstError==null) firstError = resultM;
+                                errors.add(resultM);
                             }
                         } else {
                             return Maybe.of(resultT);
@@ -226,15 +222,13 @@ public class TypeCoercerExtensible implements TypeCoercer {
                         Exceptions.propagateIfFatal(e);
                         if (log.isDebugEnabled()) {
                             log.debug("When coercing, registry adapter "+entry+" gave error on "+value+" -> "+targetType+" "
-                                + (firstError==null ? "(rethrowing)" : "(suppressing as there is already an error)")
+                                + (errors.isEmpty() ? "(rethrowing)" : "(adding as secondary error as there is already another)")
                                 + ": "+e, e);
                         }
-                        if (firstError==null) {
-                            if (e instanceof ClassCoercionException) {
-                                firstError = Maybe.absent(e);
-                            } else {
-                                firstError = Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetTypeToken+" ("+value+"): registered coercer failed", e));
-                            }
+                        if (e instanceof ClassCoercionException) {
+                            errors.add(Maybe.absent(e));
+                        } else {
+                            errors.add(Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetTypeToken+" ("+value+"): registered coercer failed", e)));
                         }
                         continue;
                     }
@@ -243,9 +237,9 @@ public class TypeCoercerExtensible implements TypeCoercer {
         }
 
         // not found
-        if (firstError!=null) {
-            // it might be nice to have more than just the first error but for now that's all we remember
-            return firstError;
+        if (!errors.isEmpty()) {
+            if (errors.size()==1) return Iterables.getOnlyElement(errors);
+            return Maybe.absent(Exceptions.create(errors.stream().map(Maybe.Absent::getException).collect(Collectors.toList())));
         }
         if (value instanceof Map) {
             if (((Map)value).containsKey("type")) {

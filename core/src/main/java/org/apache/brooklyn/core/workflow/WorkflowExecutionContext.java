@@ -1279,9 +1279,10 @@ public class WorkflowExecutionContext {
             WorkflowStepDefinition step = getStepsResolved().get(currentStepIndex);
             if (step!=null) {
                 currentStepInstance = new WorkflowStepInstanceExecutionContext(currentStepIndex, step, WorkflowExecutionContext.this);
-                if (step.condition!=null) {
+                DslPredicates.DslPredicate conditionResolved = step.getConditionResolved(currentStepInstance);
+                if (conditionResolved!=null) {
                     if (log.isTraceEnabled()) log.trace("Considering condition "+step.condition+" for "+ workflowStepReference(currentStepIndex));
-                    boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), WorkflowExecutionContext.this, getEntityOrAdjunctWhereRunning());
+                    boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(conditionResolved, WorkflowExecutionContext.this, getEntityOrAdjunctWhereRunning());
                     if (log.isTraceEnabled()) log.trace("Considered condition "+step.condition+" for "+ workflowStepReference(currentStepIndex)+": "+conditionMet);
                     if (!conditionMet) {
                         moveToNextStep("Skipping step "+ workflowStepReference(currentStepIndex), false);

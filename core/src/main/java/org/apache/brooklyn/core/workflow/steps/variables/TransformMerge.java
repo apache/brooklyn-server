@@ -29,6 +29,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,6 +105,7 @@ public class TransformMerge extends WorkflowTransformDefault {
         };
 
         for (Object vi : (Iterable) v) {
+            if (vi instanceof String && Strings.isBlank((String)vi)) continue;
             try {
                 vi = wait ? context.resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, vi, TypeToken.of(type)) :
                         context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, vi, TypeToken.of(type));
