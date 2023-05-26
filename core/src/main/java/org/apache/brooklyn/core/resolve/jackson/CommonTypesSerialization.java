@@ -30,21 +30,15 @@ import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
-import com.google.common.base.Predicate;
 import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
-import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
-import org.apache.brooklyn.core.typereg.TypePlanTransformers;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Boxing;
@@ -225,6 +219,10 @@ public class CommonTypesSerialization {
             }
 
             public T deserializeOther(Object value) {
+                if (getType()!=null && getType().isInstance(value))
+                    return (T) value;  //if using complex types (convertShallow) allow if castable
+                // we could attempt coercion, but no need to go that far, and readObject in deserialize above would probably fail also;
+                // we assume if you have a complex object it is already the right type, or you use coerce
                 throw new IllegalStateException(getType()+" should be supplied as string or map with 'type' and 'value'; instead had " + value);
             }
 
@@ -471,10 +469,8 @@ public class CommonTypesSerialization {
         private final ManagementContext mgmt;
         public PredicateSerialization(ManagementContext mgmt) { this.mgmt = mgmt; }
         public void apply(SimpleModule m) {
-            m.addDeserializer(Predicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
-            m.addDeserializer(java.util.function.Predicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
-            m.addDeserializer(DslPredicates.DslPredicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
-            m.addDeserializer(DslPredicates.DslEntityPredicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
+            DslPredicates.DslPredicateJsonDeserializer.DSL_REGISTERED_CLASSES.forEach(t ->
+                m.addDeserializer(t, new DslPredicates.DslPredicateJsonDeserializer()) );
         }
     }
 

@@ -30,11 +30,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Date;
-import java.util.GregorianCalendar;
-import java.util.Locale;
-import java.util.Map;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.function.BiConsumer;
 
 import com.google.common.reflect.TypeToken;
@@ -205,16 +201,30 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
     }
 
     @Test
-    public void testInstantFromLong() throws Exception {
+    public void testInstantConversionFromVarious() throws Exception {
         mapper = BeanWithTypeUtils.newYamlMapper(null, false, null, true);
         long utc = new Date().getTime();
-        mapper.readerFor(Instant.class).readValue( mapper.writeValueAsString(utc) );
+        Instant inst = mapper.readerFor(Instant.class).readValue( mapper.writeValueAsString(utc) );
         // below known not to work, as long is converted to ["j...Long", utc] which we don't process
         //mapper.readerFor(Instant.class).readValue( mapper.writerFor(Object.class).writeValueAsString(utc) );
 
         ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+
         BeanWithTypeUtils.convertShallow(mgmt, utc, TypeToken.of(Instant.class), false, null, false);
         BeanWithTypeUtils.convertDeeply(mgmt, utc, TypeToken.of(Instant.class), false, null, false);
+
+        BeanWithTypeUtils.convertShallow(mgmt, ""+utc, TypeToken.of(Instant.class), false, null, false);
+        BeanWithTypeUtils.convertDeeply(mgmt, ""+utc, TypeToken.of(Instant.class), false, null, false);
+
+        BeanWithTypeUtils.convertShallow(mgmt, inst, TypeToken.of(Instant.class), false, null, false);
+        BeanWithTypeUtils.convertDeeply(mgmt, inst, TypeToken.of(Instant.class), false, null, false);
+
+        // Date won't convert, either at root or nested; that is deliberate, we assume if you have a complex object it is already the right type,
+        // or you use coerce
+//        BeanWithTypeUtils.convertShallow(mgmt, Date.from(inst), TypeToken.of(Instant.class), false, null, false);
+//        BeanWithTypeUtils.convertDeeply(mgmt, Date.from(inst), TypeToken.of(Instant.class), false, null, false);
+//        BeanWithTypeUtils.convertShallow(mgmt, MutableList.of(Date.from(inst)), new TypeToken<List<Instant>>() {}, false, null, false);
+//        BeanWithTypeUtils.convertDeeply(mgmt, MutableList.of(Date.from(inst)), new TypeToken<List<Instant>>() {}, false, null, false);
     }
 
     @Test

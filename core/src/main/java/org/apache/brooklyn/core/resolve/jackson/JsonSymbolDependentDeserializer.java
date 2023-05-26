@@ -62,7 +62,10 @@ public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<O
             type = property.getType();
         }
         if (type==null) {
-            // this is normally set during contextualization but not during deserialization (although not if we're the ones contextualizing it)
+            // ctxt.getContextualType() is normally set during primary contextualization and first round of secondary (if known)
+            // but not usually available during deserialization, so do it now;
+            // however it can be suppressed if in a nested secondary contextualization (eg via DelegatingDeserializer),
+            // but our JacksonBetterDelegatingDeserializer attempts to avoid this
             type = ctxt.getContextualType();
         }
         if (isTypeReplaceableByDefault()) {
@@ -74,6 +77,7 @@ public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<O
 
     protected boolean isTypeReplaceableByDefault() {
         if (type==null) return true;
+        if (type.getRawClass().isInterface()) return true;
         return false;
     }
 
@@ -139,6 +143,7 @@ public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<O
         return getObjectDeserializer();
     }
 
+    /** deserializes if we know we have an object; if we have a string, it will typically go into deserializeToken */
     protected Object deserializeObject(JsonParser p) throws IOException, JsonProcessingException {
         return contextualize(getObjectDeserializer()).deserialize(p, ctxt);
     }

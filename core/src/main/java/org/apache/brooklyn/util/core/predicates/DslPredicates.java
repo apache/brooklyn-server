@@ -677,9 +677,12 @@ public class DslPredicates {
     public static class DslPredicateDefault<T2> extends DslPredicateBase<T2> implements DslPredicate<T2>, Cloneable {
         public DslPredicateDefault() {}
 
-        // allow a string or int to be an implicit equality target
+        // allow a string or int or other common types to be an implicit equality target
         public DslPredicateDefault(String implicitEquals) { this.implicitEquals = implicitEquals; }
         public DslPredicateDefault(Integer implicitEquals) { this.implicitEquals = implicitEquals; }
+        public DslPredicateDefault(Double implicitEquals) { this.implicitEquals = implicitEquals; }
+        public DslPredicateDefault(Long implicitEquals) { this.implicitEquals = implicitEquals; }
+        public DslPredicateDefault(Number implicitEquals) { this.implicitEquals = implicitEquals; }  // note: Number is not matched by jackson bean constructor
 
         // not used by code, but allows clients to store other information
         public Object metadata;
@@ -887,18 +890,28 @@ public class DslPredicates {
 
     @Beta
     public static class DslPredicateJsonDeserializer extends JsonSymbolDependentDeserializer {
-        public static final Set<Class> DSL_SUPPORTED_CLASSES = ImmutableSet.<Class>of(
-            java.util.function.Predicate.class, Predicate.class,
-            DslPredicate.class, DslEntityPredicate.class);
+        public static final Set<Class> DSL_REGISTERED_CLASSES = ImmutableSet.<Class>of(
+                java.util.function.Predicate.class, Predicate.class,
+                DslPredicate.class, DslEntityPredicate.class);
+        public static final Set<Class> DSL_RESTRICTED_CLASSES = ImmutableSet.<Class>of(
+                java.util.function.Predicate.class, Predicate.class);
 
         public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) throws JsonMappingException {
             return super.createContextual(ctxt, property);
         }
 
         protected boolean isTypeReplaceableByDefault() {
-            if (super.isTypeReplaceableByDefault()) return true;
-            if (type.getRawClass().isInterface()) return true;
-            return false;
+            if (type!=null && DSL_RESTRICTED_CLASSES.contains(type.getRawClass())) {
+                // don't allow setting our default type if one of these restricted classes is supplied;
+                // if we have a map, then we'll still always come to our deserializeObject, with the requested type;
+                // but if we have a string or other simple token, will never come to our deserializeObject,
+                // instead it goes to deserializeToken (in superclass) which uses bean deserializer ie constructor,
+                // which will only work if we replace the type with our getDefaultType(), and we only want string
+                // implicitEquals to work if a DslPredicate was specified, not for any predicate (as those might be
+                // for constraints, like "nonNull")
+                return false;
+            }
+            return super.isTypeReplaceableByDefault();
         }
 
         @Override
@@ -908,6 +921,7 @@ public class DslPredicates {
 
         @Override
         protected Object deserializeObject(JsonParser p0) throws IOException {
+
             MutableList<Throwable> errors = MutableList.of();
             TokenBuffer pb = BrooklynJacksonSerializationUtils.createBufferForParserCurrentObject(p0, ctxt);
 
@@ -915,7 +929,7 @@ public class DslPredicates {
                 Object raw = null;
                 JsonDeserializer<?> deser;
 
-                if (DSL_SUPPORTED_CLASSES.contains(type.getRawClass())) {
+                if (DSL_REGISTERED_CLASSES.contains(type.getRawClass())) {
                     // just load a map/string, then handle it
                     deser = ctxt.findRootValueDeserializer(ctxt.constructType(Object.class));
                     raw = deser.deserialize(pb.asParserOnFirstToken(), ctxt);
