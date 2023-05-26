@@ -65,13 +65,11 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testImplicitEqualsAsRawPredicateNotSupported() {
-        Asserts.assertFailsWith(() -> {
-                Predicate p = TypeCoercions.coerce("x", Predicate.class);
-        }, e -> {
-                Asserts.assertStringContainsIgnoreCase(e.toString(), "cannot coerce", "string", "predicate");
-                return true;
-        });
+    public void testImplicitEqualsAsRawPredicate() {
+        // now this is supported, 2023-05, since we can coerce strings to DslPredicates
+        Predicate p = TypeCoercions.coerce("x", Predicate.class);
+        Asserts.assertTrue(p.test("x"));
+        Asserts.assertFalse(p.test("y"));
     }
 
     DslPredicates.DslPredicate predicate(String key, Object value) {

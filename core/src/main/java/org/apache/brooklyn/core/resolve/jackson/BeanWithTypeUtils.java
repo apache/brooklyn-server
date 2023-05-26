@@ -29,10 +29,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
 import java.util.function.Predicate;
 import org.apache.brooklyn.api.entity.Entity;
@@ -157,9 +154,21 @@ public class BeanWithTypeUtils {
      * see in JsonDeserializerForCommonBrooklynThings.  See DslSerializationTest.
      */
 
+    static ThreadLocal<Stack<Object>> activeConversions = new ThreadLocal<>();
 
     public static <T> T convert(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
+        Stack<Object> stack = activeConversions.get();
+        if (stack==null) {
+            stack = new Stack<>();
+            activeConversions.set(stack);
+        }
+        // simple things, like string, might be converted by a JsonDeserializer or by other TypeCoercions;
+        // so the former calls the latter, and the latter calls the former. but stop at some point!
+        if (stack.contains(mapOrListToSerializeThenDeserialize)) throw new IllegalStateException("Aborting recursive attempt to convert '"+mapOrListToSerializeThenDeserialize+"'");
+
         try {
+            stack.push(mapOrListToSerializeThenDeserialize);
+
             return convertDeeply(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
 
         } catch (Exception e) {
@@ -168,6 +177,9 @@ public class BeanWithTypeUtils {
             } catch (Exception e2) {
                 throw Exceptions.propagate(Arrays.asList(e, e2));
             }
+        } finally {
+            stack.pop();
+            if (stack.isEmpty()) activeConversions.remove();
         }
     }
 
@@ -208,7 +220,7 @@ public class BeanWithTypeUtils {
         if (inputMap.isAbsent()) return (Maybe<T>)inputMap;
 
         Object o = inputMap.get();
-        if (!(o instanceof Map) && !(o instanceof List) && !Boxing.isPrimitiveOrBoxedObject(o)) {
+        if (!(o instanceof Map) && !(o instanceof List) && !Boxing.isPrimitiveOrBoxedObject(o) && !(o instanceof String)) {
             if (type.isSupertypeOf(o.getClass())) {
                 return (Maybe<T>)inputMap;
             }  else {
@@ -299,7 +311,7 @@ public class BeanWithTypeUtils {
             }
         }
 
-        // we want some special object. if we have a map or a string then conversion might sort us out.
-        return (t instanceof Map || t instanceof String) ? 1 : -1;
+        // we want some special object. if we have a map or a string or possibly a primitive then conversion might sort us out.
+        return (t instanceof Map || t instanceof String || Boxing.isPrimitiveOrBoxedObject(t)) ? 1 : -1;
     }
 }

@@ -386,7 +386,7 @@ public class TypeCoercionsTest {
 
     @Test
     public void testCoerceStringToNumber() {
-        assertEquals(TypeCoercions.coerce("1", Number.class), Double.valueOf(1));
+        assertEquals(TypeCoercions.coerce("1", Number.class), 1);  // since Jackson is permtitted to coerce, this prefers integers over doubles, 2023-05
         assertEquals(TypeCoercions.coerce("1.0", Number.class), Double.valueOf(1.0));
     }
 
