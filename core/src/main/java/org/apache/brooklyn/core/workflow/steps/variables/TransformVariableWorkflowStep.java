@@ -81,7 +81,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         TypedValueToSet variable = context.getInput(VARIABLE);
         String name;
 
-        Object transformO = context.getInput(TRANSFORM);
+        Object transformO = context.getInputRaw(TRANSFORM.getName());
         if (!(transformO instanceof Iterable)) transformO = MutableList.of(transformO);
         List<String> transforms = MutableList.of();
         for (Object t: (Iterable)transformO) {
@@ -122,17 +122,26 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         for (String t: transforms) {
             WorkflowTransformWithContext tt = getTransform(context, t);
 
-            if (tt.isResolver()) {
-                if (isResolved) throw new IllegalArgumentException("Transform '"+t+"' must be first as it requires unresolved input");
+            Boolean req = tt.resolvedValueRequirement();
+            if (req==null) { /* no requirement */ }
+            else if (req && !isResolved) {
+                v = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, v, TypeToken.of(Object.class));
                 isResolved = true;
+            } else if (!req && isResolved) {
+                throw new IllegalArgumentException("Transform '" + t + "' must be first as it requires unresolved input");
             } else {
-                if (!isResolved) {
-                    v = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, v, TypeToken.of(Object.class));
-                    isResolved = true;
-                }
+                // requirement matches resolution status, both done, or both not
             }
 
             v = tt.apply(v);
+
+            Boolean ret = tt.resolvedValueReturned();
+            if (ret!=null) isResolved = ret;
+        }
+        if (!isResolved) {
+            // in case "resolve" was supplied at the end
+            v = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, v, TypeToken.of(Object.class));
+            isResolved = true;
         }
 
         if (name!=null) {
@@ -180,6 +189,8 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
     static {
         TRANSFORMATIONS.put("trim", () -> new TransformTrim());
         TRANSFORMATIONS.put("merge", () -> new TransformMerge());
+        TRANSFORMATIONS.put("prepend", () -> new TransformPrependAppend(false));
+        TRANSFORMATIONS.put("append", () -> new TransformPrependAppend(true));
         TRANSFORMATIONS.put("slice", () -> new TransformSlice());
         TRANSFORMATIONS.put("remove", () -> new TransformRemove());
         TRANSFORMATIONS.put("json", () -> new TransformJsonish(true, false, false));

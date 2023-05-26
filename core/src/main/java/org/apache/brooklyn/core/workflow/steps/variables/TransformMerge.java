@@ -67,8 +67,9 @@ public class TransformMerge extends WorkflowTransformDefault {
         if (!d.isEmpty()) throw new IllegalArgumentException("Unsupported merge arguments: " + d);
     }
 
-    @Override
-    public boolean isResolver() {
+    @Override public Boolean resolvedValueRequirement() { return false; }
+
+    @Override public Boolean resolvedValueReturned() {
         return true;
     }
 

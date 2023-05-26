@@ -18,25 +18,18 @@
  */
 package org.apache.brooklyn.core.workflow;
 
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
-import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -279,10 +272,17 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
                 "- transform x | resolve_expression | return",
                 ""), "test").getTask(false).get().getUnchecked();
         Asserts.assertEquals(result, "c");
+
+        result = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "- let a = b",
+                "- let b = c",
+                "- transform value {${a}} | prepend $ | resolve_expression | return",
+                ""), "test").getTask(false).get().getUnchecked();
+        Asserts.assertEquals(result, "c");
     }
 
     @Test
-    public void testSliceAndRemoveTransform() {
+    public void testSliceRemoveAndAppendTransform() {
         loadTypes();
 
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
@@ -296,6 +296,11 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
 
         // slice string
         Asserts.assertEquals(transform.apply("transform value abc | slice 1"), "bc");
+
+        // append list
+        Asserts.assertEquals(transform.apply("transform value ['a','bb'] | type list | append ccc"), MutableList.of("a", "bb", "ccc"));
+        Asserts.assertEquals(transform.apply("transform value ['ccc'] | type list | set c\n" +
+                "- transform value ['a','bb'] | type list | append ${c}"), MutableList.of("a", "bb", MutableList.of("ccc")));
 
         // remove list
         Asserts.assertEquals(transform.apply("transform value ['a','bb','ccc'] | type list | remove 1"), MutableList.of("a", "ccc"));

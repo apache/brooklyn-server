@@ -47,10 +47,8 @@ public abstract class WorkflowTransformDefault implements WorkflowTransformWithC
         }
     }
 
-    @Override
-    public boolean isResolver() {
-        return false;
-    }
+    @Override public Boolean resolvedValueRequirement() { return true; }
+    @Override public Boolean resolvedValueReturned() { return null; }
 
     /** default is to fail if any arguments (size>1) but subclasses can put in different constraints, eg requiring arguments or inspecting the first word */
     protected void initCheckingDefinition() {

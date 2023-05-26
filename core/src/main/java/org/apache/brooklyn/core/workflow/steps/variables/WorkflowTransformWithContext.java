@@ -27,5 +27,15 @@ public interface WorkflowTransformWithContext extends WorkflowTransform {
 
     void init(WorkflowExecutionContext context, WorkflowStepInstanceExecutionContext stepContext, List<String> definition, String transformDef);
 
-    boolean isResolver();
+    /** returns true, false, or null (don't care) as to whether the resolver
+     *  expects the value to be resolved;
+     *  if true, the value will be resolved before being passed to the transform;
+     *  if false, it will be an error if it has already been resolved;
+     *  if null, no resolution will be done and it is assumed the transformer doesn't care */
+    Boolean resolvedValueRequirement();
+    /** whether the resolver returns a resolved value;
+     *  null (almost always the default) means no change is required by the caller,
+     *  but if it expected an unresolved expression and resolved it, it should return true;
+     *  or if it has replaced it by an unresolved expression, it should return false */
+    Boolean resolvedValueReturned();
 }

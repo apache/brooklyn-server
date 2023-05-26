@@ -18,13 +18,16 @@
  */
 package org.apache.brooklyn.core.workflow.steps.variables;
 
-import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
-
 public class TransformResolveExpression extends WorkflowTransformDefault {
 
     @Override
     public Object apply(Object v) {
-        return context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, v, Object.class);
+        // no op; the framework will resolve it before and again after;
+        // we leave it in an unresolved state for use by wait
+        return v;
     }
+
+    @Override public Boolean resolvedValueRequirement() { return true; }
+    @Override public Boolean resolvedValueReturned() { return false; }
 
 }

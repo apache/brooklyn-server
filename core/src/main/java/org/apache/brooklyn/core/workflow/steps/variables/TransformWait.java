@@ -27,8 +27,9 @@ public class TransformWait extends WorkflowTransformDefault {
         return context.resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, v, TypeToken.of(Object.class));
     }
 
-    @Override
-    public boolean isResolver() {
+    @Override public Boolean resolvedValueRequirement() { return false; }
+
+    @Override public Boolean resolvedValueReturned() {
         return true;
     }
 }
