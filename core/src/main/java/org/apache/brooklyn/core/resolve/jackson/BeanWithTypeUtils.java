@@ -199,7 +199,12 @@ public class BeanWithTypeUtils {
     public static <T> T convertDeeply(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
         // try full serialization - but won't work if things being written cannot be deserialized, eg due to unknown type
         ObjectMapper mapper = newMapper(mgmt, allowRegisteredTypes, loader, allowJavaTypes);
-        String serialization = type.getRawType().equals(Object.class) ? mapper.writeValueAsString(mapOrListToSerializeThenDeserialize) : mapper.writerFor(Object.class).writeValueAsString(mapOrListToSerializeThenDeserialize);
+        boolean useLonghandObjectWriter = true;
+
+        if (type.getRawType().equals(Object.class)) useLonghandObjectWriter = false;
+        else if (mapOrListToSerializeThenDeserialize==null || mapOrListToSerializeThenDeserialize instanceof String || Boxing.isPrimitiveOrBoxedObject(mapOrListToSerializeThenDeserialize)) useLonghandObjectWriter = false;
+
+        String serialization = !useLonghandObjectWriter ? mapper.writeValueAsString(mapOrListToSerializeThenDeserialize) : mapper.writerFor(Object.class).writeValueAsString(mapOrListToSerializeThenDeserialize);
         return mapper.readValue(serialization, BrooklynJacksonType.asJavaType(mapper, type));
     }
 

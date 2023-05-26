@@ -37,6 +37,9 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.function.BiConsumer;
 
+import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -199,6 +202,19 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
 //        Assert.assertEquals( impl2.localDateTime, impl.localDateTime );
 //        Assert.assertEquals( impl2.calendar, impl.calendar );
         Assert.assertEquals( impl2.instant, impl.instant );
+    }
+
+    @Test
+    public void testInstantFromLong() throws Exception {
+        mapper = BeanWithTypeUtils.newYamlMapper(null, false, null, true);
+        long utc = new Date().getTime();
+        mapper.readerFor(Instant.class).readValue( mapper.writeValueAsString(utc) );
+        // below known not to work, as long is converted to ["j...Long", utc] which we don't process
+        //mapper.readerFor(Instant.class).readValue( mapper.writerFor(Object.class).writeValueAsString(utc) );
+
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        BeanWithTypeUtils.convertShallow(mgmt, utc, TypeToken.of(Instant.class), false, null, false);
+        BeanWithTypeUtils.convertDeeply(mgmt, utc, TypeToken.of(Instant.class), false, null, false);
     }
 
     @Test
