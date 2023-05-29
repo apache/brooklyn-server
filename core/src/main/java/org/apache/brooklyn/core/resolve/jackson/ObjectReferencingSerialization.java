@@ -41,8 +41,11 @@ import com.google.common.reflect.TypeToken;
 import java.io.IOException;
 import java.io.StringReader;
 import java.lang.reflect.Type;
+import java.util.function.Supplier;
+
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.ConfigurableBeanDeserializerModifier;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +56,8 @@ public class ObjectReferencingSerialization {
     // but this seemed the best as object id was harder to use for all bean types
 
     private static final Logger LOG = LoggerFactory.getLogger(ObjectReferencingSerialization.class);
+
+    public static final String PREFIX = "_"+ObjectReferencingSerialization.class.getSimpleName()+"_";
 
     final BiMap<String,Object> backingMap = HashBiMap.create();
     ObjectMapper mapper = null;
@@ -99,7 +104,7 @@ public class ObjectReferencingSerialization {
         public void serialize(Object value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
             String id = backingMap.inverse().get(value);
             if (id==null) {
-                id = Identifiers.makeRandomId(12);
+                id = PREFIX+Identifiers.makeRandomId(12);
                 backingMap.put(id, value);
             }
 
@@ -146,30 +151,37 @@ public class ObjectReferencingSerialization {
         protected Object deserializeWrapper(JsonParser jp, DeserializationContext ctxt, BiFunctionThrowsIoException<JsonParser, DeserializationContext, Object> nestedDeserialize) throws IOException {
             String v = jp.getCurrentToken()== JsonToken.VALUE_STRING ? jp.getValueAsString() : null;
             if (v!=null) {
-                Type expected = _valueType!=null ? _valueType : _valueClass;
+                // we need to exclude the case where a literal 'v' was expected;
+                // TokenBuffer does not preserve YAMLParser.isCurrentAlias() so we can't use that;
+                // instead we use a prefix to ensure our references are almost certainly unique
+                if (v.startsWith(PREFIX)) {
+                    Type expected = _valueType != null ? _valueType : _valueClass;
 
-                // not sure if we ever need to look at contextual type
-                Type expected2 = ctxt.getContextualType()==null ? null : ctxt.getContextualType();
-                if (expected2!=null) {
-                    if (expected==null) {
-                        expected = expected2;
+                    // not sure if we ever need to look at contextual type
+                    Type expected2 = ctxt.getContextualType() == null ? null : ctxt.getContextualType();
+                    if (expected2 != null) {
+                        if (expected == null) {
+                            expected = expected2;
+                        } else {
+                            // we have two expectations
+                            LOG.debug("Object reference deserialization ambiguity, expected " + expected + " and " + expected2);
+                        }
+                    }
+                    if (expected == null) {
+                        expected = Object.class;
+                    }
+
+                    Object result = backingMap.get(v);
+                    if (result != null) {
+                        // previously we excluded a string from being expected, since we wouldn't have converted that to a reference;
+                        // however there are contexts where a string is expected but other types are _accepted_ so just trust it if we come here,
+                        // and if the expected type is overly strict, return the original object.
+                        // if the token buffer is used too much we might have lost the alias reference and still end up with a string,
+                        // but so long as this deserializer is preferred which it normally is, losing the alias reference is okay.
+                        return ((Maybe)TypeCoercions.tryCoerce(result, TypeToken.of(expected))).or(result);
                     } else {
-                        // we have two expectations
-                        LOG.debug("Object reference deserialization ambiguity, expected "+expected+" and "+expected2);
+                        LOG.debug("Odd - what looks like a reference was received but not found: "+v);
                     }
-                }
-                if (expected==null) {
-                    expected = Object.class;
-                }
-
-                Object result = backingMap.get(v);
-                if (result!=null) {
-                    // Because of how UntypedObjectDeserializer.deserializeWithType treats strings
-                    // we cannot trust string being expected (if we could, we could exclude backing map lookup!)
-                    if (!String.class.equals(expected)) {
-                        result = TypeCoercions.coerce(result, TypeToken.of(expected));
-                    }
-                    return result;
                 }
             }
             return nestedDeserialize.apply(jp, ctxt);

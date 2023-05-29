@@ -27,12 +27,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.util.*;
-import java.util.function.BiConsumer;
-
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
@@ -40,6 +34,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.units.ByteSize;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -51,6 +46,11 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.*;
+import java.util.function.BiConsumer;
 
 public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
 
@@ -126,6 +126,35 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
         Asserts.assertTrue(f1==f2, "different instances for "+f1+" and "+f2);
     }
 
+    public static class ObjRefAcceptingStringSource {
+        String src;
+        ObjRefAcceptingStringSource bar;
+
+        public ObjRefAcceptingStringSource() {}
+        public ObjRefAcceptingStringSource(String src) {
+            this.src = src;
+        }
+    }
+
+    @Test
+    public void testConvertShallowDoesntAcceptIdsForStrings() throws JsonProcessingException {
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+
+        Asserts.assertFailsWith(() -> {
+                ObjRefAcceptingStringSource b = BeanWithTypeUtils.convertShallow(mgmt, MutableMap.of("bar", new DeferredSupplier() {
+                    @Override
+                    public Object get() {
+                        return "xxx";
+                    }
+                }), TypeToken.of(ObjRefAcceptingStringSource.class), false, null, true);
+                // ensure the ID of a serialized object isn't treated as a reference
+                Asserts.fail("Should have failed, instead got: " + b.bar.src);
+                return b;
+            }, e -> Asserts.expectedFailureContains(e, "Problem deserializing property 'bar'"));
+
+        ObjRefAcceptingStringSource b = BeanWithTypeUtils.convertShallow(mgmt, MutableMap.of("bar", new ObjRefAcceptingStringSource("good")), TypeToken.of(ObjRefAcceptingStringSource.class), false, null, true);
+        Asserts.assertEquals(b.bar.src, "good");
+    }
 
     @Test
     public void testDurationCustomSerialization() throws Exception {
