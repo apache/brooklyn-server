@@ -180,8 +180,37 @@ public class TemplateProcessor {
             return super.wrap(objOrig);
         }
 
+        static final ThreadLocal<Boolean> handleUnknownTypeLoopPrevention = new ThreadLocal<>();
+
         @Override
         protected TemplateModel handleUnknownType(final Object o) throws TemplateModelException {
+            if (handleUnknownTypeLoopPrevention.get()!=null) {
+                return super.handleUnknownType(o);
+            }
+            try {
+                handleUnknownTypeLoopPrevention.set(true);
+                // can get "Class inrospection data lookup aborded" from freemarker ClassIntrospector:250
+                // if thread is interrupted because class lookup uses wait on a shared cache;
+                // if the "interruption" is because of us, retry in this instance
+                while (true) {
+                    try {
+                        return handleUnknownTypeReal(o);
+                    } catch (Exception e) {
+                        if (WorkflowExpressionResolution.isInterruptSetToPreventWaiting()) {
+                            if (Exceptions.isRootCauseIsInterruption(e) || e.toString().contains(InterruptedException.class.getSimpleName())) {
+                                Thread.yield();
+                                continue;
+                            }
+                        }
+                        throw e;
+                    }
+                }
+            } finally {
+                handleUnknownTypeLoopPrevention.remove();
+            }
+        }
+
+        protected TemplateModel handleUnknownTypeReal(final Object o) throws TemplateModelException {
             if (o instanceof EntityInternal) return EntityAndMapTemplateModel.forEntity((EntityInternal)o, null);
             if (o instanceof Location) return LocationAndMapTemplateModel.forLocation((LocationInternal)o, null);
 
@@ -193,22 +222,7 @@ public class TemplateProcessor {
                 // deproxy to reduce freemarker introspection interrupted errors
                 o = Entities.deproxy((BrooklynObject) o);
             }
-            // can get "Class inrospection data lookup aborded" from freemarker ClassIntrospector:250
-            // if thread is interrupted because class lookup uses wait on a shared cache;
-            // if the "interruption" is because of us, retry in this instance
-            while (true) {
-                try {
-                    return super.handleUnknownType(o);
-                } catch (Exception e) {
-                    if (WorkflowExpressionResolution.isInterruptSetToPreventWaiting()) {
-                        if (Exceptions.isRootCauseIsInterruption(e) || e.toString().contains(InterruptedException.class.getSimpleName())) {
-                            Thread.yield();
-                            continue;
-                        }
-                    }
-                    throw e;
-                }
-            }
+            return handleUnknownType(o);
         }
 
     }
