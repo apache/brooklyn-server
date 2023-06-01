@@ -23,21 +23,19 @@ import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.testng.annotations.Test;
 
-/** This does rebind. See SimpleBlueprintNonRebindTest for an example with rebind disabled. */
-public class SimpleBlueprintTest extends AbstractBlueprintTest {
+public class SimpleBlueprintNonRebindTest extends AbstractBlueprintTest {
 
     @Override
     protected boolean isViewerEnabled() {
         return true;
     }
 
-    @Override
-    protected boolean isUsingNewViewerForRebind() {
-        return true;
+    protected boolean isRebindEnabled() {
+        return false;
     }
 
     @Test(groups={"Live"})
-    public void testBasicEntity() throws Exception {
+    public void testBasicEntityNonRebind() throws Exception {
         Application app = runTestOnBlueprint("services: [ { type: " + BasicEntity.class.getName() + " } ]");
 
         // stick a breakpoint on the following line (make sure it is thread-only, not all-threads!)

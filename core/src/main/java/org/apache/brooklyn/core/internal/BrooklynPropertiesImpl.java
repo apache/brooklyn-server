@@ -252,7 +252,7 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
     @Override
     @SuppressWarnings("unchecked")
     public BrooklynPropertiesImpl addFrom(Map map) {
-        putAll(Maps.transformValues(map, StringFunctions.trim()));
+        putAll(Maps.transformValues(map, x -> x instanceof String ? ((String)x).trim() : x));
         return this;
     }
 

@@ -73,6 +73,7 @@ import org.testng.annotations.BeforeMethod;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 
+/** Ancestor for blueprint tests which can easily allow rebind (default true) and a REST API attached (default false). */
 public abstract class AbstractBlueprintTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractBlueprintTest.class);
@@ -92,7 +93,9 @@ public abstract class AbstractBlueprintTest {
         // required for REST access - otherwise it is viewed as not yet ready
         ((RebindManagerImpl)mgmt.getRebindManager()).setAwaitingInitialRebind(false);
 
-        LOG.info("Test "+getClass()+" persisting to "+mementoDir);
+        if (isRebindEnabled()) {
+            LOG.info("Test " + getClass() + " persisting to " + mementoDir);
+        }
 
         startViewer(true);
 
@@ -212,9 +215,11 @@ public abstract class AbstractBlueprintTest {
 
     protected Application runTest(Application app, Consumer<Application> check) throws Exception {
         check.accept(app);
-        
-        Application newApp = rebind();
-        check.accept(newApp);
+
+        if (isRebindEnabled()) {
+            Application newApp = rebind();
+            check.accept(newApp);
+        }
 
         return app;
     }
@@ -334,7 +339,9 @@ public abstract class AbstractBlueprintTest {
         if (isRebindEnabled()) {
             return decorateManagementContext(createBuilderForRebindingManagementContext().buildStarted());
         } else {
-            return decorateManagementContext(LocalManagementContextForTests.newInstance());
+            LocalManagementContext mgmt = LocalManagementContextForTests.newInstance();
+            mgmt.getHighAvailabilityManager().disabled(false);
+            return decorateManagementContext(mgmt);
         }
     }
 
