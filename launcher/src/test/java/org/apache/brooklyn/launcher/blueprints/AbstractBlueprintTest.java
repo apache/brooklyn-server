@@ -18,48 +18,37 @@
  */
 package org.apache.brooklyn.launcher.blueprints;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Consumer;
-
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
-import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatform;
-import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
-import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
-import org.apache.brooklyn.camp.spi.PlatformRootSummary;
-import org.apache.brooklyn.core.entity.trait.Startable;
-import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
-import org.apache.brooklyn.core.mgmt.persist.PersistMode;
-import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
-
-import java.io.File;
-import java.io.Reader;
-import java.io.StringReader;
-import java.util.Collection;
-
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatform;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherAbstract;
+import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
+import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
+import org.apache.brooklyn.camp.spi.PlatformRootSummary;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
+import org.apache.brooklyn.core.mgmt.persist.PersistMode;
+import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.launcher.BrooklynViewerLauncher;
 import org.apache.brooklyn.launcher.SimpleYamlLauncherForTests;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
@@ -70,8 +59,16 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
+import java.io.File;
+import java.io.Reader;
+import java.io.StringReader;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
+
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
 
 /** Ancestor for blueprint tests which can easily allow rebind (default true) and a REST API attached (default false). */
 public abstract class AbstractBlueprintTest {
@@ -302,20 +299,42 @@ public abstract class AbstractBlueprintTest {
         return false;
     }
 
+    protected boolean isOsgiEnabled() {
+        return false;
+    }
+
     protected RebindTestUtils.ManagementContextBuilder createBuilderForRebindingManagementContext() {
-        return RebindTestUtils.managementContextBuilder(this.mementoDir, this.classLoader)
+        RebindTestUtils.ManagementContextBuilder builder = RebindTestUtils.managementContextBuilder(this.mementoDir, this.classLoader)
                 .persistPeriodMillis(1L)
                 .forLive(true)
                 .emptyCatalog(true);
+        if (isOsgiEnabled()) builder.enableOsgiReusable();
+        return builder;
+    }
+
+    protected LocalManagementContextForTests.Builder createBuilderForNonRebindingManagementContext() {
+        LocalManagementContextForTests.Builder builder = LocalManagementContextForTests.builder(true);
+        if (isOsgiEnabled()) builder.enableOsgiReusable();
+        return builder;
+    }
+
+    protected LocalManagementContext createRebindingManagementContext() {
+        return createBuilderForRebindingManagementContext().buildUnstarted();
+    }
+
+    protected ManagementContext createNonRebindingManagementContext() {
+        LocalManagementContext mgmt = createBuilderForNonRebindingManagementContext().build();
+        mgmt.getHighAvailabilityManager().disabled(false);
+        return decorateManagementContext(mgmt);
     }
 
     /** @return An unstarted management context */
     protected ManagementContext createNewManagementContext() {
         ManagementContext newMgmt;
         if (isRebindEnabled()) {
-            newMgmt = createBuilderForRebindingManagementContext().buildUnstarted();
+            newMgmt = createRebindingManagementContext();
         } else {
-            newMgmt = LocalManagementContextForTests.newInstance();
+            newMgmt = createNonRebindingManagementContext();
         }
 
         // add camp, for consistency with orig mgmt context
@@ -339,9 +358,7 @@ public abstract class AbstractBlueprintTest {
         if (isRebindEnabled()) {
             return decorateManagementContext(createBuilderForRebindingManagementContext().buildStarted());
         } else {
-            LocalManagementContext mgmt = LocalManagementContextForTests.newInstance();
-            mgmt.getHighAvailabilityManager().disabled(false);
-            return decorateManagementContext(mgmt);
+            return createNonRebindingManagementContext();
         }
     }
 
