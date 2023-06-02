@@ -488,8 +488,13 @@ public class WorkflowExecutionContext {
                         // not sure we need this check
                         log.debug("Replaying containing workflow " + WorkflowExecutionContext.this + " in task " + task + " which is an ancestor of " + Tasks.current());
                     } else {
-                        log.warn("Unable to replay workflow " + WorkflowExecutionContext.this + " from " + Tasks.current() + " because workflow task " + task + " is ongoing (rethrowing)");
-                        throw new IllegalStateException("Cannot replay ongoing workflow, given " + continuationInstructions);
+                        log.warn("Unable to replay workflow " + WorkflowExecutionContext.this + " from " + Tasks.current() + " because workflow task " + task + " is ongoing; will delay up to 1s then retry");
+                        // there can be a slight race between tasks ending and the workflow reporting a failure and replaying;
+                        // esp in tests, but also in real world, forgive such a situation by delaying the replay for a short time
+                        if (!task.blockUntilEnded(Duration.ONE_SECOND)) {
+                            log.warn("Unable to replay workflow " + WorkflowExecutionContext.this + " from " + Tasks.current() + " because workflow task " + task + " is ongoing (waited 1s, still ongoing; so rethrowing)");
+                            throw new IllegalStateException("Cannot replay ongoing workflow, given " + continuationInstructions);
+                        }
                     }
                 }
             }
