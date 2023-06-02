@@ -525,8 +525,8 @@ public class LocalEntityManager implements EntityManagerInternal {
     private void unmanageDryRun(final Entity e) {
         final ManagementTransitionInfo info = new ManagementTransitionInfo(managementContext,
                 ManagementTransitionMode.transitioning(BrooklynObjectManagementMode.NONEXISTENT, BrooklynObjectManagementMode.NONEXISTENT));
+        log.debug("Unmanaging "+e+" (dry run)");
         discardPremanaged(e);
-
         ((EntityInternal)e).getManagementSupport().onManagementStopping(info, true);
         stopTasks(e);
         ((EntityInternal)e).getManagementSupport().onManagementStopped(info, true);
@@ -535,6 +535,7 @@ public class LocalEntityManager implements EntityManagerInternal {
     private void unmanage(final Entity e, ManagementTransitionMode mode, boolean hasBeenReplaced) {
         if (shouldSkipUnmanagement(e, hasBeenReplaced)) return;
         final ManagementTransitionInfo info = new ManagementTransitionInfo(managementContext, mode);
+        log.debug("Unmanaging "+e+" (mode "+mode+", replaced "+hasBeenReplaced+")");
         if (hasBeenReplaced) {
             // we are unmanaging an old instance after having replaced it
             // don't unmanage or even clear its fields, because there might be references to it
