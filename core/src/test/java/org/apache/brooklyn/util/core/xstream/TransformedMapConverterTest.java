@@ -27,8 +27,9 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.testng.annotations.Test;
+
+import javax.annotation.Nullable;
 
 public class TransformedMapConverterTest extends ConverterTestFixture {
 
