@@ -220,6 +220,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         TRANSFORMATIONS.put("average", () -> v -> average(v, "average"));
         TRANSFORMATIONS.put("size", () -> v -> size(v, "size"));
         TRANSFORMATIONS.put("get", () -> v -> {
+            // TODO should this be able to get indexes etc
             if (v instanceof Supplier) return ((Supplier)v).get();
             return v;
         });

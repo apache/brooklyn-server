@@ -59,6 +59,10 @@ public class WorkflowPolicy<T> extends AbstractPolicy {
     public static final ConfigKey<Map<String,Object>> INPUT = WorkflowCommonConfig.INPUT;
     public static final ConfigKey<List<Object>> STEPS = WorkflowCommonConfig.STEPS;
 
+    public static final ConfigKey<String> UNIQUE_TAG_CAMEL = WorkflowSensor.UNIQUE_TAG_CAMEL;
+    public static final ConfigKey<String> UNIQUE_TAG_UNDERSCORE = WorkflowSensor.UNIQUE_TAG_UNDERSCORE;
+    public static final ConfigKey<String> UNIQUE_TAG_DASH = WorkflowSensor.UNIQUE_TAG_DASH;
+
     protected transient Poller<Object> poller;
 
     // ? - do we need to have an option not to run when added?
@@ -110,18 +114,26 @@ public class WorkflowPolicy<T> extends AbstractPolicy {
 
     @Override
     public void init() {
-        initUniqueTag();
         super.init();
     }
 
     public String initUniqueTag() {
-        if (uniqueTag==null) uniqueTag = "workflow-policy-hash-"+ Objects.hash(getDisplayName(), config().getBag());
+        return getUniqueTag();
+    }
+
+    @Override
+    public String getUniqueTag() {
+        if (uniqueTag==null) {
+            uniqueTag = WorkflowSensor.getUniqueTag(config().getBag(), null);
+            if (uniqueTag==null) {
+                uniqueTag = "workflow-policy-hash-" + Objects.hash(getDisplayName(), config().getBag());
+            }
+        }
         return super.getUniqueTag();
     }
 
     @Override
     public void setEntity(EntityLocal entity) {
-        initUniqueTag();
         super.setEntity(entity);
 
         poller = new Poller<>(getEntity(), this, false);

@@ -64,6 +64,18 @@ public class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> implement
 
     public static final ConfigKey<EntityValueToSet> SENSOR = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
 
+    public static final ConfigKey<String> UNIQUE_TAG_CAMEL = ConfigKeys.newStringConfigKey("uniqueTag");
+    public static final ConfigKey<String> UNIQUE_TAG_UNDERSCORE = ConfigKeys.newStringConfigKey("unique_tag");
+    public static final ConfigKey<String> UNIQUE_TAG_DASH = ConfigKeys.newStringConfigKey("unique-tag");
+
+    static String getUniqueTag(ConfigBag bag, String defaultValue) {
+        String result = bag.get(UNIQUE_TAG_CAMEL);
+        if (result==null) result = bag.get(UNIQUE_TAG_UNDERSCORE);
+        if (result==null) result = bag.get(UNIQUE_TAG_DASH);
+        if (result==null) result = defaultValue;
+        return result;
+    }
+
     // do we need to have an option not to run when initialization is done?
 
     public WorkflowSensor() {}
@@ -98,6 +110,7 @@ public class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> implement
                 .name("Sensor Workflow Feed: "+sensor.getName())
                 .entity(entity)
                 .onlyIfServiceUp(Maybe.ofDisallowingNull(EntityInitializers.resolve(params, ONLY_IF_SERVICE_UP)).or(false))
+                .uniqueTag(getUniqueTag(params, "workflow_sensor_feed:"+sensor.getName()))
                 .poll(pollConfig);
 
         wc.init(feedBuilder.build(true));
