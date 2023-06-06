@@ -60,12 +60,9 @@ public interface WorkflowCommonConfig {
     ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "timeout",
             "Time after which a workflow should be automatically interrupted and failed");
 
-    // TODO only string supported so far, but could be more allowing more configurable lock behaviour
-    // - the entity where to read/write the sensor
-    // - full sensor name (default would be a suffix)
-    // - a `value` to set
-    // - a condition to `require` of the value
-    // - a `retry` specification
-    ConfigKey<Object> LOCK = ConfigKeys.newConfigKey(Object.class, "lock");
+    // could support a condition to require, a value to set, and/or a retry spec; but that seems overly complicated
+    ConfigKey<Object> LOCK = ConfigKeys.newConfigKey(Object.class, "lock",
+            "Mutex lock that should be held by the workflow, either a string (used in name of sensor) or " +
+                    "a map of {entity,name} where the name is the name to be used for a lock sensor to acquire from another entity");
 
 }
