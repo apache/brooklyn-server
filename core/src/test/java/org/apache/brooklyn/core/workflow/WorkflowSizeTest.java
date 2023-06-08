@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
@@ -65,7 +66,7 @@ public class WorkflowSizeTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testSizeOfAllSensors() {
+    public void testSizeOfAllSensors() throws JsonProcessingException {
         createAppWithEffector(MutableList.of(
                 "let pc = ${param}",
                 "let map myMap = {}",
@@ -84,14 +85,18 @@ public class WorkflowSizeTest extends BrooklynMgmtUnitTestSupport {
 
         Asserts.assertThat(sizes.values().stream().reduce(0, (v0,v1)->v0+v1), result -> result < 10*1000);
 
+        // print out the above, search for "something big" to see where the size is used
+        String out = BeanWithTypeUtils.newYamlMapper(mgmt, true, null, true).writeValueAsString(
+                app.sensors().get(Sensors.newSensor(Object.class, "internals.brooklyn.workflow")));
+        log.info("WORKFLOW IS:\n"+out);
 
         app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), MutableMap.of("param", sampleData)).getUnchecked();
         sizes = getSensorSizes();
         sizes.forEach((k,v) -> { log.info("Sensor "+k+": "+v); });
         Asserts.assertThat(sizes.values().stream().reduce(0, (v0,v1)->v0+v1), result -> result < 20*1000);
 
-
         // 100k payload now -> bumps sensor size from 5k to 3MB (before any optimization)
+        // removing output which is identical to the previous gives minor savings (in this test): 3380416 -> 3176074
         for (int i=0; i<1000; i++) {
             for (int j=0; j<10; j++) sampleData += "0123456789";
             sampleData += "\n";

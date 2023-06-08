@@ -660,11 +660,23 @@ public class WorkflowExecutionContext {
 
     @JsonIgnore
     public Object getPreviousStepOutput() {
-        if (lastErrorHandlerOutput!=null) return lastErrorHandlerOutput;
-        if (previousStepIndex==null) return null;
+        Pair<Object, Set<Integer>> p = getPreviousStepOutputAndBacktrackedSteps();
+        if (p==null) return null;
+        return p.getLeft();
+    }
+    @JsonIgnore
+    public Pair<Object,Set<Integer>> getPreviousStepOutputAndBacktrackedSteps() {
+        if (lastErrorHandlerOutput!=null) return Pair.of(lastErrorHandlerOutput,null);
 
-        OldStepRecord last = oldStepInfo.get(previousStepIndex);
-        if (last!=null && last.context!=null) return last.context.output;
+        Integer prevSI = previousStepIndex;
+        Set<Integer> previousSteps = MutableSet.of();
+        while (prevSI!=null && previousSteps.add(prevSI)) {
+            OldStepRecord last = oldStepInfo.get(prevSI);
+            if (last==null || last.context==null) break;
+            if (last.context.output!=null) return Pair.of(last.context.output, previousSteps);
+            if (last.previous.isEmpty()) break;
+            prevSI = last.previous.iterator().next();
+        }
         return null;
     }
 
@@ -1346,6 +1358,13 @@ public class WorkflowExecutionContext {
             BiConsumer<Object,Object> onFinish = (output,overrideNext) -> {
                 currentStepInstance.next = WorkflowReplayUtils.getNext(overrideNext, currentStepInstance, step);
                 if (output!=null) currentStepInstance.output = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, output, Object.class);
+
+                // optimization, clear the value here if we can simply take it from the previous step;
+                // taking care not to break over loops
+                Pair<Object, Set<Integer>> prev = getPreviousStepOutputAndBacktrackedSteps();
+                if (prev!=null && prev.getRight()!=null && Objects.equals(currentStepInstance.output, prev.getLeft()) && !prev.getRight().contains(currentStepIndex)) {
+                    currentStepInstance.output = null;
+                }
             };
 
             // now run the step
