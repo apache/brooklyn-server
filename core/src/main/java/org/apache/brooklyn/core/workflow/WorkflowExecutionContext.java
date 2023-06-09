@@ -18,10 +18,11 @@
  */
 package org.apache.brooklyn.core.workflow;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.type.TypeFactory;
+import com.fasterxml.jackson.databind.util.Converter;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
@@ -81,6 +82,7 @@ import java.util.function.Supplier;
 import static org.apache.brooklyn.core.workflow.WorkflowReplayUtils.ReplayResumeDepthCheck.RESUMABLE_WHENEVER_NESTED_WORKFLOWS_PRESENT;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonDeserialize(converter = WorkflowExecutionContext.Converter.class)
 public class WorkflowExecutionContext {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowExecutionContext.class);
@@ -205,6 +207,7 @@ public class WorkflowExecutionContext {
         String nextTaskId;
     }
 
+    // note: when persisted, this may be omitted and restored from the oldStepInfo map in the Converter
     Map<String,Object> workflowScratchVariables = MutableMap.of();
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
@@ -366,7 +369,14 @@ public class WorkflowExecutionContext {
         return parentTag;
     }
 
+    @JsonIgnore
     public Map<String, Object> getWorkflowScratchVariables() {
+        return workflowScratchVariables;
+    }
+    @JsonGetter("workflowScratchVariables")
+    public Map<String, Object> getWorkflowScratchVariablesForPersistence() {
+        Pair<Map<String, Object>, Set<Integer>> prev = getPreviousStepWorkflowScratchAndBacktrackedSteps();
+        if (prev!=null && Objects.equals(prev.getLeft(), workflowScratchVariables)) return null;
         return workflowScratchVariables;
     }
 
@@ -674,6 +684,20 @@ public class WorkflowExecutionContext {
             OldStepRecord last = oldStepInfo.get(prevSI);
             if (last==null || last.context==null) break;
             if (last.context.output!=null) return Pair.of(last.context.output, previousSteps);
+            if (last.previous.isEmpty()) break;
+            prevSI = last.previous.iterator().next();
+        }
+        return null;
+    }
+
+    @JsonIgnore
+    public Pair<Map<String,Object>,Set<Integer>> getPreviousStepWorkflowScratchAndBacktrackedSteps() {
+        Integer prevSI = previousStepIndex;
+        Set<Integer> previousSteps = MutableSet.of();
+        while (prevSI!=null && previousSteps.add(prevSI)) {
+            OldStepRecord last = oldStepInfo.get(prevSI);
+            if (last==null) break;
+            if (last.workflowScratch!=null) return Pair.of(last.workflowScratch, previousSteps);
             if (last.previous.isEmpty()) break;
             prevSI = last.previous.iterator().next();
         }
@@ -1513,4 +1537,26 @@ public class WorkflowExecutionContext {
         return "neg-"+(index); // unknown
     }
 
+    public static class Converter implements com.fasterxml.jackson.databind.util.Converter<WorkflowExecutionContext,WorkflowExecutionContext> {
+        @Override
+        public WorkflowExecutionContext convert(WorkflowExecutionContext value) {
+            if (value.workflowScratchVariables==null || value.workflowScratchVariables.isEmpty()) {
+                Pair<Map<String, Object>, Set<Integer>> prev = value.getPreviousStepWorkflowScratchAndBacktrackedSteps();
+                if (prev!=null && prev.getLeft()!=null) value.workflowScratchVariables = prev.getLeft();
+            }
+            // note: no special handling for output; currently we set that as null as we go along
+
+            return value;
+        }
+
+        @Override
+        public JavaType getInputType(TypeFactory typeFactory) {
+            return typeFactory.constructType(WorkflowExecutionContext.class);
+        }
+
+        @Override
+        public JavaType getOutputType(TypeFactory typeFactory) {
+            return typeFactory.constructType(WorkflowExecutionContext.class);
+        }
+    }
 }
