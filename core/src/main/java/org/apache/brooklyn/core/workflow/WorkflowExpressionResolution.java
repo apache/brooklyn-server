@@ -41,6 +41,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,7 +113,7 @@ public class WorkflowExpressionResolution {
             }
 
             if ("output".equals(key)) {
-                if (context.output!=null) return TemplateProcessor.wrapAsTemplateModel(context.output);
+                if (context.getOutput()!=null) return TemplateProcessor.wrapAsTemplateModel(context.getOutput());
                 if (context.currentStepInstance!=null && context.currentStepInstance.output!=null) return TemplateProcessor.wrapAsTemplateModel(context.currentStepInstance.output);
                 if (context.getPreviousStepOutput()!=null) return TemplateProcessor.wrapAsTemplateModel(context.getPreviousStepOutput());
                 return ifNoMatches();
@@ -230,7 +231,7 @@ public class WorkflowExpressionResolution {
             if ("error".equals(key)) return TemplateProcessor.wrapAsTemplateModel(errorHandlerContext!=null ? errorHandlerContext.error : null);
 
             if ("input".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.input);
-            if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.output);
+            if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getOutput());
 
             //current_step.yyy and previous_step.yyy (where yyy is any of the above)
             //step.xxx.yyy ? - where yyy is any of the above and xxx any step id
@@ -290,7 +291,9 @@ public class WorkflowExpressionResolution {
 
             if ("input".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.input);
             if ("output".equals(key)) {
-                return TemplateProcessor.wrapAsTemplateModel(step.output != null ? step.output : MutableMap.of());
+                Pair<Object, Set<Integer>> outputOfStep = context.getStepOutputAndBacktrackedSteps(step.stepIndex);
+                Object output = (outputOfStep != null && outputOfStep.getLeft() != null) ? outputOfStep.getLeft() : MutableMap.of();
+                return TemplateProcessor.wrapAsTemplateModel(output);
             }
 
             return ifNoMatches();
