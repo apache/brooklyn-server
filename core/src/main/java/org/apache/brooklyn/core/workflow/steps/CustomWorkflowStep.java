@@ -542,7 +542,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
 
         String tivn = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, target_index_var_name, String.class);
-        if (targetIndexOrNull!=null) nestedWorkflowContext.updateWorkflowScratchVariable(tivn==null ? TARGET_INDEX_VAR_NAME_DEFAULT : tivn, targetIndexOrNull);
+        if (targetIndexOrNull!=null) nestedWorkflowContext.updateWorkflowScratchVariable(tivn == null ? TARGET_INDEX_VAR_NAME_DEFAULT : tivn, targetIndexOrNull);
         initializeSubWorkflowForTarget(context, target, nestedWorkflowContext);
 
         return nestedWorkflowContext;

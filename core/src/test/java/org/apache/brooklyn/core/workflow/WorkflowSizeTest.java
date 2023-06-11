@@ -96,9 +96,10 @@ public class WorkflowSizeTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertThat(sizes.values().stream().reduce(0, (v0,v1)->v0+v1), result -> result < 20*1000);
 
         // 100k payload now -> bumps sensor (json) size from 5k to 3MB (before any optimization)
+        // [xml persistence is less of an issue because it will use a shared reference]
         // removing output which is identical to the previous gives minor savings (in this test): 3380416 -> 3176074
         // removing scratch at workflow which matches a step reduces further: -> 2869522
-        // [xml persistence is less of an issue because it will use a shared reference]
+        // switching to model where scratch is produced incrementally reduces much more -> 1847848
         for (int i=0; i<1000; i++) {
             for (int j=0; j<10; j++) sampleData += "0123456789";
             sampleData += "\n";
