@@ -89,8 +89,8 @@ public class WorkflowStepInstanceExecutionContext {
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     Set<BrooklynTaskTags.WorkflowTaskTag> subWorkflows = MutableSet.of();
 
+    transient Object outputOld;
     Object output;
-    Object output2222;
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     public Map<String,Object> otherMetadata = MutableMap.of();
 
@@ -165,8 +165,8 @@ public class WorkflowStepInstanceExecutionContext {
         return output;
     }
     public void setOutput(Object output) {
+        this.outputOld = output;
         this.output = output;
-        this.output2222 = output;
     }
 
     @JsonIgnore
