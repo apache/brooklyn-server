@@ -873,7 +873,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId(), w3.getWorkflowId(), w4.getWorkflowId()));  // should replace the one above
     }
 
-    @Test(groups="Integration")
+    @Test(groups="Integration")  // very slow
     public void testRetentionManyWaysIncludingDisabled() throws Exception {
         app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
 

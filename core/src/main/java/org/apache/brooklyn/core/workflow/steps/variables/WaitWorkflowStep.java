@@ -82,7 +82,7 @@ public class WaitWorkflowStep extends WorkflowStepDefinition {
         log.debug("Wait resolved after "+duration+", "+input.get(unresolvedValue)+" is: "+resolvedValue);
 
         if (name!=null) {
-            Object oldValue = context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+            Object oldValue = context.getWorkflowExectionContext().updateWorkflowScratchVariable(name, resolvedValue);
             if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
             context.noteOtherMetadata("Value set", resolvedValue);
             return context.getPreviousStepOutput();

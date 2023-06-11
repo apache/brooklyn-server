@@ -143,9 +143,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 throw new IllegalArgumentException("Invalid list index " + listIndex);
             }
             oldValue = l.set(listIndex, resolvedValue);
-            context.getWorkflowExectionContext().getWorkflowScratchVariables().put(listName, l);
+            context.getWorkflowExectionContext().updateWorkflowScratchVariable(listName, l);
         } else {
-            oldValue = context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+            oldValue = context.getWorkflowExectionContext().updateWorkflowScratchVariable(name, resolvedValue);
         }
         return oldValue;
     }
