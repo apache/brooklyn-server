@@ -32,7 +32,6 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -408,7 +407,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                 WorkflowExecutionContext wc = p.getLeft();
                 if (wc.getCurrentStepIndex()==null || wc.getCurrentStepIndex()==WorkflowExecutionContext.STEP_INDEX_FOR_START) {
                     // initialize to last if it hasn't started
-                    wc.getWorkflowScratchVariables().putAll(reducingV);
+                    wc.updateWorkflowScratchVariables(reducingV);
                 }
 
                 DynamicTasks.queue(p.getRight()).getUnchecked();
@@ -428,7 +427,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
             returnValue = !wasList ? Iterables.getOnlyElement(result) : result;
         } else {
             context.setOutput(reducingV);
-            context.getWorkflowExectionContext().getWorkflowScratchVariables().putAll(reducingV);
+            context.getWorkflowExectionContext().updateWorkflowScratchVariables(reducingV);
             returnValue = reducingV;
         }
 
@@ -543,7 +542,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
 
         String tivn = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, target_index_var_name, String.class);
-        if (targetIndexOrNull!=null) nestedWorkflowContext.getWorkflowScratchVariables().put(tivn==null ? TARGET_INDEX_VAR_NAME_DEFAULT : tivn, targetIndexOrNull);
+        if (targetIndexOrNull!=null) nestedWorkflowContext.updateWorkflowScratchVariable(tivn == null ? TARGET_INDEX_VAR_NAME_DEFAULT : tivn, targetIndexOrNull);
         initializeSubWorkflowForTarget(context, target, nestedWorkflowContext);
 
         return nestedWorkflowContext;
@@ -551,7 +550,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     protected void initializeSubWorkflowForTarget(WorkflowStepInstanceExecutionContext context, Object target, WorkflowExecutionContext nestedWorkflowContext) {
         String tvn = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, target_var_name, String.class);
-        nestedWorkflowContext.getWorkflowScratchVariables().put(tvn==null ? TARGET_VAR_NAME_DEFAULT : tvn, target);
+        nestedWorkflowContext.updateWorkflowScratchVariable(tvn==null ? TARGET_VAR_NAME_DEFAULT : tvn, target);
     }
 
     /** Returns a top-level workflow running the workflow defined here */

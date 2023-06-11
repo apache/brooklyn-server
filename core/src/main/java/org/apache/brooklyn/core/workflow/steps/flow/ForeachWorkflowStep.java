@@ -65,10 +65,10 @@ public class ForeachWorkflowStep extends CustomWorkflowStep {
             if (tvn.startsWith("{") && tvn.endsWith("}")) {
                 String[] spreadVars = tvn.substring(1, tvn.length() - 1).split(",");
                 if (!(target instanceof Map)) throw new IllegalStateException("Spread vars indicated in foreach but target is not a map");
-                nestedWorkflowContext.getWorkflowScratchVariables().put(TARGET_VAR_NAME_DEFAULT, target);
+                nestedWorkflowContext.updateWorkflowScratchVariable(TARGET_VAR_NAME_DEFAULT, target);
                 for (String spreadVar: spreadVars) {
                     String svt = spreadVar.trim();
-                    nestedWorkflowContext.getWorkflowScratchVariables().put(svt, ((Map)target).get(svt));
+                    nestedWorkflowContext.updateWorkflowScratchVariable(svt, ((Map)target).get(svt));
                 }
                 return;
             }

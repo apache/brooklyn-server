@@ -89,7 +89,7 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
 
         Object resolvedValue = new SetVariableWorkflowStep.ConfigurableInterpolationEvaluation(context, type, data, context.getInputOrDefault(INTERPOLATION_MODE), context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();
 
-        context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+        context.getWorkflowExectionContext().updateWorkflowScratchVariable(name, resolvedValue);
 
         context.noteOtherMetadata("Loaded", ByteSizeStrings.java().makeSizeString(data.getBytes().length)+" from "+url+" into "+variable);
         return context.getPreviousStepOutput();

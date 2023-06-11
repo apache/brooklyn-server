@@ -41,6 +41,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,24 +113,26 @@ public class WorkflowExpressionResolution {
             }
 
             if ("output".equals(key)) {
-                if (context.output!=null) return TemplateProcessor.wrapAsTemplateModel(context.output);
-                if (context.currentStepInstance!=null && context.currentStepInstance.output!=null) return TemplateProcessor.wrapAsTemplateModel(context.currentStepInstance.output);
-                if (context.getPreviousStepOutput()!=null) return TemplateProcessor.wrapAsTemplateModel(context.getPreviousStepOutput());
+                if (context.getOutput()!=null) return TemplateProcessor.wrapAsTemplateModel(context.getOutput());
+                if (context.currentStepInstance!=null && context.currentStepInstance.getOutput() !=null) return TemplateProcessor.wrapAsTemplateModel(context.currentStepInstance.getOutput());
+                Object previousStepOutput = context.getPreviousStepOutput();
+                if (previousStepOutput!=null) return TemplateProcessor.wrapAsTemplateModel(previousStepOutput);
                 return ifNoMatches();
             }
 
             Object candidate;
 
-            //workflow.current_step.input.somevar
             if (stage.after(WorkflowExpressionStage.STEP_PRE_INPUT)) {
+                //somevar -> workflow.current_step.output.somevar
                 WorkflowStepInstanceExecutionContext currentStep = context.currentStepInstance;
                 if (currentStep != null && stage.after(WorkflowExpressionStage.STEP_OUTPUT)) {
-                    if (currentStep.output instanceof Map) {
-                        candidate = ((Map) currentStep.output).get(key);
+                    if (currentStep.getOutput() instanceof Map) {
+                        candidate = ((Map) currentStep.getOutput()).get(key);
                         if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
                     }
                 }
 
+                //somevar -> workflow.current_step.input.somevar
                 try {
                     candidate = currentStep.getInput(key, Object.class);
                 } catch (Throwable t) {
@@ -186,7 +189,7 @@ public class WorkflowExpressionResolution {
 
             //workflow.scratch.somevar
             if (stage.after(WorkflowExpressionStage.WORKFLOW_INPUT)) {
-                candidate = context.workflowScratchVariables.get(key);
+                candidate = context.getWorkflowScratchVariables().get(key);
                 if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
             }
 
@@ -230,7 +233,7 @@ public class WorkflowExpressionResolution {
             if ("error".equals(key)) return TemplateProcessor.wrapAsTemplateModel(errorHandlerContext!=null ? errorHandlerContext.error : null);
 
             if ("input".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.input);
-            if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.output);
+            if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getOutput());
 
             //current_step.yyy and previous_step.yyy (where yyy is any of the above)
             //step.xxx.yyy ? - where yyy is any of the above and xxx any step id
@@ -240,7 +243,7 @@ public class WorkflowExpressionResolution {
             if ("step".equals(key)) return new WorkflowStepModel();
             if ("util".equals(key)) return new WorkflowUtilModel();
 
-            if ("var".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.workflowScratchVariables);
+            if ("var".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getWorkflowScratchVariables());
 
             return ifNoMatches();
         }
@@ -290,7 +293,9 @@ public class WorkflowExpressionResolution {
 
             if ("input".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.input);
             if ("output".equals(key)) {
-                return TemplateProcessor.wrapAsTemplateModel(step.output != null ? step.output : MutableMap.of());
+                Pair<Object, Set<Integer>> outputOfStep = context.getStepOutputAndBacktrackedSteps(step.stepIndex);
+                Object output = (outputOfStep != null && outputOfStep.getLeft() != null) ? outputOfStep.getLeft() : MutableMap.of();
+                return TemplateProcessor.wrapAsTemplateModel(output);
             }
 
             return ifNoMatches();

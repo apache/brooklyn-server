@@ -28,7 +28,6 @@ import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,6 +89,7 @@ public class WorkflowStepInstanceExecutionContext {
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     Set<BrooklynTaskTags.WorkflowTaskTag> subWorkflows = MutableSet.of();
 
+    transient Object outputOld;
     Object output;
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     public Map<String,Object> otherMetadata = MutableMap.of();
@@ -165,6 +165,7 @@ public class WorkflowStepInstanceExecutionContext {
         return output;
     }
     public void setOutput(Object output) {
+        this.outputOld = output;
         this.output = output;
     }
 

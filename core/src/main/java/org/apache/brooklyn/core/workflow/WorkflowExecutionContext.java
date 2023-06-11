@@ -18,10 +18,10 @@
  */
 package org.apache.brooklyn.core.workflow;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
@@ -81,6 +81,7 @@ import java.util.function.Supplier;
 import static org.apache.brooklyn.core.workflow.WorkflowReplayUtils.ReplayResumeDepthCheck.RESUMABLE_WHENEVER_NESTED_WORKFLOWS_PRESENT;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonDeserialize(converter = WorkflowExecutionContext.Converter.class)
 public class WorkflowExecutionContext {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowExecutionContext.class);
@@ -145,7 +146,32 @@ public class WorkflowExecutionContext {
     Map<String,Object> inputResolved = MutableMap.of();
 
     Object outputDefinition;
+    /** final output of the workflow, set at end */
     Object output;
+
+    /*
+     * Tricks to keep size of persisted/serialized data down:
+     *
+     * * this.output set at the end (as a copy)
+     *   NEW: only set if different, on lookup if null, if finished, get from last step
+     * * step.output set on completion of each step (copying previous if no explicit output)
+//     *   - if never run
+//     *     - if different to previous step, set
+//     *     - if same as previous step, set null
+//     *   - if run before
+//     *     - if old value equals new value, do nothing
+//     *     - if old value different
+     *       - if new value is same as previous step, set null, else set new value
+     *       - & if last run's next step output was null, set it to the old value here
+     *   NEW: only set if different to previous step or not recoverable
+     *   - if different to previous step, set
+     *   - if there was a previous instance of this step: if we are different to previous instance of this step, set
+     *   - if same. has this step
+     *
+     * * this.workflowScratch - currently set on context dynamically, copied to oldStepInfo
+     *   NEW 1: set on context and oldStepInfo dynamically but null if same as previous, retrieved looking up previous
+     *   NEW 2: add up all the previous until it repeats
+     */
 
     Object lock;
 
@@ -194,8 +220,10 @@ public class WorkflowExecutionContext {
         WorkflowStepInstanceExecutionContext context;
         /** is step replayable */
         Boolean replayableFromHere;
-        /** scratch for last _started_ instance of step */
+        /** scratch vars as at start of last invocation of set _if_ they could not be derived from updates */
         Map<String,Object> workflowScratch;
+        /** updates to scratch vars made by the last run of this step */
+        Map<String,Object> workflowScratchUpdates;
         /** steps that immediately preceded this, updated when _this_ step started, with most recent first */
         Set<Integer> previous;
         /** steps that immediately followed this, updated when _next_ step started, with most recent first */
@@ -205,7 +233,14 @@ public class WorkflowExecutionContext {
         String nextTaskId;
     }
 
-    Map<String,Object> workflowScratchVariables = MutableMap.of();
+    // when persisted, this is omitted and restored from the oldStepInfo map on read
+    transient Map<String,Object> workflowScratchVariables;
+    transient Map<String,Object> workflowScratchVariablesUpdatedThisStep;
+
+    @JsonSetter("workflowScratchVariables") //only used to read in old state which stored this
+    public void setWorkflowScratchVariablesToDeserializeOld(Map<String, Object> workflowScratchVariables) {
+        this.workflowScratchVariables = workflowScratchVariables;
+    }
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     Map<String,List<Instant>> retryRecords = MutableMap.of();
@@ -366,8 +401,31 @@ public class WorkflowExecutionContext {
         return parentTag;
     }
 
+    @JsonIgnore
     public Map<String, Object> getWorkflowScratchVariables() {
-        return workflowScratchVariables;
+        if (workflowScratchVariables == null) {
+            Pair<Map<String, Object>, Set<Integer>> prev = getStepWorkflowScratchAndBacktrackedSteps(null);
+            workflowScratchVariables = prev.getLeft();
+        }
+        return MutableMap.copyOf(workflowScratchVariables).asUnmodifiable();
+    }
+
+    public Object updateWorkflowScratchVariable(String s, Object v) {
+        if (workflowScratchVariables ==null) getWorkflowScratchVariables();
+        Object old = workflowScratchVariables.put(s, v);
+        if (v==null) workflowScratchVariables.remove(s);
+        if (workflowScratchVariablesUpdatedThisStep==null) workflowScratchVariablesUpdatedThisStep = MutableMap.of();
+        workflowScratchVariablesUpdatedThisStep.put(s, v);
+        return old;
+    }
+
+    public void updateWorkflowScratchVariables(Map<String,Object> newValues) {
+        if (newValues!=null && !newValues.isEmpty()) {
+            if (workflowScratchVariables ==null) getWorkflowScratchVariables();
+            workflowScratchVariables.putAll(newValues);
+            if (workflowScratchVariablesUpdatedThisStep==null) workflowScratchVariablesUpdatedThisStep = MutableMap.of();
+            workflowScratchVariablesUpdatedThisStep.putAll(newValues);
+        }
     }
 
     public Map<String, List<Instant>> getRetryRecords() {
@@ -660,16 +718,59 @@ public class WorkflowExecutionContext {
 
     @JsonIgnore
     public Object getPreviousStepOutput() {
-        if (lastErrorHandlerOutput!=null) return lastErrorHandlerOutput;
-        if (previousStepIndex==null) return null;
+        Pair<Object, Set<Integer>> p = getStepOutputAndBacktrackedSteps(null);
+        if (p==null) return null;
+        return p.getLeft();
+    }
+    @JsonIgnore
+    Pair<Object,Set<Integer>> getStepOutputAndBacktrackedSteps(Integer stepOrNullForPrevious) {
+        if (stepOrNullForPrevious==null && lastErrorHandlerOutput!=null) return Pair.of(lastErrorHandlerOutput,null);
 
-        OldStepRecord last = oldStepInfo.get(previousStepIndex);
-        if (last!=null && last.context!=null) return last.context.output;
+        Integer prevSI = stepOrNullForPrevious==null ? previousStepIndex : stepOrNullForPrevious;
+        Set<Integer> previousSteps = MutableSet.of();
+        while (prevSI!=null && previousSteps.add(prevSI)) {
+            OldStepRecord last = oldStepInfo.get(prevSI);
+            if (last==null || last.context==null) break;
+            if (last.context.getOutput() !=null) return Pair.of(last.context.getOutput(), previousSteps);
+            if (last.previous.isEmpty()) break;
+            prevSI = last.previous.iterator().next();
+        }
         return null;
+    }
+
+    @JsonIgnore
+    public Pair<Map<String,Object>,Set<Integer>> getStepWorkflowScratchAndBacktrackedSteps(Integer stepOrNullForPrevious) {
+        Integer prevSI = stepOrNullForPrevious==null ? previousStepIndex : stepOrNullForPrevious;
+        Set<Integer> previousSteps = MutableSet.of();
+        Map<String,Object> result = MutableMap.of();
+        boolean includeUpdates = stepOrNullForPrevious==null;  // exclude first update if getting at an explicit step
+        while (prevSI!=null && previousSteps.add(prevSI)) {
+            OldStepRecord last = oldStepInfo.get(prevSI);
+            if (last==null) break;
+            if (includeUpdates && last.workflowScratchUpdates !=null) {
+                result = MutableMap.copyOf(last.workflowScratchUpdates).add(result);
+            }
+            includeUpdates = true;
+            if (last.workflowScratch !=null) {
+                result = MutableMap.copyOf(last.workflowScratch).add(result);
+                result.entrySet().stream().filter(e -> e.getValue()==null).map(Map.Entry::getKey).forEach(result::remove);
+                break;
+            }
+            if (last.previous==null || last.previous.isEmpty()) break;
+            prevSI = last.previous.iterator().next();
+        }
+        return Pair.of(result, previousSteps);
     }
 
     public Object getOutput() {
         return output;
+    }
+
+    public static void checkEqual(Object o1, Object o2) {
+        if (!Objects.equals(o1, o2)) {
+            log.warn("Objects different: " + o1 + " / " + o2);
+            throw new IllegalStateException("Objects different: " + o1 + " / " + o2);
+        }
     }
 
     public String getName() {
@@ -961,7 +1062,7 @@ public class WorkflowExecutionContext {
                                 if (currentStepInstance==null || currentStepInstance.getStepIndex()!=currentStepIndex) {
                                     throw new IllegalStateException("Running workflow at unexpected step, "+currentStepIndex+" v "+currentStepInstance);
                                 }
-                                currentStepInstance.output = null;
+                                currentStepInstance.setOutput(null);
                                 currentStepInstance.injectContext(WorkflowExecutionContext.this);
 
                                 log.debug("Replaying workflow '" + name + "', reusing instance " + currentStepInstance + " for step " + workflowStepReference(currentStepIndex) + ")");
@@ -1084,7 +1185,9 @@ public class WorkflowExecutionContext {
                         errorHandled = true;
 
                         currentStepInstance.next = WorkflowReplayUtils.getNext(result.next, STEP_TARGET_NAME_FOR_END);
-                        if (result.output != null) output = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, result.output, Object.class);
+                        if (result.output != null) {
+                            output = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, result.output, Object.class);
+                        }
 
                         moveToNextStep("Handled error in workflow around step " + workflowStepReference(currentStepIndex), result.next==null);
 
@@ -1141,13 +1244,13 @@ public class WorkflowExecutionContext {
             // record how it ended
             oldStepInfo.compute(previousStepIndex == null ? STEP_INDEX_FOR_START : previousStepIndex, (index, old) -> {
                 if (old == null) old = new OldStepRecord();
-                old.next = MutableSet.<Integer>of(STEP_INDEX_FOR_END).putAll(old.next);
+                old.next = MutableSet.of(STEP_INDEX_FOR_END).putAll(old.next);
                 old.nextTaskId = null;
                 return old;
             });
             oldStepInfo.compute(STEP_INDEX_FOR_END, (index, old) -> {
                 if (old == null) old = new OldStepRecord();
-                old.previous = MutableSet.<Integer>of(previousStepIndex == null ? STEP_INDEX_FOR_START : previousStepIndex).putAll(old.previous);
+                old.previous = MutableSet.of(previousStepIndex == null ? STEP_INDEX_FOR_START : previousStepIndex).putAll(old.previous);
                 old.previousTaskId = previousStepTaskId;
                 return old;
             });
@@ -1160,7 +1263,7 @@ public class WorkflowExecutionContext {
             }
             OldStepRecord last = oldStepInfo.get(step);
             if (last != null) {
-                workflowScratchVariables = last.workflowScratch;
+                workflowScratchVariables = getStepWorkflowScratchAndBacktrackedSteps(step).getLeft();
                 previousStepIndex = last.previous==null ? null : last.previous.stream().findFirst().orElse(null);
 
             } else {
@@ -1207,7 +1310,7 @@ public class WorkflowExecutionContext {
                 resetWorkflowContextPreviousAndScratchVarsToStep(currentStepIndex, false);
             }
             if (continuationInstructions.customWorkflowScratchVariables!=null) {
-                workflowScratchVariables.putAll(continuationInstructions.customWorkflowScratchVariables);
+                updateWorkflowScratchVariables(continuationInstructions.customWorkflowScratchVariables);
             }
 
         }
@@ -1253,7 +1356,7 @@ public class WorkflowExecutionContext {
         }
 
         private Object endWithSuccess() {
-            WorkflowReplayUtils.updateOnWorkflowSuccess(WorkflowExecutionContext.this, task, output);
+            WorkflowReplayUtils.updateOnWorkflowSuccess(WorkflowExecutionContext.this, task, getOutput());
             persist();
             return output;
         }
@@ -1316,13 +1419,15 @@ public class WorkflowExecutionContext {
                 t = step.newTask(currentStepInstance);
             }
 
+            updateOldNextStepOnThisStepStarting();
+
             // about to run -- checkpoint noting current and previous steps, and updating replayable from info
             OldStepRecord currentStepRecord = oldStepInfo.compute(currentStepIndex, (index, old) -> {
                 if (old == null) old = new OldStepRecord();
                 old.countStarted++;
-                if (!workflowScratchVariables.isEmpty())
-                    old.workflowScratch = MutableMap.copyOf(workflowScratchVariables);
-                else old.workflowScratch = null;
+
+                old.workflowScratchUpdates = null;
+
                 old.previous = MutableSet.<Integer>of(previousStepIndex == null ? STEP_INDEX_FOR_START : previousStepIndex).putAll(old.previous);
                 old.previousTaskId = previousStepTaskId;
                 old.nextTaskId = null;
@@ -1331,6 +1436,10 @@ public class WorkflowExecutionContext {
             WorkflowReplayUtils.updateReplayableFromStep(WorkflowExecutionContext.this, step);
             oldStepInfo.compute(previousStepIndex==null ? STEP_INDEX_FOR_START : previousStepIndex, (index, old) -> {
                 if (old==null) old = new OldStepRecord();
+                if (previousStepIndex==null && workflowScratchVariables!=null && !workflowScratchVariables.isEmpty()) {
+                    // if workflow scratch vars were initialized prior to run, we nee to save those
+                    old.workflowScratch = MutableMap.copyOf(workflowScratchVariables);
+                }
                 old.next = MutableSet.<Integer>of(currentStepIndex).putAll(old.next);
                 old.nextTaskId = t.getId();
                 return old;
@@ -1343,25 +1452,49 @@ public class WorkflowExecutionContext {
 
             persist();
 
-            BiConsumer<Object,Object> onFinish = (output,overrideNext) -> {
+            BiConsumer<Object,Object> onFinish = (stepOutputDefinition,overrideNext) -> {
                 currentStepInstance.next = WorkflowReplayUtils.getNext(overrideNext, currentStepInstance, step);
-                if (output!=null) currentStepInstance.output = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, output, Object.class);
+                if (stepOutputDefinition!=null) {
+                    Object outputResolved = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, stepOutputDefinition, Object.class);
+                    currentStepInstance.setOutput(outputResolved);
+                }
+                if (currentStepInstance.output != null) {
+                    Pair<Object, Set<Integer>> prev = getStepOutputAndBacktrackedSteps(null);
+                    if (prev != null && Objects.equals(prev.getLeft(), currentStepInstance.output) && lastErrorHandlerOutput==null) {
+                        // optimization, clear the value here if we can simply take it from the previous step
+                        currentStepInstance.output = null;
+                    }
+                }
+                if (workflowScratchVariablesUpdatedThisStep!=null && !workflowScratchVariablesUpdatedThisStep.isEmpty()) {
+                    currentStepRecord.workflowScratchUpdates = workflowScratchVariablesUpdatedThisStep;
+                }
+                if (currentStepRecord.workflowScratch != null) {
+                    // if we are repeating, check if we need to keep what we were repeating
+                    Pair<Map<String, Object>, Set<Integer>> prev = getStepWorkflowScratchAndBacktrackedSteps(null);
+                    if (prev!=null && !prev.getRight().contains(currentStepIndex) && Objects.equals(prev.getLeft(), currentStepRecord.workflowScratch)){
+                        currentStepRecord.workflowScratch = null;
+                    }
+                }
+
+                workflowScratchVariablesUpdatedThisStep = null;
             };
 
             // now run the step
             try {
                 Duration duration = step.getTimeout();
+                Object newOutput;
                 if (duration!=null) {
                     boolean isEnded = DynamicTasks.queue(t).blockUntilEnded(duration);
                     if (isEnded) {
-                        currentStepInstance.output = t.getUnchecked();
+                        newOutput = t.getUnchecked();
                     } else {
                         t.cancel(true);
                         throw new TimeoutException("Timeout after "+duration+": "+t.getDisplayName());
                     }
                 } else {
-                    currentStepInstance.output = DynamicTasks.queue(t).getUnchecked();
+                    newOutput = DynamicTasks.queue(t).getUnchecked();
                 }
+                currentStepInstance.setOutput(newOutput);
 
                 // allow output to be customized / overridden
                 onFinish.accept(step.output, null);
@@ -1453,6 +1586,28 @@ public class WorkflowExecutionContext {
         }
     }
 
+    private void updateStepOutput(WorkflowStepInstanceExecutionContext step, Object newOutput) {
+        step.output = step.outputOld = newOutput;
+    }
+    private void updateOldNextStepOnThisStepStarting() {
+        // at step start, we update the _next_ record to have a copy of our old output and workflow vars
+        OldStepRecord old = oldStepInfo.get(currentStepInstance.stepIndex);
+        if (old!=null && old.next!=null && !old.next.isEmpty()) {
+            Integer lastNext = old.next.iterator().next();
+            OldStepRecord oldNext = oldStepInfo.get(lastNext);
+            if (oldNext!=null && oldNext.context!=null) {
+                // if oldNext has no context then we never ran it, so we aren't repeating, we're replaying
+                if (oldNext.context.output ==null) {
+                    // below will access the _previous_ StepInstanceExecutionContext, as oldStepRecord.context is update at end of step
+                    // thus below gets the _previous_ output known at this step, saving it in the next
+                    oldNext.context.output = old.context.output;
+                }
+
+                oldNext.workflowScratch = getWorkflowScratchVariables();
+            }
+        }
+    }
+
     public Maybe<Pair<Integer,Boolean>> getIndexOfStepId(String next) {
         if (next==null) return Maybe.absent("Null step ID supplied");
         Function<WorkflowExecutionContext, Integer> predefined = PREDEFINED_NEXT_TARGETS.get(next.toLowerCase());
@@ -1494,4 +1649,24 @@ public class WorkflowExecutionContext {
         return "neg-"+(index); // unknown
     }
 
+    public static class Converter implements com.fasterxml.jackson.databind.util.Converter<WorkflowExecutionContext,WorkflowExecutionContext> {
+        @Override
+        public WorkflowExecutionContext convert(WorkflowExecutionContext value) {
+            if (value.workflowScratchVariables ==null || value.workflowScratchVariables.isEmpty()) {
+                value.workflowScratchVariables = value.getStepWorkflowScratchAndBacktrackedSteps(null).getLeft();
+            }
+            // note: no special handling needed for output; it is derived from the last non-null step output
+            return value;
+        }
+
+        @Override
+        public JavaType getInputType(TypeFactory typeFactory) {
+            return typeFactory.constructType(WorkflowExecutionContext.class);
+        }
+
+        @Override
+        public JavaType getOutputType(TypeFactory typeFactory) {
+            return typeFactory.constructType(WorkflowExecutionContext.class);
+        }
+    }
 }
