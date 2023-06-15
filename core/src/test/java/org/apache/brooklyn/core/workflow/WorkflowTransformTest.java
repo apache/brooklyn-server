@@ -18,9 +18,12 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
@@ -28,10 +31,14 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
 
@@ -39,278 +46,170 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
     }
 
+    BasicApplication app;
+
+    @BeforeMethod(alwaysRun = true)
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        loadTypes();
+        app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+    }
+
+    @AfterMethod(alwaysRun = true, timeOut = Asserts.THIRTY_SECONDS_TIMEOUT_MS)
+    @Override
+    public void tearDown() throws Exception {
+        if (app!=null) Entities.unmanage(app);
+        super.tearDown();
+    }
+
+    static Object runWorkflowSteps(Entity entity, String ...steps) {
+        return WorkflowBasicTest.runWorkflow(entity, Arrays.asList(steps).stream().map(s -> "- "+Strings.indent(2, s).trim()).collect(Collectors.joining("\n")), "test").getTask(false).get().getUnchecked();
+    }
+    Object runWorkflowSteps(String ...steps) {
+        return runWorkflowSteps(app, steps);
+    }
+
+    Object transform(String args) {
+        return runWorkflowSteps(app, "transform "+args);
+    }
+
     @Test
     public void testTransformTrim() throws Exception {
-        loadTypes();
-
         String untrimmed = "Hello, World!   ";
         String trimmed = untrimmed.trim();
 
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
-                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
-                        .append("let mystring = '"+untrimmed+"'")
-                        .append("transform mytrimmedstring = ${mystring} | trim")
-                        .append("return ${mytrimmedstring}")
-                )
-        );
-        eff.apply((EntityLocal)app);
-
-        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
-        Object result = invocation.getUnchecked();
-        Asserts.assertNotNull(result);
-        Asserts.assertEquals(result, trimmed);
+        Asserts.assertEquals(
+                runWorkflowSteps(
+                    "let mystring = '"+untrimmed+"'",
+                    "transform mytrimmedstring = ${mystring} | trim",
+                    "return ${mytrimmedstring}"),
+                trimmed);
     }
 
     @Test
     public void testTransformRegex() throws Exception {
-        loadTypes();
+        Asserts.assertEquals(transform("value 'silly world' | replace regex l. k"), "siky world");
+        Asserts.assertEquals(transform("value 'silly world' | replace all regex l. k"), "siky work");
+        // with slash
+        Asserts.assertEquals(transform("value 'abc/def/ghi' | replace regex 'c/d' XXX"), "abXXXef/ghi");
+        // with space
+        Asserts.assertEquals(transform("value 'abc def ghi' | replace regex 'c d' XXX"), "abXXXef ghi");
 
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
-                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
-                        .append("transform x = 'silly world' | replace regex l. k")
-                        .append("return ${x}")
-                )
-        );
-        eff.apply((EntityLocal)app);
-
-        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
-        Object result = invocation.getUnchecked();
-        Asserts.assertNotNull(result);
-        Asserts.assertEquals(result, "siky world");
-    }
-
-    @Test
-    public void testTransformAllRegex() throws Exception {
-        loadTypes();
-
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
-                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
-                        .append("transform x = 'silly world' | replace all regex l. k")
-                        .append("return ${x}")
-                )
-        );
-        eff.apply((EntityLocal)app);
-
-        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
-        Object result = invocation.getUnchecked();
-        Asserts.assertNotNull(result);
-        Asserts.assertEquals(result, "siky work");
-    }
-
-    @Test
-    public void testTransformRegexWithBackslash() throws Exception {
-        loadTypes();
-
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
-                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
-                        .append("transform x = 'abc/def/ghi' | replace regex 'c/d' XXX")
-                        .append("return ${x}")
-                )
-        );
-        eff.apply((EntityLocal)app);
-
-        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
-        Object result = invocation.getUnchecked();
-        Asserts.assertNotNull(result);
-        Asserts.assertEquals(result, "abXXXef/ghi");
-    }
-
-    @Test
-    public void testTransformRegexWithSpace() throws Exception {
-        loadTypes();
-
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
-                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
-                        .append("transform x = 'abc def ghi' | replace regex 'c d' XXX")
-                        .append("return ${x}")
-                )
-        );
-        eff.apply((EntityLocal)app);
-
-        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
-        Object result = invocation.getUnchecked();
-        Asserts.assertNotNull(result);
-        Asserts.assertEquals(result, "abXXXef ghi");
+        // greedy
+        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace regex 'c.*d' XXX"), "abXXX");
+        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace all regex 'c.*d' XXX"), "abXXX");
+        // TODO this fails
+//        Asserts.assertEquals(transform("value 'abc def ghi' | replace regex 'c d' ''"), "abef ghi");
     }
 
     @Test
     public void testTransformLiteral() throws Exception {
-        loadTypes();
-
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
-                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
-                        .append("transform x = 'abc.*def ghi' | replace literal c.*d XXX")
-                        .append("return ${x}")
-                )
-        );
-        eff.apply((EntityLocal)app);
-
-        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
-        Object result = invocation.getUnchecked();
-        Asserts.assertNotNull(result);
-        Asserts.assertEquals(result, "abXXXef ghi");
+        Asserts.assertEquals(transform("value 'abc def ghi' | replace literal c.*d XXX"), "abc def ghi");
+        Asserts.assertEquals(transform("value 'abc.*def ghi c.*d' | replace literal c.*d XXX"), "abXXXef ghi c.*d");
+        Asserts.assertEquals(transform("value 'abc.*def ghi c.*d' | replace all literal c.*d XXX"), "abXXXef ghi XXX");
     }
 
     @Test
     public void testTransformGlob() throws Exception {
-        loadTypes();
-
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
-                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
-                        .append("transform x = 'abc.*def ghi' | replace glob c*e XXX")
-                        .append("return ${x}")
-                )
-        );
-        eff.apply((EntityLocal)app);
-
-        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
-        Object result = invocation.getUnchecked();
-        Asserts.assertNotNull(result);
-        Asserts.assertEquals(result, "abXXXf ghi");
+        Asserts.assertEquals(transform("value 'abc def ghi' | replace glob c*e XXX"), "abXXXf ghi");
+        // TODO glob is greedy, so all has no effect
+        Asserts.assertEquals(transform("value 'abc def ghi c2e' | replace glob c*e XXX"), "abXXX");
+        Asserts.assertEquals(transform("value 'abc def ghi c2e' | replace all glob c*e XXX"), "abXXX");
     }
 
     @Test
     public void testMapDirect() {
-        loadTypes();
-
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
-                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
-                        .append("let map myMap = {a: 1}")
-                        .append("let myMap.a = 2")
-                        .append("return ${myMap.a}")
-                )
-        );
-        eff.apply((EntityLocal)app);
-
-        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
-        Object result = invocation.getUnchecked();
-        Asserts.assertNotNull(result);
-        Asserts.assertEquals(result, "2");
+        Asserts.assertEquals(runWorkflowSteps(
+                "let map myMap = {a: 1}",
+                "let myMap.a = 2",
+                "return ${myMap.a}"),
+            "2");
     }
 
     @Test
     public void testReturnTransformWithMapYaml() {
-        loadTypes();
-
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-        Object result = WorkflowBasicTest.runWorkflow(app, Strings.lines(
-                "- step: let s",
-                "  value: |",
-                "    bogus",
-                "    - not valid: yaml: here",
-                "    that's: okay",
-                "    ---",
-                "     key: value",
-                "- transform s | yaml | return",
-                "- return should not come here",
-        ""), "test").getTask(false).get().getUnchecked();
-        Asserts.assertInstanceOf(result, Map.class);
-        Asserts.assertEquals(result, MutableMap.of("key", "value"));
+        Asserts.assertEquals(WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                    "- step: let s",
+                    "  value: |",
+                    "    bogus",
+                    "    - not valid: yaml: here",
+                    "    that's: okay",
+                    "    ---",
+                    "     key: value",
+                    "- transform s | yaml | return",
+                    "- return should not come here",
+                ""), "test").getTask(false).get().getUnchecked(),
+                MutableMap.of("key", "value"));
     }
 
     @Test
     public void testSetVarTransform() {
-        loadTypes();
-
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-        Object result = WorkflowBasicTest.runWorkflow(app, Strings.lines(
-                "- step: let s",
-                "  value: \"key: Value\"",
-                "- transform s | yaml | set y",
-                "- transform y.key2 = ${output.key} | to_upper_case",
-                "- transform output.key | to_lower_case",  // output should still be the yaml map transformed from ${s}
-                "- transform output | set y.key3",   // output passed in here will be 'value' from previous step
-                "- transform value true | set y.key4",
-                "- transform boolean value true | set y.key5",
-                "- return ${y}",
-                ""), "test").getTask(false).get().getUnchecked();
-        Asserts.assertInstanceOf(result, Map.class);
-        Asserts.assertEquals(result, MutableMap.of("key", "Value", "key2", "VALUE", "key3", "value", "key4", "true", "key5", true));
+        Asserts.assertEquals(WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                    "- step: let s",
+                    "  value: \"key: Value\"",
+                    "- transform s | yaml | set y",
+                    "- transform y.key2 = ${output.key} | to_upper_case",
+                    "- transform output.key | to_lower_case",  // output should still be the yaml map transformed from ${s}
+                    "- transform output | set y.key3",   // output passed in here will be 'value' from previous step
+                    "- transform value true | set y.key4",
+                    "- transform boolean value true | set y.key5",
+                    "- return ${y}",
+                ""), "test").getTask(false).get().getUnchecked(),
+                MutableMap.of("key", "Value", "key2", "VALUE", "key3", "value", "key4", "true", "key5", true));
     }
 
     @Test
     public void testResolveTransform() {
-        loadTypes();
+        Asserts.assertEquals(runWorkflowSteps(
+                    "let a = b",
+                    "let b = c",
+                    "let x = \"${\" ${a} \"}\"",
+                    "transform x | resolve_expression | return"
+                ), "c");
 
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-        Object result = WorkflowBasicTest.runWorkflow(app, Strings.lines(
-                "- let a = b",
-                "- let b = c",
-                "- let x = \"${\" ${a} \"}\"",
-                "- transform x | resolve_expression | return",
-                ""), "test").getTask(false).get().getUnchecked();
-        Asserts.assertEquals(result, "c");
-
-        result = WorkflowBasicTest.runWorkflow(app, Strings.lines(
-                "- let a = b",
-                "- let b = c",
-                "- transform value {${a}} | prepend $ | resolve_expression | return",
-                ""), "test").getTask(false).get().getUnchecked();
-        Asserts.assertEquals(result, "c");
+        Asserts.assertEquals(runWorkflowSteps(
+                    "let a = b",
+                    "let b = c",
+                    "transform value {${a}} | prepend $ | resolve_expression | return"
+                ), "c");
     }
 
     @Test
     public void testSliceRemoveAndAppendTransform() {
-        loadTypes();
-
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-
-        Function<String,Object> transform = tx -> WorkflowBasicTest.runWorkflow(app, Strings.lines("- "+tx), "test").getTask(false).get().getUnchecked();
-
         // slice list
-        Asserts.assertEquals(transform.apply("transform value ['a','bb','ccc'] | type list | slice 1"), MutableList.of("bb", "ccc"));
-        Asserts.assertEquals(transform.apply("transform value ['a','bb','ccc'] | type list | slice 1 -1"), MutableList.of("bb"));
-        Asserts.assertEquals(transform.apply("transform value ['a','bb','ccc'] | type list | slice -1"), MutableList.of("ccc"));
+        Asserts.assertEquals(transform("value ['a','bb','ccc'] | type list | slice 1"), MutableList.of("bb", "ccc"));
+        Asserts.assertEquals(transform("value ['a','bb','ccc'] | type list | slice 1 -1"), MutableList.of("bb"));
+        Asserts.assertEquals(transform("value ['a','bb','ccc'] | type list | slice -1"), MutableList.of("ccc"));
 
         // slice string
-        Asserts.assertEquals(transform.apply("transform value abc | slice 1"), "bc");
+        Asserts.assertEquals(transform("value abc | slice 1"), "bc");
 
-        // append list
-        Asserts.assertEquals(transform.apply("transform value ['a','bb'] | type list | append ccc"), MutableList.of("a", "bb", "ccc"));
-        Asserts.assertEquals(transform.apply("transform value ['ccc'] | type list | set c\n" +
-                "- transform value ['a','bb'] | type list | append ${c}"), MutableList.of("a", "bb", MutableList.of("ccc")));
+        // append and prepend list
+        Asserts.assertEquals(transform("value ['a','bb'] | type list | append ccc"), MutableList.of("a", "bb", "ccc"));
+        Asserts.assertEquals(runWorkflowSteps(
+                "transform value ['ccc'] | type list | set c",
+                "transform value ['a','bb'] | type list | append ${c}"
+            ), MutableList.of("a", "bb", MutableList.of("ccc")));
+        Asserts.assertEquals(transform("value ['a','bb'] | type list | prepend ccc"), MutableList.of("ccc", "a", "bb"));
+
+        // append and prepend string
+        Asserts.assertEquals(transform("value hello | append _world"), "hello_world");
+        // TODO this fails
+//        Asserts.assertEquals(transform("value hello | append \" world\""), "hello world");
 
         // remove list
-        Asserts.assertEquals(transform.apply("transform value ['a','bb','ccc'] | type list | remove 1"), MutableList.of("a", "ccc"));
+        Asserts.assertEquals(transform("value ['a','bb','ccc'] | type list | remove 1"), MutableList.of("a", "ccc"));
 
         // remove map
-        Asserts.assertEquals(transform.apply("step: transform\n" +
-                "  transform: type map | remove b\n" +
-                "  value:\n" +
-                "    a: 1\n" +
-                "    b: 2"), MutableMap.of("a", 1));
+        Asserts.assertEquals(
+                runWorkflowSteps(
+                    "step: transform\n" +
+                    "transform: type map | remove b\n" +
+                    "value:\n" +
+                    "  a: 1\n" +
+                    "  b: 2"),
+                MutableMap.of("a", 1));
     }
 
 }
