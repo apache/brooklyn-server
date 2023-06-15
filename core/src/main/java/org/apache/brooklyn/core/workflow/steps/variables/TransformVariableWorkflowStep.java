@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.*;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -169,7 +170,12 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
     }
 
     WorkflowTransformWithContext getTransform(WorkflowStepInstanceExecutionContext context, String transformDef) {
-        List<String> transformWords = Arrays.asList(transformDef.split(" "));
+        List<String> transformWords;
+        // old
+//        transformWords = Arrays.asList(transformDef.split(" "));
+        // new, respecting quotes
+        transformWords = QuotedStringTokenizer.builder().includeQuotes(false).includeDelimiters(false).expectQuotesDelimited(true).failOnOpenQuote(true).build(transformDef).remainderAsList();
+
         String transformType = transformWords.get(0);
         Function t = Maybe.ofDisallowingNull(TRANSFORMATIONS.get(transformType)).map(Supplier::get).orNull();
         if (t==null) {

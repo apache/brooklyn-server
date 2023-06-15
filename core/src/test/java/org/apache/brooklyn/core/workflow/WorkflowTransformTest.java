@@ -198,8 +198,7 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
 
         // append and prepend string
         Asserts.assertEquals(transform("value hello | append _world"), "hello_world");
-        // TODO this fails
-//        Asserts.assertEquals(transform("value hello | append \" world\""), "hello world");
+        Asserts.assertEquals(transform("value hello | append \" world\""), "hello world");
 
         // remove list
         Asserts.assertEquals(transform("value ['a','bb','ccc'] | type list | remove 1"), MutableList.of("a", "ccc"));
