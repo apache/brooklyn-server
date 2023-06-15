@@ -99,8 +99,11 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
         // greedy
         Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace regex 'c.*d' XXX"), "abXXX");
         Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace all regex 'c.*d' XXX"), "abXXX");
-        // TODO this fails
-//        Asserts.assertEquals(transform("value 'abc def ghi' | replace regex 'c d' ''"), "abef ghi");
+        // non-greedy qualifier
+        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace regex 'c.*?d' XXX"), "abXXXef ghi c2d");
+        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace all regex 'c.*?d' XXX"), "abXXXef ghi XXX");
+
+        Asserts.assertEquals(transform("value 'abc def ghi' | replace regex 'c d' ''"), "abef ghi");
     }
 
     @Test
@@ -113,9 +116,9 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testTransformGlob() throws Exception {
         Asserts.assertEquals(transform("value 'abc def ghi' | replace glob c*e XXX"), "abXXXf ghi");
-        // TODO glob is greedy, so all has no effect
+        // glob is greedy, unless all is specified where it is not
         Asserts.assertEquals(transform("value 'abc def ghi c2e' | replace glob c*e XXX"), "abXXX");
-        Asserts.assertEquals(transform("value 'abc def ghi c2e' | replace all glob c*e XXX"), "abXXX");
+        Asserts.assertEquals(transform("value 'abc def ghi c2e' | replace all glob c*e XXX"), "abXXXf ghi XXX");
     }
 
     @Test

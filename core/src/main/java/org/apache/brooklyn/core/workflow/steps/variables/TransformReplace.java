@@ -39,7 +39,7 @@ public class TransformReplace extends WorkflowTransformDefault {
     @Override
     protected void initCheckingDefinition() {
         Maybe<Map<String, Object>> maybeResult = new ShorthandProcessor(SHORTHAND)
-                .withFinalMatchRaw(true)
+                .withFinalMatchRaw(false)
                 .withFailOnMismatch(true)
                 .process(transformDef);
 
@@ -80,7 +80,7 @@ public class TransformReplace extends WorkflowTransformDefault {
                     : input.replaceFirst(patternToMatch, replacement);
         }
         if (glob) {
-            String globToRegex = convertGlobToRegex(patternToMatch);
+            String globToRegex = convertGlobToRegex(patternToMatch, !all);
 
             return all ? input.replaceAll(globToRegex, replacement)
                     : input.replaceFirst(globToRegex, replacement);
@@ -103,7 +103,7 @@ public class TransformReplace extends WorkflowTransformDefault {
      * https://jakarta.apache.org/oro/
      *
      */
-    private String convertGlobToRegex(String pattern) {
+    private String convertGlobToRegex(String pattern, boolean isGreedy) {
         StringBuilder sb = new StringBuilder(pattern.length());
         int inGroup = 0;
         int inClass = 0;
@@ -133,7 +133,7 @@ public class TransformReplace extends WorkflowTransformDefault {
                     break;
                 case '*':
                     if (inClass == 0)
-                        sb.append(".*");
+                        sb.append(".*"+(isGreedy ? "" : "?"));
                     else
                         sb.append('*');
                     break;
