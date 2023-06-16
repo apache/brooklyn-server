@@ -192,5 +192,13 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
 
         // chained
         assertEvaluated("false ? ignored : true ? \"b\" : \"c\"", "b");
+
+        assertEvaluated("false ? ignored : true ? \"b\" : \"c\"", "b");
+
+        Asserts.assertEquals(runSteps(MutableList.of(
+                "let integer x = 4",
+                "let integer y = ${x} == 4 ? 5 : 6",
+                "return ${y}"
+        )), 5);
     }
 }

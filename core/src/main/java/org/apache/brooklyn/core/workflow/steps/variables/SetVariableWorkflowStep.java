@@ -232,14 +232,14 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 wordsByQuote = qst.remainderAsList();
             }
             // then look for operators etc
-            return process(wordsByQuote, null);
+            return process(wordsByQuote);
         }
 
         QuotedStringTokenizer qst(String input) {
             return QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(true).expectQuotesDelimited(true).failOnOpenQuote(true).build(input);
         }
 
-        Object process(List<String> w, Function<String,TypeToken<?>> explicitType) {
+        Object process(List<String> w) {
             // if no tokens, treat as null
             if (w.isEmpty()) return null;
 
@@ -276,6 +276,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
             // #6: < <= > >=
             result = handleTokenIfPresent(w, false, MutableMap.of(
+                    "==", this::handleEquals,
                     "<", this::handleOrderedLessThan,
                     "<=", this::handleOrderedLessThanOrEqual,
                     ">", this::handleOrderedGreaterThan,
@@ -332,12 +333,12 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         }
 
         Object handleNullish(List<String> lhs, List<String> rhs) {
-            return processMaybe(lhs, null).or(() -> process(rhs, null));
+            return processMaybe(lhs, null).or(() -> process(rhs));
         }
 
         Maybe<Object> processMaybe(List<String> lhs, Function<String,TypeToken<?>> explicitType) {
             try {
-                Object result = process(lhs, explicitType);
+                Object result = process(lhs);
                 if (result!=null) return Maybe.of(result);
                 return Maybe.absent("null");
 
@@ -372,8 +373,8 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         }
 
         Object applyMathOperator(String op, List<String> lhs0, List<String> rhs0, BiFunction<Integer,Integer,Number> ifInt, BiFunction<Double,Double,Number> ifDouble) {
-            Object lhs = process(lhs0, null);
-            Object rhs = process(rhs0, null);
+            Object lhs = process(lhs0);
+            Object rhs = process(rhs0);
 
             if ("+".equals(op)) {
                 if (lhs instanceof Duration) {
@@ -426,8 +427,8 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         }
 
         Object applyBooleanOperator(List<String> lhs0, List<String> rhs0, BiFunction<Boolean, Boolean, Boolean> biFn) {
-            Object lhs = process(lhs0, null);
-            Object rhs = process(rhs0, null);
+            Object lhs = process(lhs0);
+            Object rhs = process(rhs0);
 
             Maybe<Boolean> lhsB = asBoolean(lhs);
             Maybe<Boolean> rhsB = asBoolean(rhs);
@@ -437,9 +438,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             throw new IllegalArgumentException("Should not come here");
         }
 
-        Object applyComparison(List<String> lhs0, List<String> rhs0, Function<Integer, Boolean> test) {
-            Object lhs = process(lhs0, null);
-            Object rhs = process(rhs0, null);
+        boolean applyComparison(List<String> lhs0, List<String> rhs0, Function<Integer, Boolean> test) {
+            Object lhs = process(lhs0);
+            Object rhs = process(rhs0);
 
             return DslPredicates.coercedCompare(lhs, rhs, test);
         }
@@ -492,9 +493,13 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             return applyComparison(lhs, rhs, v -> v<=0);
         }
 
+        boolean handleEquals(List<String> lhs, List<String> rhs) {
+            return DslPredicates.coercedEqual(process(lhs), process(rhs));
+        }
+
         Object handleTernaryCondition(List<String> lhs0, List<String> rhs0) {
-            log.info(String.format("Ternary Condition 0: [lhs:%s][rhs:%s]", lhs0, rhs0));
-            Object lhs = process(lhs0, null);
+            //log.info(String.format("Ternary Condition 0: [lhs:%s][rhs:%s]", lhs0, rhs0));
+            Object lhs = process(lhs0);
             Object rhs;
             int questionIndex = rhs0.indexOf("?");
             int colonIndex = rhs0.indexOf(":");
@@ -506,9 +511,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 rhs = handleChainedTernaryRhs(rhs0);
             } else {
                 // non-nested or chained
-                rhs = process(rhs0, null);
+                rhs = process(rhs0);
             }
-            log.info(String.format("Ternary Condition 1: [lhs:%s][rhs:%s]", lhs, rhs));
+            //log.info(String.format("Ternary Condition 1: [lhs:%s][rhs:%s]", lhs, rhs));
 
             if (!(rhs instanceof TernaryArms)) throw new IllegalArgumentException("Mismatched ternary ':' operator");
 
@@ -517,14 +522,15 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 if (condition.get()) {
                     // ? left : right -- rhs length is 5 [left, ,:, ,right]
                     // ? true && true : false || false -- rhs length is ???
-                    return process( ((TernaryArms)rhs).getLeft(), null );
+                    return process( ((TernaryArms)rhs).getLeft());
                     //throw new IllegalArgumentException("TERNARY CONDITION IS TRUE");
                 } else {
-                    return process( ((TernaryArms)rhs).getRight(), null );
+                    return process( ((TernaryArms)rhs).getRight());
                     //throw new IllegalArgumentException("TERNARY CONDITION IS FALSE");
                 }
             }
-            throw new IllegalArgumentException("Should not come here");
+
+            throw new IllegalArgumentException("Leading term of ternary '"+lhs+"' does not evaluate to a boolean");
         }
 
         public TernaryArms handleNestedTernaryRhs(List<String> rhs) {
@@ -534,7 +540,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             }
             int firstColonIndex = rhs.indexOf(":");
             if (firstColonIndex == lastColonIndex) {
-                return (TernaryArms) process(rhs, null);
+                return (TernaryArms) process(rhs);
             }
             return new TernaryArms(trim(rhs.subList(0, lastColonIndex)), trim(rhs.subList(lastColonIndex + 1, rhs.size())));
         }
@@ -554,7 +560,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         }
 
         public Object handleTernaryArms(List<String> lhs0, List<String> rhs0) {
-            log.info(String.format("Ternary 0: [lhs:%s][rhs:%s]", lhs0, rhs0));
+            //log.info(String.format("Ternary 0: [lhs:%s][rhs:%s]", lhs0, rhs0));
             return new TernaryArms(lhs0, rhs0);
         }
 
