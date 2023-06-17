@@ -337,6 +337,7 @@ public class WorkflowRetryTest extends RebindTestFixture<BasicApplication> {
         while (lastInvocation==null) Time.sleep(Duration.millis(10));
         EntityAsserts.assertAttributeEventually(app, Sensors.newIntegerSensor("count"), v -> v!=null && v > 1);
         Asserts.assertFalse(lastInvocation.isDone());
+        log.info("setting sensor so workflow can proceed");
         app.sensors().set(Sensors.newIntegerSensor("no_count"), -1);
         lastInvocation.getUnchecked(Duration.ONE_SECOND);
         EntityAsserts.assertAttributeEquals(app, Sensors.newIntegerSensor("no_count"), 0);

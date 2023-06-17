@@ -68,7 +68,8 @@ public class WorkflowStepInstanceExecutionContext {
     // replay instructions or a string explicit next step identifier
     public Object next;
 
-    /** set if the step is in an error handler context, containing the error being handled */
+    /** set if the step is in an error handler context, containing the error being handled,
+     * or if the step had an error that was not handled */
     Throwable error;
 
     /** set if there was an error handled locally */

@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -56,6 +57,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -1041,4 +1043,76 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         // and worst case they can be manually deleted)
     }
 
+    @Test
+    public void testErrorInSubWorkflowCaughtUpdatesContextAndStep() throws Exception {
+        app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        WorkflowExecutionContext run = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "steps:",
+                "- log 1",
+                "- type: workflow",
+                "  steps:",
+                "  - log 2-1",
+                "  - step: fail message 2-2",
+                "    on-error:",
+                "    - log 2-2-error",
+                "    - fail message 2-2-done",
+                "  - log 2-3",
+                "  on-error: ",
+                "  - return 2-done",
+                "- log 3"
+        ), "test-error-in-subworkflow");
+        Asserts.assertEquals(run.getTask(true).get().getUnchecked(), "2-done");
+
+        WorkflowExecutionContext.OldStepRecord step2 = run.oldStepInfo.get(1);
+        Asserts.assertNotNull(step2);
+        Asserts.assertNotNull(step2.context);
+        Asserts.assertNull(step2.context.error);  // should be null because handled
+        Asserts.assertNull(step2.context.errorHandlerTaskId);  // should be null because not treated as a step handler, but handler for the workflow - step2sub.errorHandlerTaskId
+
+        BrooklynTaskTags.WorkflowTaskTag step2subTag = Iterables.getOnlyElement(step2.context.getSubWorkflows());
+
+        WorkflowExecutionContext step2sub = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).get(step2subTag.getWorkflowId());
+        Asserts.assertEquals(step2sub.getStatus(), WorkflowExecutionContext.WorkflowStatus.SUCCESS);
+        Asserts.assertNotNull(step2sub.errorHandlerTaskId);
+
+        WorkflowExecutionContext.OldStepRecord step22 = step2sub.oldStepInfo.get(1);
+        Asserts.assertNotNull(step22);
+
+        Asserts.assertNotNull(step22);
+        Asserts.assertNotNull(step22.context);
+        Asserts.assertNotNull(step22.context.error);   // not null because not handled here
+        Asserts.assertNotNull(step22.context.errorHandlerTaskId);
+    }
+
+    @Test
+    public void testErrorInSubWorkflowUncaughtUpdatesContextAndStep() throws Exception {
+        app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        WorkflowExecutionContext run = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "steps:",
+                "- log 1",
+                "- type: workflow",
+                "  steps:",
+                "  - log 2-1",
+                "  - step: fail message 2-2",
+                "    on-error:",
+                "    - log 2-2-error",
+                "    - fail message 2-2-done",
+                "  - log 2-3",
+                "- log 3"
+        ), "test-error-in-subworkflow");
+        run.getTask(true).get().blockUntilEnded();
+        Asserts.assertEquals(run.getStatus(), WorkflowExecutionContext.WorkflowStatus.ERROR);
+
+        WorkflowExecutionContext.OldStepRecord step2 = run.oldStepInfo.get(1);
+        BrooklynTaskTags.WorkflowTaskTag step2subTag = Iterables.getOnlyElement(step2.context.getSubWorkflows());
+
+        WorkflowExecutionContext step2sub = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).get(step2subTag.getWorkflowId());
+        Asserts.assertEquals(step2sub.getStatus(), WorkflowExecutionContext.WorkflowStatus.ERROR);
+
+        WorkflowExecutionContext.OldStepRecord step22 = step2sub.oldStepInfo.get(1);
+        Asserts.assertNotNull(step22);
+        Asserts.assertNotNull(step22.context);
+        Asserts.assertNotNull(step22.context.error);
+        Asserts.assertNotNull(step22.context.errorHandlerTaskId);
+    }
 }

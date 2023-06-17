@@ -83,7 +83,6 @@ import static org.apache.brooklyn.core.workflow.WorkflowReplayUtils.ReplayResume
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonDeserialize(converter = WorkflowExecutionContext.Converter.class)
 public class WorkflowExecutionContext {
-
     private static final Logger log = LoggerFactory.getLogger(WorkflowExecutionContext.class);
 
     public static final String LABEL_FOR_ERROR_HANDLER = "error-handler";
@@ -213,7 +212,7 @@ public class WorkflowExecutionContext {
     public static class OldStepRecord {
         /** count of runs started */
         int countStarted = 0;
-        /** count of runs completed */
+        /** count of runs completed (without error) */
         int countCompleted = 0;
 
         /** context for last _completed_ instance of step */
@@ -1102,6 +1101,9 @@ public class WorkflowExecutionContext {
                             if (unhandledError != null) {
                                 return () -> endWithError(unhandledError.getLeft(), unhandledError.getRight());
                             }
+                            if (!continueOnErrorHandledOrNextReplay) {
+                                updateOnSuccessfulCompletion();
+                            }
                         } catch (Throwable e2) {
                             // do not propagateIfFatal, we need to handle most throwables
                             log.debug("Uncaught error in workflow exception handler: "+ e2, e2);
@@ -1500,20 +1502,26 @@ public class WorkflowExecutionContext {
                 onFinish.accept(step.output, null);
 
             } catch (Exception e) {
-                handleErrorAtStep(step, t, onFinish, e);
-            }
-
-            oldStepInfo.compute(currentStepIndex, (index, old) -> {
-                if (old==null) {
-                    log.warn("Lost old step info for "+this+", step "+index);
-                    old = new OldStepRecord();
+                try {
+                    handleErrorAtStep(step, t, onFinish, e);
+                } catch (Exception e2) {
+                    currentStepInstance.error = e2;
+                    throw e2;
                 }
-                old.countCompleted++;
-                // okay if this gets picked up by accident because we will check the stepIndex it records against the currentStepIndex,
-                // and ignore it if different
-                old.context = currentStepInstance;
-                return old;
-            });
+            } finally {
+                // do this whether or not error
+                oldStepInfo.compute(currentStepIndex, (index, old) -> {
+                    if (old == null) {
+                        log.warn("Lost old step info for " + this + ", step " + index);
+                        old = new OldStepRecord();
+                    }
+                    if (currentStepInstance.error==null) old.countCompleted++;
+                    // okay if this gets picked up by accident because we will check the stepIndex it records against the currentStepIndex,
+                    // and ignore it if different
+                    old.context = currentStepInstance;
+                    return old;
+                });
+            }
 
             previousStepTaskId = currentStepInstance.taskId;
             previousStepIndex = currentStepIndex;
