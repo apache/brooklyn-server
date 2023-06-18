@@ -45,13 +45,13 @@ public class SetConfigWorkflowStep extends WorkflowStepDefinition {
         if (config ==null) throw new IllegalArgumentException("Config key name is required");
         String configName = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, config.name, String.class);
         if (Strings.isBlank(configName)) throw new IllegalArgumentException("Config key name is required");
+        // see note on type in SetSensorWorkflowStep
         TypeToken<?> type = context.lookupType(config.type, () -> TypeToken.of(Object.class));
         Object resolvedValue = context.getInput(VALUE.getName(), type);
         Entity entity = config.entity;
         if (entity==null) entity = context.getEntity();
         Object oldValue = entity.config().set((ConfigKey<Object>) ConfigKeys.newConfigKey(type, configName), resolvedValue);
 
-        // see note on type in SetSensorWorkflowStep
         context.noteOtherMetadata("Value set", resolvedValue);
         if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
 

@@ -145,7 +145,7 @@ public class WorkflowPolicy<T> extends AbstractPolicy {
 
         Set<PollConfig> pollConfigs = MutableSet.of(pc);
         poller.schedulePoll(this, pollConfigs, new WorkflowSensor.WorkflowPollCallable(
-                getDisplayName() + " (workflow)", config().getBag(), this), new PolicyNoOpPollHandler());
+                getDisplayName() + " (policy)", config().getBag(), this), new PolicyNoOpPollHandler());
 
         if (!isSuspended()) resume();
     }

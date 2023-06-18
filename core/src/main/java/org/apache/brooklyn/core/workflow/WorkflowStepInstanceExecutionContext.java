@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -28,6 +30,7 @@ import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,6 +74,8 @@ public class WorkflowStepInstanceExecutionContext {
     /** set if the step is in an error handler context, containing the error being handled,
      * or if the step had an error that was not handled */
     Throwable error;
+    @JsonGetter("error") String getErrorForJson() { return Exceptions.collapseText(error); }
+    @JsonSetter("error") void setErrorFromJaon(String error) { this.error = new RuntimeException(error); }
 
     /** set if there was an error handled locally */
     String errorHandlerTaskId;

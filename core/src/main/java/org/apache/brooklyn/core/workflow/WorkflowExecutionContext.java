@@ -261,6 +261,12 @@ public class WorkflowExecutionContext {
     public static WorkflowExecutionContext newInstanceUnpersistedWithParent(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent,
                                               WorkflowContextType wcType, String name, ConfigBag paramsDefiningWorkflow,
                                               Collection<ConfigKey<?>> extraConfigKeys, ConfigBag extraInputs, Map<String, Object> optionalTaskFlags) {
+        return newInstanceUnpersistedWithParent(entityOrAdjunctWhereRunning, parent, wcType, name, paramsDefiningWorkflow, extraConfigKeys, extraInputs, optionalTaskFlags, null);
+    }
+
+    public static WorkflowExecutionContext newInstanceUnpersistedWithParent(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent,
+                                            WorkflowContextType wcType, String name, ConfigBag paramsDefiningWorkflow,
+                                            Collection<ConfigKey<?>> extraConfigKeys, ConfigBag extraInputs, Map<String, Object> optionalTaskFlags, String optionalTaskName) {
 
         // parameter defs
         Map<String,ConfigKey<?>> parameters = MutableMap.of();
@@ -289,7 +295,7 @@ public class WorkflowExecutionContext {
                 input,
                 paramsDefiningWorkflow.get(WorkflowCommonConfig.OUTPUT),
                 WorkflowReplayUtils.updaterForReplayableAtWorkflow(paramsDefiningWorkflow, wcType == WorkflowContextType.NESTED_WORKFLOW),
-                optionalTaskFlags);
+                optionalTaskFlags, optionalTaskName);
 
         w.getStepsResolved();  // ensure steps resolve at this point; should be true even if condition doesn't apply (though input might not be valid without condition)
 
@@ -311,6 +317,11 @@ public class WorkflowExecutionContext {
     protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name,
                                        List<Object> stepsDefinition, Map<String,Object> input, Object output,
                                        Consumer<WorkflowExecutionContext> replayableInitializer, Map<String, Object> optionalTaskFlags) {
+        this(entityOrAdjunctWhereRunning, parent, name, stepsDefinition, input, output, replayableInitializer, optionalTaskFlags, null);
+    }
+    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name,
+                                       List<Object> stepsDefinition, Map<String,Object> input, Object output,
+                                       Consumer<WorkflowExecutionContext> replayableInitializer, Map<String, Object> optionalTaskFlags, String optionalTaskName) {
         initParent(parent);
         this.name = name;
         this.adjunct = entityOrAdjunctWhereRunning instanceof Entity ? null : entityOrAdjunctWhereRunning;
@@ -321,7 +332,7 @@ public class WorkflowExecutionContext {
         this.outputDefinition = output;
         if (replayableInitializer!=null) replayableInitializer.accept(this);
 
-        TaskBuilder<Object> tb = Tasks.builder().dynamic(true);
+        TaskBuilder<Object> tb = Tasks.builder().displayName(optionalTaskName).dynamic(true);
         if (optionalTaskFlags!=null) tb.flags(optionalTaskFlags);
         if (Strings.isBlank(tb.getDisplayName())) tb.displayName(name);
         task = tb.body(new Body()).build();
@@ -449,7 +460,7 @@ public class WorkflowExecutionContext {
         }
 
         if (task==null) {
-            if (taskId !=null) {
+            if (taskId!=null) {
                 task = (Task<Object>) getManagementContext().getExecutionManager().getTask(taskId);
             }
             if (task==null) {

@@ -104,7 +104,7 @@ public class WorkflowEffector extends AddEffectorInitializerAbstract implements 
                     WorkflowExecutionContext.WorkflowContextType.EFFECTOR, effector.getName() + " (workflow effector)", ConfigBag.newInstance(this.definitionParams),
                     effector.getParameters().stream().map(Effectors::asConfigKey).collect(Collectors.toSet()),
                     invocationParams,
-                    getFlagsForTaskInvocationAt(entity, effector, invocationParams));
+                    getFlagsForTaskInvocationAt(entity, effector, invocationParams), effector.getName());
             Task<Object> task = w.getTask(true).get();
             if (parentInitializer!=null) {
                 // allow the parent to record the child workflow _before_ the child workflow gets persisted

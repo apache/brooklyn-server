@@ -147,8 +147,9 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
 
         if (name!=null) {
             Object oldValue = setWorkflowScratchVariableDotSeparated(context, name, v);
-            context.noteOtherMetadata("Value set", v);
-            if (oldValue != null) context.noteOtherMetadata("Previous value", oldValue);
+            // these are easily inferred from workflow vars
+//            context.noteOtherMetadata("Value set", v);
+//            if (oldValue != null) context.noteOtherMetadata("Previous value", oldValue);
 
             if (context.getOutput()!=null) throw new IllegalStateException("Transform that produces output results cannot be used when setting a variable");
             if (STEP_TARGET_NAME_FOR_END.equals(context.next)) throw new IllegalStateException("Return transform cannot be used when setting a variable");

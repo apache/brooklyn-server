@@ -104,8 +104,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         Object resolvedValue = new ConfigurableInterpolationEvaluation(context, type, unresolvedValue, context.getInputOrDefault(INTERPOLATION_MODE), context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();
 
         Object oldValue = setWorkflowScratchVariableDotSeparated(context, name, resolvedValue);
-        context.noteOtherMetadata("Value set", resolvedValue);
-        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
+        // these are easily inferred from workflow vars
+//        context.noteOtherMetadata("Value set", resolvedValue);
+//        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
         return context.getPreviousStepOutput();
     }
 

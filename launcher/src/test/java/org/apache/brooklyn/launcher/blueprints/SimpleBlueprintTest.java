@@ -19,12 +19,23 @@
 package org.apache.brooklyn.launcher.blueprints;
 
 import org.apache.brooklyn.api.entity.Application;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /** This does rebind. See SimpleBlueprintNonRebindTest for an example with rebind disabled. */
 public class SimpleBlueprintTest extends AbstractBlueprintTest {
+
+    @Override
+    protected ManagementContext decorateManagementContext(ManagementContext mgmt) {
+        mgmt = super.decorateManagementContext(mgmt);
+        // make workflow step types available
+        WorkflowBasicTest.addWorkflowStepTypes(mgmt);
+        return mgmt;
+    }
 
     @Override
     protected boolean isViewerEnabled() {
