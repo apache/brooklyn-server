@@ -21,16 +21,9 @@ package org.apache.brooklyn.util.core.task;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.Iterables;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+
+import java.lang.ref.WeakReference;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,6 +43,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import java.util.stream.Collectors;
+
+import com.google.common.collect.MapMaker;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -270,7 +265,8 @@ public class BasicExecutionManager implements ExecutionManager {
     //NB CopyOnWriteArraySet is a perf bottleneck, and the simple map makes it easier to remove when a tag is empty
     private Map<Object, Set<Task<?>>> tasksByTag = new HashMap<Object, Set<Task<?>>>();
 
-    private ConcurrentMap<String, Task<?>> tasksById = new ConcurrentHashMap<String, Task<?>>();
+    private Map<String, Task<?>> tasksById = new ConcurrentHashMap<String, Task<?>>();
+    private Map<String, Task<?>> tasksByIdWeak = Collections.synchronizedMap(new MapMaker().weakValues().makeMap());
 
     private ConcurrentMap<Object, TaskScheduler> schedulerByTag = new ConcurrentHashMap<Object, TaskScheduler>();
 
@@ -593,7 +589,9 @@ public class BasicExecutionManager implements ExecutionManager {
 
     @Override
     public Task<?> getTask(String id) {
-        return tasksById.get(id);
+        Task<?> result = tasksById.get(id);
+        if (result==null) result = tasksByIdWeak.get(id);
+        return result;
     }
 
     /**
@@ -1123,6 +1121,7 @@ public class BasicExecutionManager implements ExecutionManager {
         }
 
         tasksById.put(task.getId(), task);
+        tasksByIdWeak.put(task.getId(), task);
         totalTaskCount.incrementAndGet();
     }
 
