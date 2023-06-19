@@ -142,7 +142,10 @@ public class CustomTypeConfigYamlRebindTest extends AbstractYamlRebindTest {
                     () ->
                             child.config().set((ConfigKey) EntityWithCustomTypeConfig.CUSTOM_TYPE_KEY.subKey("i2"),
                                     MutableMap.of("x", DslUtils.parseBrooklynDsl(mgmt(), "$brooklyn:attributeWhenReady(\"set-later\")"))),
-                    e -> Asserts.expectedFailureContains(e, "Cannot deserialize value", "String", "from Object"));
+                    e -> Asserts.expectedFailureContains(e,
+                            //"Cannot deserialize value", "String", "from Object" <- deeply returns this
+                            "Cannot coerce or set", "x=$brooklyn:attributeWhenReady(\"set-later\")", "customTypeKey.i2"
+                             ));
 
             // but is allowed at map level (is additive)
             child.config().set((ConfigKey) EntityWithCustomTypeConfig.CUSTOM_TYPE_KEY,

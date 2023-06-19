@@ -42,6 +42,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonSymbolDependentDeserializer;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -59,6 +60,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.SerializablePredicate;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.javalang.coerce.TryCoercer;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.WildcardGlobs;
@@ -87,12 +89,21 @@ public class DslPredicates {
 
         TypeCoercions.registerAdapter(java.util.function.Predicate.class, DslEntityPredicate.class, DslEntityPredicateAdapter::new);
         TypeCoercions.registerAdapter(java.util.function.Predicate.class, DslPredicate.class, DslPredicateAdapter::new);
-        // subsumed in above
-//        TypeCoercions.registerAdapter(com.google.common.base.Predicate.class, DslEntityPredicate.class, DslEntityPredicateAdapter::new);
-//        TypeCoercions.registerAdapter(com.google.common.base.Predicate.class, DslPredicate.class, DslPredicateAdapter::new);
 
-        // TODO could use json shorthand instead?
+        // could use json shorthand instead, but this is simpler
         TypeCoercions.registerAdapter(String.class, DslPredicate.class, DslPredicates::implicitlyEqualTo);
+
+//        TypeCoercions.registerAdapter(DeferredSupplier.class, DslPredicate.class, DslPredicates::implicitlyEqualTo);
+//        TypeCoercions.registerAdapter(WorkflowExpressionResolution.WrappedUnresolvedExpression.class, DslPredicate.class, DslPredicates::implicitlyEqualTo);
+        // not sure why above don't work, but below does
+        TypeCoercions.registerAdapter("60-expression-to-predicate", new TryCoercer() {
+            @Override
+            public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                if (!(input instanceof DeferredSupplier)) return null;
+                if (!DslPredicate.class.isAssignableFrom(type.getRawType())) return null;
+                return (Maybe) Maybe.of(type.getRawType().cast(implicitlyEqualTo(input)));
+            }
+        });
     }
     static {
         init();
@@ -114,6 +125,20 @@ public class DslPredicates {
         /** always returns false */ NEVER,
     }
 
+    static <T> T unwrapped(WrappedValue<T> t) {
+        return WrappedValue.get(t);
+    }
+
+    static Object unwrappedObject(Object t) {
+        if (t instanceof WrappedValue) return ((WrappedValue)t).get();
+        return t;
+    }
+
+    static Object undeferred(Object t) {
+        if (t instanceof DeferredSupplier) return ((DeferredSupplier)t).get();
+        return t;
+    }
+
     public static final boolean coercedEqual(Object a, Object b) {
         if (a==null || b==null) return a==null && b==null;
 
@@ -123,7 +148,7 @@ public class DslPredicates {
         if (a.equals(b) || b.equals(a)) return true;
 
         if (a instanceof DeferredSupplier || b instanceof DeferredSupplier)
-            return coercedEqual(a instanceof DeferredSupplier ? ((DeferredSupplier)a).get() : a, b instanceof DeferredSupplier ? ((DeferredSupplier)b).get() : b);
+            return coercedEqual(undeferred(a), undeferred(b));
 
         // if classes are equal or one is a subclass of the other, and the above check was false, that is decisive
         if (a.getClass().isAssignableFrom(b.getClass())) return false;
@@ -190,7 +215,7 @@ public class DslPredicates {
         }
 
         if (a instanceof DeferredSupplier || b instanceof DeferredSupplier)
-            return coercedCompare(a instanceof DeferredSupplier ? ((DeferredSupplier)a).get() : a, b instanceof DeferredSupplier ? ((DeferredSupplier)b).get() : b);
+            return coercedCompare(undeferred(a), undeferred(b));
 
         // if classes are equal or one is a subclass of the other, and the above check was false, that is decisive
         if (a.getClass().isAssignableFrom(b.getClass()) && b instanceof Comparable) return -((Comparable) b).compareTo(a);
@@ -243,16 +268,16 @@ public class DslPredicates {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class DslPredicateBase<T> {
-        public Object implicitEquals;
-        public Object equals;
-        public String regex;
-        public String glob;
+        public WrappedValue<Object> implicitEquals;
+        public WrappedValue<Object> equals;
+        public WrappedValue<String> regex;
+        public WrappedValue<String> glob;
 
         /** nested check */
-        public DslPredicate check;
-        public DslPredicate not;
-        public List<DslPredicate> any;
-        public List<DslPredicate> all;
+        public WrappedValue<DslPredicate> check;
+        public WrappedValue<DslPredicate> not;
+        public List<WrappedValue<DslPredicate>> any;
+        public List<WrappedValue<DslPredicate>> all;
         @JsonProperty("assert")
         public DslPredicate assertCondition;
 
@@ -280,19 +305,19 @@ public class DslPredicates {
             int checksApplicable = 0;
             int checksPassed = 0;
 
-            public <T> void checkTest(T test, java.util.function.Predicate<T> predicateForTest) {
-                if (test!=null) {
+            public <T> void checkTest(T testFieldValue, java.util.function.Predicate<T> predicateForTest) {
+                if (testFieldValue!=null) {
                     checksDefined++;
                     checksApplicable++;
-                    if (predicateForTest.test(test)) checksPassed++;
+                    if (predicateForTest.test(testFieldValue)) checksPassed++;
                 }
             }
 
-            public <T> void check(T test, Maybe<Object> value, java.util.function.BiPredicate<T,Object> check) {
+            public <T> void check(T testFieldValue, Maybe<Object> value, java.util.function.BiPredicate<T,Object> check) {
                 if (value.isPresent()) {
-                    checkTest(test, t -> check.test(t, value.get()));
+                    checkTest(testFieldValue, t -> check.test(t, value.get()));
                 } else {
-                    if (test!=null) {
+                    if (testFieldValue!=null) {
                         checksDefined++;
                     }
                 }
@@ -313,6 +338,8 @@ public class DslPredicates {
                 checksDefined += other.checksDefined;
             }
         }
+
+        public Object implicitEqualsUnwrapped() { return unwrapped(implicitEquals); }
 
         public boolean apply(T input) {
             Maybe<Object> result = resolveTargetAgainstInput(input);
@@ -463,16 +490,24 @@ public class DslPredicates {
         public void applyToResolved(Maybe<Object> result, CheckCounts checker) {
             if (assertCondition!=null) failOnAssertCondition(result, checker);
 
-            checker.check(implicitEquals, result, (test, value) -> {
+            checker.check(implicitEquals, result, (implicitTestSpec, value) -> {
+
+                // if a condition somehow gets put into the implicit equals, e.g. via an expression returning an expression, then recognize it as a condition
+                Object test = unwrapped(implicitTestSpec);
+                if (test instanceof DslPredicate) {
+                    return nestedPredicateCheck((DslPredicate) test, result);
+                }
+
                 if ((!(test instanceof BrooklynObject) && value instanceof BrooklynObject) ||
                         (!(test instanceof Iterable) && value instanceof Iterable)) {
-                    throw new IllegalStateException("Implicit string used for equality check comparing "+test+" with "+value+", which is probably not what was meant. Use explicit 'equals: ...' syntax for this case.");
+                    throw new IllegalStateException("Implicit value used for equality check comparing "+test+" with "+value+", which is probably not what was meant. Use explicit 'equals: ...' syntax for this case.");
                 }
-                return DslPredicates.coercedEqual(test, value);
+
+                return DslPredicates.coercedEqual(implicitTestSpec, value);
             });
             checker.check(equals, result, DslPredicates::coercedEqual);
-            checker.check(regex, result, (test, value) -> asStringTestOrFalse(value, v -> Pattern.compile(test, Pattern.DOTALL).matcher(v).matches()));
-            checker.check(glob, result, (test, value) -> asStringTestOrFalse(value, v -> WildcardGlobs.isGlobMatched(test, v)));
+            checker.check(regex, result, (test, value) -> asStringTestOrFalse(value, v -> Pattern.compile(unwrapped(test), Pattern.DOTALL).matcher(v).matches()));
+            checker.check(glob, result, (test, value) -> asStringTestOrFalse(value, v -> WildcardGlobs.isGlobMatched(unwrapped(test), v)));
 
             checker.check(inRange, result, (test,value) ->
                 // current Range only supports Integer, but this code will support any
@@ -503,10 +538,10 @@ public class DslPredicates {
                 return nestedPredicateCheck(test, Maybe.of(computedSize));
             });
 
-            checker.checkTest(not, test -> !nestedPredicateCheck(test, result));
-            checker.checkTest(check, test -> nestedPredicateCheck(test, result));
-            checker.checkTest(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(p, result)));
-            checker.checkTest(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(p, result)));
+            checker.checkTest(not, test -> !nestedPredicateCheck(unwrapped(test), result));
+            checker.checkTest(check, test -> nestedPredicateCheck(unwrapped(test), result));
+            checker.checkTest(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(unwrapped(p), result)));
+            checker.checkTest(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(unwrapped(p), result)));
 
             checker.check(javaInstanceOf, result, this::checkJavaInstanceOf);
         }
@@ -517,7 +552,7 @@ public class DslPredicates {
 
             boolean assertionPassed;
             if (assertCondition instanceof DslPredicateBase) {
-                Object implicitWhen = ((DslPredicateBase) assertCondition).implicitEquals;
+                Object implicitWhen = ((DslPredicateBase) assertCondition).implicitEqualsUnwrapped();
                 if (implicitWhen!=null) {
                     // can assume no other checks, if one is implicit
                     CheckCounts checker = new CheckCounts();
@@ -579,7 +614,7 @@ public class DslPredicates {
 
             // first check if implicitly equal to a registered type
             if (javaInstanceOf instanceof DslPredicateBase) {
-                Object implicitRegisteredType = ((DslPredicateBase) javaInstanceOf).implicitEquals;
+                Object implicitRegisteredType = ((DslPredicateBase) javaInstanceOf).implicitEqualsUnwrapped();
                 if (implicitRegisteredType instanceof String) {
                     Entity ent = null;
                     if (value instanceof Entity) ent = (Entity)value;
@@ -673,16 +708,17 @@ public class DslPredicates {
                 Entity.class, EntityAdjuncts.getEntity(bo, true).orNull()));
     }
 
+    /** default implementation */
     @Beta
     public static class DslPredicateDefault<T2> extends DslPredicateBase<T2> implements DslPredicate<T2>, Cloneable {
         public DslPredicateDefault() {}
 
         // allow a string or int or other common types to be an implicit equality target
-        public DslPredicateDefault(String implicitEquals) { this.implicitEquals = implicitEquals; }
-        public DslPredicateDefault(Integer implicitEquals) { this.implicitEquals = implicitEquals; }
-        public DslPredicateDefault(Double implicitEquals) { this.implicitEquals = implicitEquals; }
-        public DslPredicateDefault(Long implicitEquals) { this.implicitEquals = implicitEquals; }
-        public DslPredicateDefault(Number implicitEquals) { this.implicitEquals = implicitEquals; }  // note: Number is not matched by jackson bean constructor
+        public DslPredicateDefault(String implicitEquals) { this.implicitEquals = WrappedValue.of(implicitEquals); }
+        public DslPredicateDefault(Integer implicitEquals) { this.implicitEquals = WrappedValue.of(implicitEquals); }
+        public DslPredicateDefault(Double implicitEquals) { this.implicitEquals = WrappedValue.of(implicitEquals); }
+        public DslPredicateDefault(Long implicitEquals) { this.implicitEquals = WrappedValue.of(implicitEquals); }
+        public DslPredicateDefault(Number implicitEquals) { this.implicitEquals = WrappedValue.of(implicitEquals); }  // note: Number is not matched by jackson bean constructor
 
         // not used by code, but allows clients to store other information
         public Object metadata;
@@ -1018,13 +1054,13 @@ public class DslPredicates {
 
     public static DslPredicate equalTo(Object x) {
         DslEntityPredicateDefault result = new DslEntityPredicateDefault();
-        result.equals = x;
+        result.equals = WrappedValue.of(x);
         return result;
     }
 
     public static DslPredicate implicitlyEqualTo(Object x) {
         DslEntityPredicateDefault result = new DslEntityPredicateDefault();
-        result.implicitEquals = x;
+        result.implicitEquals = WrappedValue.of(x);
         return result;
     }
 

@@ -216,7 +216,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         }
 
         <T> T resolveSubPart(Object v, TypeToken<T> type) {
-            return new WorkflowExpressionResolution(context.getWorkflowExectionContext(), WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, false, false, errorMode)
+            return new WorkflowExpressionResolution(context.getWorkflowExectionContext(), WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, false, WorkflowExpressionResolution.WrappingMode.NONE, errorMode)
                     .resolveWithTemplates(v, type);
         }
 

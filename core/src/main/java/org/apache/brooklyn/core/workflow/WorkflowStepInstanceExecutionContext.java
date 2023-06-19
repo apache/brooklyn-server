@@ -212,8 +212,8 @@ public class WorkflowStepInstanceExecutionContext {
     public <T> T resolve(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
         return context.resolve(stage, expression, type);
     }
-    public <T> T resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
-        return context.resolveWrapped(stage, expression, type);
+    public <T> T resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type, WorkflowExpressionResolution.WrappingMode wrappingMode) {
+        return context.resolveWrapped(stage, expression, type, wrappingMode);
     }
     public <T> T resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
         return context.resolveWaiting(stage, expression, type);

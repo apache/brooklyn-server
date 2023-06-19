@@ -93,12 +93,12 @@ public class DslPredicateYamlTest extends AbstractYamlTest {
         // this is simpler and more efficient, although it might be surprising
         app.config().set(ConfigKeys.newStringConfigKey("expected"), "y");
         Asserts.assertFalse( predicate.apply(app) );
-        Asserts.assertEquals( ((DslPredicates.DslPredicateDefault)predicate).equals, "x" );
+        Asserts.assertEquals( ((DslPredicates.DslPredicateDefault)predicate).equals.get(), "x" );
 
         // per above, if we re-retrieve the predicate it should work fine
         predicate = app.config().get(TestEntity.CONF_PREDICATE);
         Asserts.assertTrue( predicate.apply(app) );
-        Asserts.assertEquals( ((DslPredicates.DslPredicateDefault)predicate).equals, "y" );
+        Asserts.assertEquals( ((DslPredicates.DslPredicateDefault)predicate).equals.get(), "y" );
     }
 
     static class PredicateAndSpec {

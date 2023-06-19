@@ -18,10 +18,9 @@
  */
 package org.apache.brooklyn.util.javalang.coerce;
 
-import org.apache.brooklyn.util.guava.Maybe;
-
 import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.util.guava.Maybe;
 
 /**
  * A coercer that can be registered, which will try to coerce the given input to the given type.

@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
@@ -132,7 +133,7 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
                     if (old == null && !((AbstractEntity.BasicSensorSupport) entity.sensors()).contains(sensorBase.getName())) {
                         DslPredicates.DslEntityPredicateDefault requireTweaked = new DslPredicates.DslEntityPredicateDefault();
                         requireTweaked.sensor = sensorNameFull;
-                        requireTweaked.check = require;
+                        requireTweaked.check = WrappedValue.of(require);
                         if (!requireTweaked.apply(entity)) {
                             throw new SensorRequirementFailedAbsent("Sensor " + sensorNameFull + " unset or unavailable when there is a non-absent requirement");
                         }

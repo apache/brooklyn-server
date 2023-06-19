@@ -108,7 +108,7 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
     protected void checkExitCode(ContainerTaskResult ptw, DslPredicates.DslPredicate<Integer> exitcode) {
         if (exitcode==null) return;
         if (exitcode instanceof DslPredicates.DslPredicateBase) {
-            Object implicit = ((DslPredicates.DslPredicateBase) exitcode).implicitEquals;
+            Object implicit = ((DslPredicates.DslPredicateBase) exitcode).implicitEqualsUnwrapped();
             if (implicit!=null) {
                 if ("any".equalsIgnoreCase(""+implicit)) {
                     // if any is supplied as the implicit value, we accept; e.g. user says "exit-code: any"

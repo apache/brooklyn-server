@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
 import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
@@ -70,18 +71,55 @@ public class WorkflowExpressionResolution {
     private static final Logger log = LoggerFactory.getLogger(WorkflowExpressionResolution.class);
     private final WorkflowExecutionContext context;
     private final boolean allowWaiting;
-    private final boolean useWrappedValue;
     private final WorkflowExpressionStage stage;
     private final TemplateProcessor.InterpolationErrorMode errorMode;
+    private final WrappingMode wrappingMode;
 
-    public WorkflowExpressionResolution(WorkflowExecutionContext context, WorkflowExpressionStage stage, boolean allowWaiting, boolean wrapExpressionValues) {
+    public static class WrappingMode {
+        public final boolean wrapResolvedStrings;
+        public final boolean deferThrowingError;
+        public final boolean deferAndRetryErroneousExpressions;
+        public final boolean deferBrooklynDsl;
+        public final boolean deferInterpolation;
+
+        protected WrappingMode(boolean wrapResolvedStrings, boolean deferThrowingError, boolean deferAndRetryErroneousExpressions, boolean deferBrooklynDsl, boolean deferInterpolation) {
+            this.wrapResolvedStrings = wrapResolvedStrings;
+            this.deferThrowingError = deferThrowingError;
+            this.deferAndRetryErroneousExpressions = deferAndRetryErroneousExpressions;
+            this.deferBrooklynDsl = deferBrooklynDsl;
+            this.deferInterpolation = deferInterpolation;
+        }
+
+        /** do not re-evaluate anything, but if there is an error don't throw it until accessed; useful for conditions that should be evaluated immediately */
+        public final static WrappingMode WRAPPED_RESULT_DEFER_THROWING_ERROR_BUT_NO_RETRY = new WrappingMode(true, true, false, false, false);
+
+        /** no wrapping; everything evaluated immediately, errors thrown immediately */
+        public final static WrappingMode NONE = new WrappingMode(false, false, false, false, false);
+
+        /** this was the old default when wrapping was requested, but was an odd one - wraps error throwing and DSL resolution but not interpolation */
+        @Deprecated @Beta // might re-introduce but for now needs to cache workflow context so discouraged
+        final static WrappingMode OLD_DEFAULT_DEFER_THROWING_ERROR_AND_DSL = new WrappingMode(true, true, false, true, false);
+        /** allow subsequent re-evaluation for things that are not recognized, but evaluate everything else now; cf InterpolationErrorMode.IGNORE */
+        @Deprecated @Beta // might re-introduce but for now needs to cache workflow context so discouraged
+        public final static WrappingMode DEFER_RETRY_ON_ERROR_ONLY = new WrappingMode(false, false, true, false, false);
+        /** defer the evaluation of all vars (but evaluate now so if string is static it can be returned as a static) */
+        @Deprecated @Beta // might re-introduce but for now needs to cache workflow context so discouraged
+        public final static WrappingMode ALL_NON_STATIC = new WrappingMode(true /* no effect here */, true /* no effect here */, true, true, true);
+
+        public WrappingMode wrappingModeWhenResolving() {
+            // this works for our current use cases, which is conditions; other uses might want it not to throw something deferred however
+            return WRAPPED_RESULT_DEFER_THROWING_ERROR_BUT_NO_RETRY;
+        }
+    }
+
+    public WorkflowExpressionResolution(WorkflowExecutionContext context, WorkflowExpressionStage stage, boolean allowWaiting, WrappingMode wrapExpressionValues) {
         this(context, stage, allowWaiting, wrapExpressionValues, TemplateProcessor.InterpolationErrorMode.FAIL);
     }
-    public WorkflowExpressionResolution(WorkflowExecutionContext context, WorkflowExpressionStage stage, boolean allowWaiting, boolean wrapExpressionValues, TemplateProcessor.InterpolationErrorMode errorMode) {
+    public WorkflowExpressionResolution(WorkflowExecutionContext context, WorkflowExpressionStage stage, boolean allowWaiting, WrappingMode wrapExpressionValues, TemplateProcessor.InterpolationErrorMode errorMode) {
         this.context = context;
         this.stage = stage;
         this.allowWaiting = allowWaiting;
-        this.useWrappedValue = wrapExpressionValues;
+        this.wrappingMode = wrapExpressionValues == null ? WrappingMode.NONE : wrapExpressionValues;
         this.errorMode = errorMode;
     }
 
@@ -120,7 +158,7 @@ public class WorkflowExpressionResolution {
                 return ifNoMatches();
             }
 
-            Object candidate;
+            Object candidate = null;
 
             if (stage.after(WorkflowExpressionStage.STEP_PRE_INPUT)) {
                 //somevar -> workflow.current_step.output.somevar
@@ -134,7 +172,9 @@ public class WorkflowExpressionResolution {
 
                 //somevar -> workflow.current_step.input.somevar
                 try {
-                    candidate = currentStep.getInput(key, Object.class);
+                    if (currentStep!=null) {
+                        candidate = currentStep.getInput(key, Object.class);
+                    }
                 } catch (Throwable t) {
                     Exceptions.propagateIfFatal(t);
                     if (stage==WorkflowExpressionStage.STEP_INPUT && WorkflowVariableResolutionStackEntry.isStackForSettingVariable(RESOLVE_STACK.getAll(true), key) && Exceptions.getFirstThrowableOfType(t, WorkflowVariableRecursiveReference.class)!=null) {
@@ -458,11 +498,11 @@ public class WorkflowExpressionResolution {
 
     public static class AllowBrooklynDslMode {
         public static AllowBrooklynDslMode ALL = new AllowBrooklynDslMode(true, null);
-        static { ALL.next = () -> ALL; }
+        static { ALL.next = Maybe.of(ALL); }
         public static AllowBrooklynDslMode NONE = new AllowBrooklynDslMode(false, null);
-        static { NONE.next = () -> NONE; }
-        public static AllowBrooklynDslMode CHILDREN_BUT_NOT_HERE = new AllowBrooklynDslMode(false, ()->ALL);
-        //public static AllowBrooklynDslMode HERE_BUT_NOT_CHILDREN = new AllowBrooklynDslMode(true, ()->NONE);
+        static { NONE.next = Maybe.of(NONE); }
+        public static AllowBrooklynDslMode CHILDREN_BUT_NOT_HERE = new AllowBrooklynDslMode(false, Maybe.of(ALL));
+        //public static AllowBrooklynDslMode HERE_BUT_NOT_CHILDREN = new AllowBrooklynDslMode(true, Maybe.of(NONE));
 
         private Supplier<AllowBrooklynDslMode> next;
         private boolean allowedHere;
@@ -530,22 +570,15 @@ public class WorkflowExpressionResolution {
     public Object processTemplateExpressionString(String expression, AllowBrooklynDslMode allowBrooklynDsl) {
         if (expression==null) return null;
         if (expression.startsWith("$brooklyn:") && allowBrooklynDsl.isAllowedHere()) {
-
+            if (wrappingMode.deferBrooklynDsl) {
+                return WrappedUnresolvedExpression.ofExpression(expression, this, allowBrooklynDsl);
+            }
             Object expressionTemplateResolved = processTemplateExpressionString(expression, AllowBrooklynDslMode.NONE);
+            // resolve interpolation before brooklyn DSL, so brooklyn DSL can be passed interpolated vars like workflow scratch;
+            // this means $brooklyn bits that return interpolated strings do not have their interpolation evaluated, which is probably sensible;
+            // and $brooklyn cannot be used inside an interpolated string, which is okay.
             Object expressionTemplateAndDslResolved = resolveDsl(expressionTemplateResolved);
             return expressionTemplateAndDslResolved;
-
-            // previous to 2023-03-30, instead of above, we resolved DSL first. this meant DSL expressions that contained workflow expressions were allowed,
-            // which might be useful but probably shouldn't be supported; and furthermore you couldn't pass workflow vars to DSL expressions which should be supported.
-//            if (!Objects.equals(e2, expression)) {
-//                if (e2 instanceof String) {
-//                    // proceed to below
-//                    expression = (String) e2;
-//                } else {
-//                    return processTemplateExpression(e2);
-//                }
-//            }
-
         }
 
         TemplateHashModel model = new WorkflowFreemarkerModel();
@@ -556,10 +589,13 @@ public class WorkflowExpressionResolution {
             result = TemplateProcessor.processTemplateContents("workflow", expression, model, true, false, errorMode);
         } catch (Exception e) {
             Exception e2 = e;
+            if (wrappingMode.deferAndRetryErroneousExpressions) {
+                return WrappedUnresolvedExpression.ofExpression(expression, this, allowBrooklynDsl);
+            }
             if (!allowWaiting && Exceptions.isCausedByInterruptInAnyThread(e)) {
                 e2 = new IllegalArgumentException("Expression value '"+expression+"' unavailable and not permitted to wait: "+ Exceptions.collapseText(e), e);
             }
-            if (useWrappedValue) {
+            if (wrappingMode.deferThrowingError) {
                 // in wrapped value mode, errors don't throw until accessed, and when used in conditions they can be tested as absent
                 return WrappedResolvedExpression.ofError(expression, new ResolutionFailureTreatedAsAbsent.ResolutionFailureTreatedAsAbsentDefaultException(e2));
             } else {
@@ -570,12 +606,19 @@ public class WorkflowExpressionResolution {
         }
 
         if (!expression.equals(result)) {
-            if (useWrappedValue) {
+            // not a static string
+            if (wrappingMode.deferInterpolation) {
+                return WrappedUnresolvedExpression.ofExpression(expression, this, allowBrooklynDsl);
+            }
+            if (wrappingMode.deferBrooklynDsl) {
                 return new WrappedResolvedExpression<Object>(expression, result);
-            } else {
-                // we try, but don't guarantee, that DSL expressions aren't re-resolved, ie $brooklyn:literal("$brooklyn:literal(\"x\")") won't return x;
-                // this block will
-                result = processDslComponents(result);
+            }
+            // we try, but don't guarantee, that DSL expressions aren't re-resolved, ie $brooklyn:literal("$brooklyn:literal(\"x\")") won't return x;
+            // this block will return a supplier
+            result = processDslComponents(result);
+
+            if (wrappingMode.wrapResolvedStrings) {
+                return new WrappedResolvedExpression<Object>(expression, result);
             }
         }
 
@@ -636,6 +679,7 @@ public class WorkflowExpressionResolution {
             result.error = error;
             return result;
         }
+
         @Override
         public T get() {
             if (error!=null) {
@@ -648,6 +692,29 @@ public class WorkflowExpressionResolution {
         }
         public Throwable getError() {
             return error;
+        }
+    }
+
+    public static class WrappedUnresolvedExpression implements DeferredSupplier<Object> {
+
+        @Deprecated @Beta // might re-introduce but for now needs to cache workflow context -- via resolver -- so discouraged
+        public static WrappedUnresolvedExpression ofExpression(String expression, WorkflowExpressionResolution resolver, AllowBrooklynDslMode dslMode) {
+            return new WrappedUnresolvedExpression(expression, resolver, dslMode);
+        }
+        protected WrappedUnresolvedExpression(String expression, WorkflowExpressionResolution resolver, AllowBrooklynDslMode dslMode) {
+            this.expression = expression;
+            this.resolver = resolver;
+            this.dslMode = dslMode;
+        }
+
+        String expression;
+        WorkflowExpressionResolution resolver;
+        AllowBrooklynDslMode dslMode;
+
+        public Object get() {
+            WorkflowExpressionResolution resolverNow = new WorkflowExpressionResolution(resolver.context, resolver.stage, resolver.allowWaiting,
+                    resolver.wrappingMode.wrappingModeWhenResolving(), resolver.errorMode);
+            return resolverNow.processTemplateExpression(expression, dslMode);
         }
     }
 

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.predicates;
 
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -533,7 +534,7 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
                 "tag", "locationTagValueMatched"), DslPredicates.DslPredicate.class);
         Asserts.assertInstanceOf(p, DslPredicates.DslPredicateDefault.class);
         Asserts.assertInstanceOf( ((DslPredicates.DslPredicateDefault)p).tag, DslPredicates.DslPredicateDefault.class);
-        Asserts.assertEquals( ((DslPredicates.DslPredicateDefault) ((DslPredicates.DslPredicateDefault)p).tag).implicitEquals, "locationTagValueMatched");
+        Asserts.assertEquals( ((DslPredicates.DslPredicateDefault) ((DslPredicates.DslPredicateDefault)p).tag).implicitEqualsUnwrapped(), "locationTagValueMatched");
     }
 
     @Test
@@ -542,7 +543,7 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of("target", "location", "equals", kvMap, "config", "x"),
                 DslPredicates.DslPredicate.class);
         Asserts.assertInstanceOf(p, DslPredicates.DslPredicateDefault.class);
-        Asserts.assertEquals( ((DslPredicates.DslPredicateDefault)p).equals, kvMap);
+        Asserts.assertEquals( WrappedValue.get( ((DslPredicates.DslPredicateDefault)p).equals ), kvMap);
         Asserts.assertEquals( ((DslPredicates.DslPredicateDefault)p).config, "x");
     }
 

@@ -18,7 +18,10 @@
  */
 package org.apache.brooklyn.core.workflow;
 
-import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.type.TypeFactory;
@@ -137,7 +140,7 @@ public class WorkflowExecutionContext {
     @JsonDeserialize(contentUsing = JsonPassThroughDeserializer.class)
     List<Object> stepsDefinition;
 
-    DslPredicates.DslPredicate condition;
+    Object condition;
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     Map<String,Object> input = MutableMap.of();
@@ -307,7 +310,7 @@ public class WorkflowExecutionContext {
         WorkflowStepResolution.resolveSubSteps(w.getManagementContext(), "error handling", WorkflowErrorHandling.wrappedInListIfNecessaryOrNullIfEmpty(w.onError));
 
         // some fields need to be resolved at setting time, in the context of the workflow
-        w.setCondition(w.resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage.WORKFLOW_STARTING_POST_INPUT, paramsDefiningWorkflow.getStringKey(WorkflowCommonConfig.CONDITION.getName()), WorkflowCommonConfig.CONDITION.getTypeToken()));
+        w.setCondition(paramsDefiningWorkflow.getStringKey(WorkflowCommonConfig.CONDITION.getName()));
 
         // finished -- checkpoint noting this has been created but not yet started
         w.updateStatus(WorkflowStatus.STAGED);
@@ -392,7 +395,7 @@ public class WorkflowExecutionContext {
         return stepsWithExplicitId;
     }
 
-    public void setCondition(DslPredicates.DslPredicate condition) {
+    public void setCondition(Object condition) {
         this.condition = condition;
     }
 
@@ -442,23 +445,29 @@ public class WorkflowExecutionContext {
         return retryRecords;
     }
 
-    @JsonIgnore
-    public Object getConditionTarget() {
-        if (getWorkflowScratchVariables()!=null) {
-            Object v = getWorkflowScratchVariables().get("target");
-            // should we also set the entity?  otherwise it will take from the task.  but that should only apply
-            // in a task where the context entity is set, so for now rely on that.
-            if (v!=null) return v;
-        }
-        return getEntityOrAdjunctWhereRunning();
-    }
-
-    @JsonIgnore
     public Maybe<Task<Object>> getTask(boolean checkCondition) {
-        if (checkCondition && condition!=null) {
-            if (!condition.apply(getConditionTarget())) return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
+        if (checkCondition) return getTaskCheckingConditionWithTarget(getEntityOrAdjunctWhereRunning());
+        else return getTaskSkippingCondition();
+    }
+    DslPredicates.DslPredicate resolveCondition(Object condition) {
+        if (condition==null) return null;
+        // condition is resolved wrapped for two reasons:
+        // - target cannot be a fully resolved string unless it is something like 'children', and that constant should be
+        //   different to a var ${x} (even if x evaluates to children)
+        // - some tests allow things to throw errors and check for error, so e.g. an expression that doesn't resolve isn't necessarily a problem
+        return resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, condition, TypeToken.of(DslPredicates.DslPredicate.class),
+                WorkflowExpressionResolution.WrappingMode.WRAPPED_RESULT_DEFER_THROWING_ERROR_BUT_NO_RETRY);
+    }
+    public Maybe<Task<Object>> getTaskCheckingConditionWithTarget(Object conditionTarget) {
+        DslPredicates.DslPredicate conditionResolved = resolveCondition(condition);
+        if (conditionResolved != null) {
+            if (!conditionResolved.apply(conditionTarget))
+                return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
         }
-
+        return getTaskSkippingCondition();
+    }
+    @JsonIgnore
+    public Maybe<Task<Object>> getTaskSkippingCondition() {
         if (task==null) {
             if (taskId!=null) {
                 task = (Task<Object>) getManagementContext().getExecutionManager().getTask(taskId);
@@ -672,22 +681,23 @@ public class WorkflowExecutionContext {
     /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion.
      * if the type is a string, null is not permitted, otherwise it is. */
     public <T> T resolve(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
-        return new WorkflowExpressionResolution(this, stage, false, false).resolveWithTemplates(expression, type);
+        return new WorkflowExpressionResolution(this, stage, false, WorkflowExpressionResolution.WrappingMode.NONE).resolveWithTemplates(expression, type);
     }
 
     public <T> T resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
-        return new WorkflowExpressionResolution(this, stage, false, false).resolveCoercingOnly(expression, type);
+        return new WorkflowExpressionResolution(this, stage, false, WorkflowExpressionResolution.WrappingMode.NONE).resolveCoercingOnly(expression, type);
     }
 
-    /** as {@link #resolve(WorkflowExpressionResolution.WorkflowExpressionStage, Object, TypeToken)}, but returning DSL/supplier for values (so the indication of their dynamic nature is preserved, even if the value returned by it is resolved;
+    /** as {@link #resolve(WorkflowExpressionResolution.WorkflowExpressionStage, Object, TypeToken)},
+     * but returning DSL/supplier for values (so the indication of their dynamic nature is preserved, even if the value returned by it is resolved;
      * this is needed e.g. for conditions which treat dynamic expressions differently to explicit values) */
-    public <T> T resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
-        return new WorkflowExpressionResolution(this, stage, false, true).resolveWithTemplates(expression, type);
+    public <T> T resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type, WorkflowExpressionResolution.WrappingMode wrappingMode) {
+        return new WorkflowExpressionResolution(this, stage, false, wrappingMode).resolveWithTemplates(expression, type);
     }
 
     /** as {@link #resolve(WorkflowExpressionResolution.WorkflowExpressionStage, Object, TypeToken)}, but waiting on any expressions which aren't ready */
     public <T> T resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
-        return new WorkflowExpressionResolution(this, stage, true, false).resolveWithTemplates(expression, type);
+        return new WorkflowExpressionResolution(this, stage, true, WorkflowExpressionResolution.WrappingMode.NONE).resolveWithTemplates(expression, type);
     }
 
     /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion */

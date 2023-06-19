@@ -246,7 +246,9 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         AtomicInteger index = new AtomicInteger(0);
         ((Iterable<?>) targetR).forEach(t -> {
             WorkflowExecutionContext nw = newWorkflow(context, t, wasList ? index.getAndIncrement() : null);
-            Maybe<Task<Object>> mt = nw.getTask(true);
+            // workflow expressions are accessible in the condition, and the condition was resolveWrapped so will be looked up in the context of the invocation;
+            // thus ${target} can be used anywhere in it and should work
+            Maybe<Task<Object>> mt = nw.getTaskCheckingConditionWithTarget(t);
 
             String targetS = wasList || t !=null ? " for target '"+t+"'" : "";
             if (mt.isAbsent()) {

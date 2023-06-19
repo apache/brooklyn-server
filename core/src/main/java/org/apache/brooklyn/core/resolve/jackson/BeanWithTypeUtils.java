@@ -169,11 +169,28 @@ public class BeanWithTypeUtils {
         try {
             stack.push(mapOrListToSerializeThenDeserialize);
 
-            return convertDeeply(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
+            // prefer this because (a) it's cheaper, and (b) it supports deferred values more nicely;
+            // ObjectReferencingSerialization.deserializeWrapper will do type coercion so very few things if any should need deep coercion now
+            T result = convertShallow(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
+
+//            T result2 = null;
+//            try {
+//                result2 = convertDeeply(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
+//            } catch (Exception e2) {
+//                Exceptions.propagateIfFatal(e2);
+//                // otherwise ignore
+//            }
+//            if (!Objects.equals(result, result2)) {
+//                // legacy preferred convert deeply; in a few places this mattered.
+//                // need to investigate when/why
+//                return result2;
+//            }
+
+            return result;
 
         } catch (Exception e) {
             try {
-                return convertShallow(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
+                return convertDeeply(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
             } catch (Exception e2) {
                 throw Exceptions.propagate(Arrays.asList(e, e2));
             }
@@ -186,7 +203,8 @@ public class BeanWithTypeUtils {
 
     @Beta
     public static <T> T convertShallow(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
-        // try with complex types are saved as objects rather than serialized, but won't work if special deserialization is wanted to apply to a map inside a complex type
+        // try with complex types are saved as objects rather than serialized; might not work if special deserialization is wanted to apply to a map inside a complex type,
+        // but type coercions might mean that it does actually work but doing a nested convert shallow
         ObjectMapper mapper = YAMLMapper.builder().build();
         mapper = BeanWithTypeUtils.applyCommonMapperConfig(mapper, mgmt, allowRegisteredTypes, loader, allowJavaTypes);
         mapper = new ObjectReferencingSerialization().useAndApplytoMapper(mapper);
