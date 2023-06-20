@@ -388,24 +388,25 @@ public class WorkflowExpressionResolution {
 
     /** does not use templates */
     public <T> T resolveCoercingOnly(Object expression, TypeToken<T> type) {
-        try {
-            if (expression==null || (Jsonya.isJsonPrimitiveDeep(expression) && !(expression instanceof Set))) {
+        if (expression==null) return null;
+        if (Jsonya.isJsonPrimitiveDeep(expression) && !(expression instanceof Set)) {
+            try {
                 // only try yaml coercion, as values are normally set from yaml and will be raw at this stage (but not if they are from a DSL)
                 // (might be better to always to TC.coerce)
                 return BeanWithTypeUtils.convert(context.getManagementContext(), expression, type, true,
                         RegisteredTypes.getClassLoadingContext(context.getEntity()), true /* needed for wrapped resolved holders */);
-            } else {
-                return TypeCoercions.coerce(expression, type);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                try {
+                    // fallback to simple coercion
+                    return TypeCoercions.coerce(expression, type);
+                } catch (Exception e2) {
+                    Exceptions.propagateIfFatal(e2);
+                    throw Exceptions.propagate(e);
+                }
             }
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            try {
-                // fallback to simple coercion
-                return TypeCoercions.coerce(expression, type);
-            } catch (Exception e2) {
-                Exceptions.propagateIfFatal(e2);
-                throw Exceptions.propagate(e);
-            }
+        } else {
+            return TypeCoercions.coerce(expression, type);
         }
     }
 

@@ -390,6 +390,7 @@ public class TypeCoercions {
                         return null;
                     }
                     try {
+                        // if a bean has a type field, we might need to try an explicit conversion to it
                         Maybe<Map> resultMap = BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(input), new TypeToken<Map>() {}, true);
                         if (toMap || resultMap.isAbsentOrNull()) return (Maybe<T>) resultMap;
                         return BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.cast(resultMap), type);

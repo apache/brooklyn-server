@@ -223,8 +223,11 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
         // we have no choice but to fallback to map deserialization
         // however we should allow further coercion to Map (in case we read as typed something which should have been a map)
         // and also coercion that serializes input if complex type then deserializes to intended type, if the intended type has a field 'type'
-        Map redeserMap = TypeCoercions.coerce(deser(deser), Map.class);
-        Asserts.assertEquals(redeserMap.get("type"), OtherBean.class.getName());
+
+        // coercing to a map doesn't mean serializing it, that's too silly
+//        Map redeserMap = TypeCoercions.coerce(deser(deser), Map.class);
+//        Asserts.assertEquals(redeserMap.get("type"), OtherBean.class.getName());
+
         SampleBeanWithType redeserObj = TypeCoercions.coerce(deser(deser), SampleBeanWithType.class);
         Asserts.assertEquals(redeserObj.x, "hello");
     }

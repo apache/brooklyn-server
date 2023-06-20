@@ -125,9 +125,9 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
     public void testMapDirect() {
         Asserts.assertEquals(runWorkflowSteps(
                 "let map myMap = {a: 1}",
-                "let myMap.a = 2",
+                "let myMap.a = ${myMap.a} + 2",
                 "return ${myMap.a}"),
-            "2");
+            3);
     }
 
     @Test

@@ -241,6 +241,10 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         }
 
         Object process(List<String> w) {
+            return process(w, false);
+        }
+
+        Object process(List<String> w, boolean ternaryColonAllowed) {
             // if no tokens, treat as null
             if (w.isEmpty()) return null;
 
@@ -251,10 +255,12 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             // not used: ! ~ - + & ++ -- (i.e. unary operators)
 
             // #__: ?: (i.e. ternary)
-            result = handleTokenIfPresent(w, false, MutableMap.of(
-                    "?", this::handleTernaryCondition,
-                    ":", this::handleTernaryArms
-            ));
+            result = handleTokenIfPresent(w, false,
+                    ternaryColonAllowed ? MutableMap.of(
+                        "?", this::handleTernaryCondition,
+                        ":", this::handleTernaryArms)
+                            : MutableMap.of("?", this::handleTernaryCondition)
+            );
             if (result.isPresent()) return result.get();
 
 
@@ -512,7 +518,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 rhs = handleChainedTernaryRhs(rhs0);
             } else {
                 // non-nested or chained
-                rhs = process(rhs0);
+                rhs = process(rhs0, true);
             }
             //log.info(String.format("Ternary Condition 1: [lhs:%s][rhs:%s]", lhs, rhs));
 

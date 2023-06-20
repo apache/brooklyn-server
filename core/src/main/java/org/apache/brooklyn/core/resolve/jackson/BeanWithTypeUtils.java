@@ -190,6 +190,8 @@ public class BeanWithTypeUtils {
 
         } catch (Exception e) {
             try {
+                // needed for a few things, mainly where a bean has a type field that conflicts with the type here,
+                // tryCoercer 81-wrong-bean uses this
                 return convertDeeply(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
             } catch (Exception e2) {
                 throw Exceptions.propagate(Arrays.asList(e, e2));
