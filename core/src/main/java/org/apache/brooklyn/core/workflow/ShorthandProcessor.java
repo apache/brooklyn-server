@@ -46,6 +46,14 @@ import java.util.stream.Collectors;
  * "LITERAL" - to expect a literal expression. this must include the quotation marks and should include spaces if spaces are required.
  * [ TOKEN ] - to indicate TOKEN is optional, where TOKEN is one of the above sections. parsing is attempted first with it, then without it.
  * [ ?${VAR} TOKEN ] - as `[ TOKEN ]` but VAR is set true or false depending whether this optional section was matched.
+ *
+ * Would be nice to support A | B (exclusive or) for A or B but not both (where A might contain a literal for disambiguation),
+ * and ( X ) for X required but grouped (for use with | (exclusive or) where one option is required).
+ * Would also be nice to support any order, which could be ( A & B ) to allow A B or B A.
+ *
+ * But for now we've made do without it, with some compromises:
+ * * keywords must follow the order indicated
+ * * exclusive alternatives are disallowed by code subsequently or checked separately (eg Transform)
  */
 public class ShorthandProcessor {
 

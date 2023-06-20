@@ -450,4 +450,33 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                     ));
         }
     }
+
+    @Test
+    public void testConditionResolvesAndExactlyOnce() {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        WorkflowExecutionContext w1 = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "steps:",
+                " - step: let a = b",
+                " - step: let b = c",
+                " - step: let list result = []",
+                " - step: transform variable result | append a=b",
+                "   condition:",
+                "     target: ${a}",
+                "     equals: b",
+                " - step: transform variable result | append a=c",
+                "   condition:",
+                "     target: ${a}",
+                "     equals: c",
+                " - step: transform variable result | append b=c",
+                "   condition:",
+                "     target: ${b}",
+                "     equals: c",
+                " - return ${result}"
+        ), null);
+        Asserts.assertEquals(
+                w1.getTask(false).get().getUnchecked(),
+                MutableList.of("a=b", "b=c"));
+    }
+
 }

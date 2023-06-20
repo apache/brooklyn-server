@@ -31,8 +31,10 @@ import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.collections.*;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
@@ -41,7 +43,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -54,19 +59,38 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
 
     private static final Logger log = LoggerFactory.getLogger(TransformVariableWorkflowStep.class);
 
-    public static final String SHORTHAND =
-            "[ [ [ ${variable.type} ] [ ?${value_is_initial} \"value\" ] ${variable.name} " +
-            "[ [ \"=\" ${value...} ] \"|\" ${transform...} ] ] ]";
+    public static final String[] SHORTHAND_OPTIONS = {
+                "[ ${variable.type} ] " +
+                "\"variable\" ${variable.name} " +
+//                "[ \"=\" ${value...} ] " +   // no point in allowing this
+                "[ \"|\" ${transform...} ]",
+
+                "[ ${variable.type} ] " +
+                "\"value\" ${value} " +
+                "[ \"|\" ${transform...} ]",
+
+                "[ ${variable.type} ] " +
+                "${vv_auto} " +
+                "[ \"=\" ${value...} ] " +
+                "[ \"|\" ${transform...} ]",
+    };
 
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
-    public static final ConfigKey<Boolean> VALUE_IS_INITIAL = ConfigKeys.newConfigKey(Boolean.class, "value_is_initial");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
+    public static final ConfigKey<Object> VV_AUTO = ConfigKeys.newConfigKey(Object.class, "vv_auto");
+
     public static final ConfigKey<Object> TRANSFORM = ConfigKeys.newConfigKey(Object.class, "transform");
 
 
     @Override
     public void populateFromShorthand(String expression) {
-        populateFromShorthandTemplate(SHORTHAND, expression, true, true);
+        Map<String, Object> match = null;
+        for (int i=0; i<SHORTHAND_OPTIONS.length && match==null; i++)
+            match = populateFromShorthandTemplate(SHORTHAND_OPTIONS[i], expression, false, true, false);
+
+        if (match==null && Strings.isNonBlank(expression)) {
+            throw new IllegalArgumentException("Invalid shorthand expression for transform: '" + expression + "'");
+        }
     }
 
     @Override
@@ -80,7 +104,6 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         TypedValueToSet variable = context.getInput(VARIABLE);
-        String name;
 
         Object transformO = context.getInputRaw(TRANSFORM.getName());
         if (!(transformO instanceof Iterable)) transformO = MutableList.of(transformO);
@@ -90,36 +113,83 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
             else throw new IllegalArgumentException("Argument to transform should be a string or list of strings, not: "+t);
         }
 
-        Object v;
-        if (input.containsKey(VALUE.getName())) {
-            name = variable==null ? null : context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, variable.name, String.class);
+        String varName = null;
+        Object vv_auto = input.get(VV_AUTO.getName());
+        boolean variableNameSpecified = variable != null && Strings.isNonBlank(variable.name);
 
-            if (!Strings.isBlank(name) && Boolean.TRUE.equals(context.getInput(VALUE_IS_INITIAL))) {
-                // allowed with no var name, we use the value as if "value" was specified, or with a var name, the var will be set
-                // but not allowed if "value" keyword was supplied because that means the var name is to be treated as the value
-                throw new IllegalArgumentException("Cannot specifiy value_is_initial (keyword \"value\") with an = value");
-            }
+        Object valueExpressionToTransform = null;
 
-            v = input.get(VALUE.getName());
-            if (variable!=null && Strings.isNonBlank(variable.type)) transforms.add("type "+variable.type);
+        boolean setVariableAtEnd = variableNameSpecified;
+        Boolean typeCoercionAtStart = null;
 
-        } else {
-            if (variable==null || Strings.isBlank(variable.name)) throw new IllegalArgumentException("Variable name is required");
+        if (Strings.isNonBlank((String)vv_auto)) {
+            boolean isVariable = input.containsKey(VALUE.getName());
+            boolean isValue = variableNameSpecified;
 
-            v = "${" + variable.name + "}";
-            if (Boolean.TRUE.equals(context.getInput(VALUE_IS_INITIAL)) || "value".equals(variable.type)) {
-                // special keyword to treat name as a literal expression
-                v = variable.name;
-            }
-            if (Strings.isNonBlank(variable.type)) {
-                if (Boolean.TRUE.equals(context.getInput(VALUE_IS_INITIAL)) || !"value".equals(variable.type)) {
-                    transforms.add(0, "type " + variable.type);
+            if (!isVariable && !isValue) {
+                isValue = true;
+                // in future, just do the line above
+                // ...
+                // but for now we need to exclude it if it matches a workflow variable because that could be legacy syntax
+                boolean isDisallowedUndecoratedVariable = false;
+                try {
+                    Object vvAutoResolved = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, "${" + vv_auto + "}", Object.class);
+                    isDisallowedUndecoratedVariable = true;
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    // otherwise normal, it does not match a variable name, so treat it as the value
                 }
+                if (isDisallowedUndecoratedVariable)
+                    throw new IllegalArgumentException("Legacy transform syntax `transform var_name | ...` disallowed (" + vv_auto + "); use '${"+vv_auto+"'}' if you don't want to update it or insert the keyword 'variable' if you do");
             }
-            name = null;
+
+            if (isVariable) {
+                if (isValue) throw new IllegalArgumentException("Legacy transform identified as both value and variable");
+
+                varName = (String) vv_auto;
+                setVariableAtEnd = true;
+                typeCoercionAtStart = false;
+
+            } else {
+                if (!isValue) throw new IllegalArgumentException("Legacy transform cannot identify as value or variable");
+
+                valueExpressionToTransform = vv_auto;
+                typeCoercionAtStart = !variableNameSpecified;
+            }
+        }
+
+        if (variableNameSpecified) {
+            if (varName!=null) throw new IllegalStateException("Variable name specified twice"); //shouldn't happen
+            varName = variable.name;
+            setVariableAtEnd = true;
+        }
+
+        if (valueExpressionToTransform==null) {
+            // value not set from auto; check if specified elsewhere
+            valueExpressionToTransform = input.get(VALUE.getName());
+
+            if (typeCoercionAtStart==null && valueExpressionToTransform!=null) typeCoercionAtStart = !variableNameSpecified;
+        }
+        if (valueExpressionToTransform==null) {
+            if (!variableNameSpecified) throw new IllegalArgumentException("Transform needs a variable or value to transform");
+
+            valueExpressionToTransform = "${"+variable.name+"}";
+            if (typeCoercionAtStart!=null) throw new IllegalStateException("Unclear whether to do type coercion; should be unset"); // shouldn't come here
+            typeCoercionAtStart = true;
+        }
+
+        if (typeCoercionAtStart==null) {
+            throw new IllegalStateException("Unclear whether to do type coercion; should be set"); // shouldn't come here
+        }
+
+        if (variable!=null && Strings.isNonBlank(variable.type)) {
+            // if type is specified with a variable used to start the transform, we coerce to that type at the start and at the end
+            if (typeCoercionAtStart) transforms.add(0, "type " + variable.type);
+            if (setVariableAtEnd) transforms.add("type " + variable.type);
         }
 
         boolean isResolved = false;
+        Object v = valueExpressionToTransform;
         for (String t: transforms) {
             WorkflowTransformWithContext tt = getTransform(context, t);
 
@@ -129,7 +199,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
                 v = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, v, TypeToken.of(Object.class));
                 isResolved = true;
             } else if (!req && isResolved) {
-                throw new IllegalArgumentException("Transform '" + t + "' must be first as it requires unresolved input");
+                throw new IllegalArgumentException("Transform '" + t + "' must be first or follow a resolve_expression transform as it requires unresolved input");
             } else {
                 // requirement matches resolution status, both done, or both not
             }
@@ -145,9 +215,13 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
             isResolved = true;
         }
 
-        if (name!=null) {
-            Object oldValue = setWorkflowScratchVariableDotSeparated(context, name, v);
-            // these are easily inferred from workflow vars
+        if (setVariableAtEnd) {
+            if (varName==null) throw new IllegalStateException("Variable name not specified when setting variable"); // shouldn't happen
+
+            setWorkflowScratchVariableDotSeparated(context, varName, v);
+            // easily inferred from workflow vars, now that updates are stored separately
+//            Object oldValue =
+//              <above> setWorkflowScratchVariableDotSeparated(context, varName, v);
 //            context.noteOtherMetadata("Value set", v);
 //            if (oldValue != null) context.noteOtherMetadata("Previous value", oldValue);
 

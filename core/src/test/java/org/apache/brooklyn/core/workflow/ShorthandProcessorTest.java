@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow;
 
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
+import org.apache.brooklyn.core.workflow.steps.variables.TransformVariableWorkflowStep;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.testng.annotations.Test;
@@ -160,4 +161,5 @@ the logic will take the one which matches the optional word1 but as minimally as
         assertShorthandOfGives("[ [ ${a} ] ${b} [ \"=\" ${c...} ] ]", "b = c", MutableMap.of("b", "b", "c", "c"));
         assertShorthandOfGives("[ [ ${a} ] ${b} [ \"=\" ${c...} ] ]", "a b = c", MutableMap.of("a", "a", "b", "b", "c", "c"));
     }
+
 }

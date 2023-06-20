@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
+import org.apache.brooklyn.core.workflow.steps.variables.TransformVariableWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -73,6 +74,49 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
     Object transform(String args) {
         return runWorkflowSteps(app, "transform "+args);
     }
+
+
+    @Test
+    public void testTransformShorthand() {
+        Function<String,Map<String,Object>> parse = shorthand -> {
+            TransformVariableWorkflowStep s = new TransformVariableWorkflowStep();
+            s.populateFromShorthand(shorthand);
+            return s.input;
+        };
+
+        Asserts.assertEquals(parse.apply("variable x"), MutableMap.of(
+                "variable", MutableMap.of("name", "x")));
+
+        Asserts.assertEquals(parse.apply("value ${x}"), MutableMap.of(
+                "value", "${x}"));
+
+        Asserts.assertEquals(parse.apply("x"), MutableMap.of(
+                "vv_auto", "x"));
+
+        Asserts.assertEquals(parse.apply("x = 1 | foo"), MutableMap.of(
+                "vv_auto", "x",
+                "value", "1",
+                "transform", "foo"));
+        Asserts.assertEquals(parse.apply("integer x = 1 | foo"), MutableMap.of(
+                "variable", MutableMap.of("type", "integer"),
+                "vv_auto", "x",
+                "value", "1",
+                "transform", "foo"));
+
+        Asserts.assertEquals(parse.apply("integer variable x | foo"), MutableMap.of(
+                "variable", MutableMap.of("name", "x", "type", "integer"),
+                "transform", "foo"));
+        Asserts.assertEquals(parse.apply("integer value ${x} | foo"), MutableMap.of(
+                "variable", MutableMap.of("type", "integer"),
+                "value", "${x}",
+                "transform", "foo"));
+
+        Asserts.assertFailsWith(() -> parse.apply("integer variable x = 99 | foo"),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "Invalid shorthand expression for transform"));
+        Asserts.assertFailsWith(() -> parse.apply("integer value x = 99 | foo"),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "Invalid shorthand expression for transform"));
+    }
+
 
     @Test
     public void testTransformTrim() throws Exception {
@@ -140,7 +184,7 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
                     "    that's: okay",
                     "    ---",
                     "     key: value",
-                    "- transform s | yaml | return",
+                    "- transform ${s} | yaml | return",
                     "- return should not come here",
                 ""), "test").getTask(false).get().getUnchecked(),
                 MutableMap.of("key", "value"));
@@ -151,15 +195,31 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(WorkflowBasicTest.runWorkflow(app, Strings.lines(
                     "- step: let s",
                     "  value: \"key: Value\"",
-                    "- transform s | yaml | set y",
+                    "- transform ${s} | yaml | set y",
                     "- transform y.key2 = ${output.key} | to_upper_case",
-                    "- transform output.key | to_lower_case",  // output should still be the yaml map transformed from ${s}
-                    "- transform output | set y.key3",   // output passed in here will be 'value' from previous step
-                    "- transform value true | set y.key4",
-                    "- transform boolean value true | set y.key5",
+                    "- transform ${output.key} | to_lower_case",  // output should still be the yaml map transformed from ${s}
+                    "- transform ${output} | set y.key3",   // output passed in here will be 'value' from previous step
+                    "- transform true | set y.key4a",
+                    "- transform value true | set y.key4b",
+                    "- transform boolean value true | set y.key4c",
                     "- return ${y}",
-                ""), "test").getTask(false).get().getUnchecked(),
-                MutableMap.of("key", "Value", "key2", "VALUE", "key3", "value", "key4", "true", "key5", true));
+                ""), "test").getTask(true).get().getUnchecked(),
+                MutableMap.of("key", "Value", "key2", "VALUE", "key3", "value", "key4a", "true", "key4b", "true", "key4c", true));
+    }
+
+    @Test
+    public void testValueTransform() {
+        Asserts.assertEquals(WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "- let map m = { a: x }",
+                "- transform value ${m} | size"
+        ), "test").getTask(true).get().getUnchecked(), 1);
+
+//                "- let x = hello",
+//                "- transform value ${x} | append world"), "test").getTask(true).get().getUnchecked(), "helloworld");
+//                "- let apply_result = hello",
+//                "- transform value ${apply_result} | to_upper_case"
+//                , "- return ${apply_result}"
+//        ), "test").getTask(true).get().getUnchecked(), "HELLO");
     }
 
     @Test
@@ -168,7 +228,8 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
                     "let a = b",
                     "let b = c",
                     "let x = \"${\" ${a} \"}\"",
-                    "transform x | resolve_expression | return"
+                    "transform variable x | resolve_expression",
+                    "return ${x}"
                 ), "c");
 
         Asserts.assertEquals(runWorkflowSteps(

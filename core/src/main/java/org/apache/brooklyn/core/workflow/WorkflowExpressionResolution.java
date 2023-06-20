@@ -389,25 +389,42 @@ public class WorkflowExpressionResolution {
     /** does not use templates */
     public <T> T resolveCoercingOnly(Object expression, TypeToken<T> type) {
         if (expression==null) return null;
+        boolean triedCoercion = false;
+        List<Exception> exceptions = MutableList.of();
+        if (expression instanceof String) {
+            try {
+                // prefer simple coercion if it's a string coming in
+                return TypeCoercions.coerce(expression, type);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                exceptions.add(e);
+                triedCoercion = true;
+            }
+        }
+
         if (Jsonya.isJsonPrimitiveDeep(expression) && !(expression instanceof Set)) {
             try {
-                // only try yaml coercion, as values are normally set from yaml and will be raw at this stage (but not if they are from a DSL)
-                // (might be better to always to TC.coerce)
+                // next try yaml coercion for anything complex, as values are normally set from yaml and will be raw at this stage (but not if they are from a DSL)
                 return BeanWithTypeUtils.convert(context.getManagementContext(), expression, type, true,
                         RegisteredTypes.getClassLoadingContext(context.getEntity()), true /* needed for wrapped resolved holders */);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
-                try {
-                    // fallback to simple coercion
-                    return TypeCoercions.coerce(expression, type);
-                } catch (Exception e2) {
-                    Exceptions.propagateIfFatal(e2);
-                    throw Exceptions.propagate(e);
-                }
+                exceptions.add(e);
             }
-        } else {
-            return TypeCoercions.coerce(expression, type);
         }
+
+        if (!triedCoercion) {
+            try {
+                // fallback to simple coercion
+                return TypeCoercions.coerce(expression, type);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                exceptions.add(e);
+                triedCoercion = true;
+            }
+        }
+
+        throw Exceptions.propagate(exceptions.iterator().next());
     }
 
     static class WorkflowVariableResolutionStackEntry {

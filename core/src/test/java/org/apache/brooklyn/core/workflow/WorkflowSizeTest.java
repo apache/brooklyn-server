@@ -70,9 +70,10 @@ public class WorkflowSizeTest extends BrooklynMgmtUnitTestSupport {
         createAppWithEffector(MutableList.of(
                 "let pc = ${param}",
                 "let map myMap = {}",
-                "transform param | prepend hello-",
+                "transform ${param} | prepend hello_",
+                "transform variable param | prepend hello-",
                 "let myMap.a = ${param}",
-                "let myMap.b = ${output}",
+                "let myMap.b = ${output}",  // comes from hello_ further up
                 "return ${myMap}"
         ));
 
@@ -95,7 +96,7 @@ public class WorkflowSizeTest extends BrooklynMgmtUnitTestSupport {
         sizes.forEach((k,v) -> { log.info("Sensor "+k+": "+v); });
         Asserts.assertThat(sizes.values().stream().reduce(0, (v0,v1)->v0+v1), result -> result < 20*1000);
 
-        // 100k payload now -> bumps sensor (json) size from 5k to 3MB (before any optimization)
+        // 100k payload -> bumps sensor (json) size from 5k to 3MB (before any optimization)
         // [xml persistence is less of an issue because it will use a shared reference]
         // removing output which is identical to the previous gives minor savings (in this test): 3380416 -> 3176074
         // removing scratch at workflow which matches a step reduces further: -> 2869522
@@ -107,7 +108,7 @@ public class WorkflowSizeTest extends BrooklynMgmtUnitTestSupport {
         app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), MutableMap.of("param", sampleData)).getUnchecked();
         sizes = getSensorSizes();
         sizes.forEach((k,v) -> { log.info("Sensor "+k+": "+v); });
-        Asserts.assertThat(sizes.values().stream().reduce(0, (v0,v1)->v0+v1), result -> result > 100*1000);
+        Asserts.assertThat(sizes.values().stream().reduce(0, (v0,v1)->v0+v1), result -> result > 100*1000 && result < 2*1000*1000);
     }
 
     protected Map<String,Integer> getSensorSizes() {

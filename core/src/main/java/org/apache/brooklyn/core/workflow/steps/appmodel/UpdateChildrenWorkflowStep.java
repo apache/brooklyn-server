@@ -274,8 +274,8 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
         List matches = runOrResumeSubWorkflowForPhaseOrReturnPreviousIfCompleted(context, instructionsForResuming, subworkflowTargetForResuming,
                 "Matching items against children", stepState.matchCheck, MATCH_CHECK_WORKFLOW,
                 () -> new CustomWorkflowStep(MutableList.of(
-                        "transform identifier_expression | resolve_expression | set id",
-                        MutableMap.of("step", "fail message identifier_expression should be a non-static expression including an interpolated reference to item",
+                        "transform ${identifier_expression} | resolve_expression | set id",
+                        MutableMap.of("step", "fail message identifier_expression should be a non-static expression including an interpolated reference to item, instead got ${identifier_expression}",
                             "condition", MutableMap.of("target", "${identifier_expression}", "equals", "${id}")),
                         "let child_or_id = ${parent.children[id]} ?? ${id}",
                         "transform child_tostring = ${child_or_id} | to_string",
