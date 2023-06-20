@@ -93,7 +93,10 @@ public class WrappedValuesSerialization {
 
         Object deserializeWithTypeUnwrapped(JsonParser p, DeserializationContext ctxt, TypeDeserializer typeDeserializer) throws IOException {
             List<Exception> exceptions = MutableList.of();
+
             try {
+//                TokenBuffer b = new TokenBuffer(p, ctxt);
+//                b.copyCurrentStructure(p);
                 TokenBuffer b = BrooklynJacksonSerializationUtils.createBufferForParserCurrentObject(p, ctxt);
                 JavaType genericType = null;
                 try {
@@ -108,6 +111,8 @@ public class WrappedValuesSerialization {
                     try {
                         // this uses our type deserializer, will try type instantiation from a declared type and/or expected type of the generics
                         return ctxt.findRootValueDeserializer(genericType).deserialize(
+                                // createParserFromTokenBufferAndParser(b, p)
+                                // should we use line above instead of line below, which we use several lines further below?
                                 b.asParserOnFirstToken(), ctxt);
                     } catch (Exception e) {
                         exceptions.add(e);
@@ -118,7 +123,8 @@ public class WrappedValuesSerialization {
                     try {
                         // this does _not_ use our type deserializer; will try type instantiation from the expected type of the generics however
                         return ctxt.findNonContextualValueDeserializer(genericType).deserialize(
-                                createParserFromTokenBufferAndParser(b, p), ctxt);
+                                createParserFromTokenBufferAndParser(b, p),
+                                ctxt);
                     } catch (Exception e) {
                         exceptions.add(e);
                     }

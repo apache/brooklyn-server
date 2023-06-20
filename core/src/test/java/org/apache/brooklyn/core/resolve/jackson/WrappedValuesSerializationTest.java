@@ -19,16 +19,11 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.function.Supplier;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue.WrappedValuesInitialized;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.flags.TypeCoercions.BrooklynCommonAdaptorTypeCoercions;
-import org.apache.brooklyn.util.core.task.BasicExecutionContext;
-import org.apache.brooklyn.util.core.task.BasicExecutionManager;
-import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -152,8 +147,8 @@ public class WrappedValuesSerializationTest implements MapperTestFixture {
     }
 
     @Test
-    public void testDeserializeDsl() throws Exception {
-        // test in CAMP where DSL is registered
+    public void testDeserializeUnrecognizedDsl() throws Exception {
+        // tests in CAMP DslDeserializationTest for processing the DSL
         String dslLiteralFoo = "$brooklyn:literal(\"foo\")";
         ObjectWithWrappedValueString impl = deser(json("x: " + dslLiteralFoo), ObjectWithWrappedValueString.class);
         Asserts.assertNotNull(impl.x);

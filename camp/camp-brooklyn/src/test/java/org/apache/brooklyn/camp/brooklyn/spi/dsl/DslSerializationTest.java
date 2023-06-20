@@ -18,11 +18,11 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.base.Optional;
-import java.util.Map;
-import java.util.function.Supplier;
-
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
@@ -30,11 +30,10 @@ import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
-import org.apache.brooklyn.core.resolve.jackson.MapperTestFixture;
-import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
-import org.apache.brooklyn.core.resolve.jackson.WrappedValuesSerializationTest;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.resolve.jackson.*;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValuesSerializationTest.ObjectWithWrappedValueString;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.test.Asserts;
@@ -44,6 +43,10 @@ import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @Test
 public class DslSerializationTest extends AbstractYamlTest implements MapperTestFixture {
@@ -228,5 +231,71 @@ public class DslSerializationTest extends AbstractYamlTest implements MapperTest
 
         impl = deser(json("asu: { type: "+BasicStartable.class.getName()+" }"), ObjectWithWrappedValueSpec.class);
         Asserts.assertNotNull(impl.asu);
+    }
+
+
+    static class ObjectWithTypedMaps {
+        Map<String,String> s;
+        Map<String,WrappedValue<String>> w;
+        Map<String,Object> o;
+    }
+
+    @Test
+    public void testDeserializeDslToMap() throws Exception {
+        String unwrappedDesiredValue = "foo";
+        String dslExpressionString = "$brooklyn:literal(" +
+                JavaStringEscapes.wrapJavaString(unwrappedDesiredValue)
+                + ")";
+        Object dslExpressionSupplier = DslUtils.resolveBrooklynDslValue(dslExpressionString, null, mgmt(), null).get();
+
+        ObjectWithTypedMaps impl;
+
+        MutableMap<String, MutableMap<String, Object>> dslMap = MutableMap.of("w", MutableMap.of("x", dslExpressionSupplier));
+
+        impl = BeanWithTypeUtils.convertShallow(mgmt(), dslMap, TypeToken.of(ObjectWithTypedMaps.class), true, null, true);
+        Asserts.assertInstanceOf(impl.w.get("x").getSupplier(), BrooklynDslDeferredSupplier.class);
+
+        impl = BeanWithTypeUtils.convertDeeply(mgmt(), dslMap, TypeToken.of(ObjectWithTypedMaps.class), true, null, true);
+        Asserts.assertInstanceOf(impl.w.get("x").getSupplier(), BrooklynDslDeferredSupplier.class);
+    }
+
+
+    // from JsonShorthandDeserializer
+    public static class MapT<T> {
+        @JsonDeserialize(contentUsing = JsonShorthandDeserializer.class)
+        Map<String,T> map;
+        void setMap(Map<String,T> map) { this.map = map; }
+    }
+
+    public static class MapX extends MapT<X> {}
+
+    public static class X {
+        WrappedValue<Object> w;
+
+        @JsonShorthandDeserializer.JsonShorthandInstantiator
+        public static X fromShorthand(WrappedValue<Object> o) {
+            X x = new X();
+            x.w = o;
+            return x;
+        }
+    }
+
+    @Test
+    public void convertShorthandShallowOrDeep() throws JsonProcessingException {
+        Consumer<MapX> check = r -> {
+            Asserts.assertInstanceOf(r.map.get("a").w.getSupplier(), BrooklynDslDeferredSupplier.class);
+            //Asserts.assertEquals(r.map.get("a").w.get(), "vv");  // not in an entity; above check is good enough, will fail if the map doesn't actually hold the wrapped value
+        };
+
+        String unwrappedDesiredValue = "foo";
+        String dslExpressionString = "$brooklyn:literal(" +
+                JavaStringEscapes.wrapJavaString(unwrappedDesiredValue)
+                + ")";
+        Object ws = DslUtils.resolveBrooklynDslValue(dslExpressionString, null, mgmt(), null).get();
+        MapX r;
+        r = BeanWithTypeUtils.convertDeeply(mgmt(), MutableMap.of("map", MutableMap.of("a", ws)), TypeToken.of(MapX.class), true, null, true);
+        check.accept(r);
+        r = BeanWithTypeUtils.convertShallow(mgmt(), MutableMap.of("map", MutableMap.of("a", ws)), TypeToken.of(MapX.class), true, null, true);
+        check.accept(r);
     }
 }
