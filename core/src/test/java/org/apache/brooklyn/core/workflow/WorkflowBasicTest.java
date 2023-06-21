@@ -478,5 +478,5 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                 w1.getTask(false).get().getUnchecked(),
                 MutableList.of("a=b", "b=c"));
     }
-
+    
 }

@@ -175,7 +175,15 @@ public class TypeCoercerExtensible implements TypeCoercer {
                 }
             }
             
-            if (result!=null) errors.add(result);
+            if (result!=null) {
+                if (result.isAbsent()) errors.add(result);
+                else {
+                    log.warn("Coercer " + coercer + " returned wrapped null when coercing " + value);
+                    errors.add(Maybe.absent("coercion returned null"));
+                    // arguably it should return null here
+//                    return null;
+                }
+            }
         }
         
         //ENHANCEMENT could look in type hierarchy of both types for a conversion method...

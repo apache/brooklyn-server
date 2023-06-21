@@ -270,7 +270,7 @@ public class BeanWithTypeUtils {
         }
 
         try {
-            return Maybe.of(convert(mgmt, o, type, allowRegisteredTypes, loader, allowJavaTypes));
+            return Maybe.ofDisallowingNull(convert(mgmt, o, type, allowRegisteredTypes, loader, allowJavaTypes));
         } catch (Exception e) {
             if (fallback!=null) return fallback;
             return Maybe.absent("BeanWithType cannot convert given input "+o+" to "+type, e);

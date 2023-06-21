@@ -164,7 +164,7 @@ public class DslPredicates {
                 Maybe<? extends Object> mma = TypeCoercions.tryCoerce(ma, mb.getClass());
                 if (mma.isPresent()) {
                     // repeat equality check
-                    if (mma.get().equals(mb) || mb.equals(mma.get())) return Maybe.of(true);
+                    if (Objects.equals(mma.get(), mb) || Objects.equals(mb, mma.get())) return Maybe.of(true);
                 }
                 return Maybe.absent("coercion not supported in equality check, to "+mb.getClass());
             }

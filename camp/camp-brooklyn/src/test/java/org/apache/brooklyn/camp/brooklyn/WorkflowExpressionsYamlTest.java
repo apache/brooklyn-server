@@ -19,18 +19,29 @@
 package org.apache.brooklyn.camp.brooklyn;
 
 import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.entity.stock.BasicEntityImpl;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.internal.TypeCoercionsTest;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Secret;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -39,6 +50,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.Callable;
+import java.util.function.Function;
 
 public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
 
@@ -93,9 +105,13 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
         return WorkflowBasicTest.runWorkflow(lastEntity, Strings.lines(workflowDefinition), "custom");
     }
 
-    private Object invokeWorkflowOnLastEntity(String ...workflowDefinition) throws Exception {
-        WorkflowExecutionContext context = invocationWorkflowOnLastEntity(workflowDefinition);
-        return context.getTask(false).get().get(Duration.seconds(5));
+    private Object invokeWorkflowOnLastEntity(String ...workflowDefinition) {
+        try {
+            WorkflowExecutionContext context = invocationWorkflowOnLastEntity(workflowDefinition);
+            return context.getTask(false).get().get(Duration.seconds(5));
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
     }
 
     Entity waitForLastEntity() {
@@ -225,4 +241,51 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(invokeWorkflowStepsWithLogging(), "53cr37");
     }
 
+
+    @Test
+    public void testEntityConditionSucceeds() throws Exception {
+        createEntityWithWorkflowEffector("- return ignored");
+        Function<String,Object> test = equalsCheckTarget -> invokeWorkflowOnLastEntity(
+                "steps:\n" +
+                        "  - let ent = $brooklyn:self()\n" +
+                        "  - let root = $brooklyn:root()\n" +
+                        "  - transform checkTargetS = "+equalsCheckTarget+" | to_string\n" +
+                        "  - log comparing ${ent.id} with ${checkTargetS}\n" +
+                        "  - step: return condition met\n" +
+                        "    condition:\n" +
+                        "      target: ${ent}\n" +
+                        "      equals: "+equalsCheckTarget+"\n" +
+                        "  - step: return condition not met");
+
+        Asserts.assertEquals(test.apply("xxx"), "condition not met");
+        Asserts.assertEquals(test.apply("${root}"), "condition not met");
+        Asserts.assertEquals(test.apply("${root.children[0]}"), "condition met");
+
+
+        // checking equality to the ID does not work
+        // it could, fairly easily -- the ID *is* coerced to an entity;
+        // but it then fails because it is coerced to the _proxy_ which is *not* coerced to the real delegate
+        Asserts.assertEquals(test.apply("${ent.id}"), "condition not met");
+
+        // notes and minor tests on the above
+        // coercion of ID
+        Entity coercedFromId = Entities.submit(lastEntity, Tasks.of("test", () -> TypeCoercions.coerce(lastEntity.getId(), Entity.class))).get();
+        Asserts.assertEquals(coercedFromId, lastEntity);
+        Maybe<BasicEntityImpl> coercedFromIdProxyToConcreteFails = Entities.submit(lastEntity, Tasks.of("test", () -> TypeCoercions.tryCoerce(lastEntity.getId(), BasicEntityImpl.class))).get();
+        Asserts.assertThat(coercedFromIdProxyToConcreteFails, Maybe::isAbsent);
+        // under the covers above works using coercer 80-bean, which does
+        Entity coercedFromIdEntity = BeanWithTypeUtils.convert(mgmt(), lastEntity.getId(), TypeToken.of(Entity.class), true, null, true);
+        Asserts.assertEquals(coercedFromIdEntity, lastEntity);
+
+        // some extra checks for coercion of unknown IDs -- conversion returns null, but tryConvert and coerce will not accept that
+        Entity coercedFromMissingIdRaw = BeanWithTypeUtils.convert(mgmt(), "xxx", TypeToken.of(Entity.class), true, null, true);
+        Asserts.assertNull(coercedFromMissingIdRaw);
+
+        Maybe<Entity> coercedFromMissingId;
+        coercedFromMissingId = BeanWithTypeUtils.tryConvertOrAbsent(mgmt(), Maybe.of("xxx"), TypeToken.of(Entity.class), true, null, true);
+        Asserts.assertThat(coercedFromMissingId, Maybe::isAbsent);
+
+        coercedFromMissingId = Entities.submit(lastEntity, Tasks.of("test", () -> TypeCoercions.tryCoerce("does_not_exist", Entity.class))).get();
+        Asserts.assertThat(coercedFromMissingId, Maybe::isAbsent);
+    }
 }

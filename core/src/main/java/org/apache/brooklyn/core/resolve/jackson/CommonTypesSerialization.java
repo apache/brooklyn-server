@@ -443,7 +443,7 @@ public class CommonTypesSerialization {
                     return super.convertStringToObject(value, p, ctxt);
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
-                    LOG.warn("Reference to BrooklynObject "+value+" which is no longer available; replacing with 'null'");
+                    LOG.warn("Reference to BrooklynObject "+value+" which is unknown or no longer available; replacing with 'null'");
                     return null;
                 }
             }

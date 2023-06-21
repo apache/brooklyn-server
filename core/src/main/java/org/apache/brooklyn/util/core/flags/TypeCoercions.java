@@ -367,6 +367,11 @@ public class TypeCoercions {
                     if (BeanWithTypeUtils.isConversionRecommended(Maybe.of(input), type)) {
                         try {
                             Maybe<T> result = BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(input), type);
+                            if (result.isPresent() && result.get()==null) {
+                                // normal for entities that are unknown; but when coercing we should not allow that
+                                log.debug("Coercion of "+input+" to "+type+" returned null");
+                                return null;
+                            }
                             return result;
                         } catch (Exception e) {
                             return Maybe.absent(e);
