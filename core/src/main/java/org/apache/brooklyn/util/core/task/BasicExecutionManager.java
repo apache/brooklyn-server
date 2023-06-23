@@ -487,8 +487,10 @@ public class BasicExecutionManager implements ExecutionManager {
 
                 if (debugOnly) {
                     log.debug("Deleting cancelled task before completion: " + removedById + "; this task will continue to run in the background outwith " + this);
+                } else if (removedById.equals(Tasks.current())) {
+                    log.debug("Deleting currently running task "+removedById+" from memory; normal on tasks that do not want to be remembered but if not done carefully subsequent interaction capabilities may be limited");
                 } else {
-                    log.warn("Deleting submitted task before completion: " + removedById + " (tags " + removedById.getTags() + "); this task will continue to run in the background outwith " + this + ", but perhaps it should have been cancelled?");
+                    log.warn("Deleting submitted task before completion: " + removedById + " (tags " + removedById.getTags() + "), submitted by "+Tasks.current()+"; deleted task will continue to run in the background outwith " + this + ", but perhaps it should have been cancelled?");
                     log.debug("Active task deletion trace", new Throwable("Active task deletion trace"));
                 }
             }
