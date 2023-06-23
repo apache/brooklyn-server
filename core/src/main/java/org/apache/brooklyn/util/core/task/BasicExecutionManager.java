@@ -1128,6 +1128,7 @@ public class BasicExecutionManager implements ExecutionManager {
     private static class TaskLookup implements Supplier<Task<?>> {
         // this class is not meant to be serialized, but if it is, make sure exec mgr doesn't sneak in
         transient BasicExecutionManager mgr;
+        transient Task<?> cachedResult;
 
         String id;
         String displayName;
@@ -1144,9 +1145,10 @@ public class BasicExecutionManager implements ExecutionManager {
         @Override
         public Task<?> get() {
             if (mgr == null) return gone();
-            Task<?> result = mgr.getTask(id);
-            if (result != null) return result;
-            return gone();
+
+            cachedResult = mgr.getTask(id);
+            if (cachedResult==null) cachedResult = gone();
+            return cachedResult;
         }
 
         private <T> Task<T> gone() {

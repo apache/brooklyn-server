@@ -132,6 +132,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         retention = (String) input.remove("retention");
     }
 
+    /** disabled or count, hashes, etc; see {@link WorkflowRetentionParser} or documentation for full info */
     protected String retention;
 
     /** What to run this set of steps against, either an entity to run in that context, 'children' or 'members' to run over those, a range eg 1..10,  or a list (often in a variable) to run over elements of the list */

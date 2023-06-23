@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
+import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
@@ -155,6 +156,7 @@ public class OsgiManager {
             if (Strings.isNonBlank(result.getMetadata().getUrl())) {
                 managedBundlesUidByUrl.put(result.getMetadata().getUrl(), result.getMetadata().getId());
             }
+            FrameworkLookup.invalidateCaches();
         }
 
         private File fileFor(ManagedBundle managedBundle) {
@@ -178,6 +180,7 @@ public class OsgiManager {
             managedBundlesRecord.managedBundlesUidByUrl.remove(bundleMetadata.getUrl());
             removeInstalledWrapperBundle(bundleMetadata);
             fileFor(bundleMetadata).delete();
+            FrameworkLookup.invalidateCaches();
             return true;
         }
 
@@ -202,6 +205,7 @@ public class OsgiManager {
             }
 
             ManagedBundle mbBak = managedBundlesByUid.put(result.getMetadata().getId(), result.getMetadata());
+            FrameworkLookup.invalidateCaches();
 
             return Pair.of(fBak, mbBak);
         }
@@ -221,6 +225,7 @@ public class OsgiManager {
             fBak.renameTo(fCached);
 
             managedBundlesByUid.put(result.getMetadata().getId(), mbBak);
+            FrameworkLookup.invalidateCaches();
 
             return fCached;
         }

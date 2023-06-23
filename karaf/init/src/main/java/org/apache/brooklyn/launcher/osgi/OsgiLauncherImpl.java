@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
+
+import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.BrooklynVersionService;
@@ -305,6 +307,7 @@ public class OsgiLauncherImpl extends BasicLauncher<OsgiLauncherImpl> implements
             ((ManagementContextInternal)getManagementContext()).getBrooklynProperties().put(OsgiManager.OSGI_STARTUP_COMPLETE, true);
             startupTimer.stop();
             LOG.info("Brooklyn initialization (part two) complete after {}", startupTimer.toString());
+            FrameworkLookup.invalidateCaches();
         }
     }
 

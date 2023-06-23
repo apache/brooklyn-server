@@ -18,16 +18,14 @@
  */
 package org.apache.brooklyn.api.framework;
 
+import com.google.common.collect.Maps;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.OsgiUtil;
 import org.osgi.framework.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.ServiceLoader;
+import java.util.*;
 
 /**
  * A utility to fetch an instance of a class from either OSGI if available, or by a Service Loader otherwise.
@@ -42,10 +40,27 @@ import java.util.ServiceLoader;
  * which this code does not do.  Therefore this class is not suitable for use in a situation where client code needs
  * to take account of services coming and going, and explicitly avoid using the service when its reference count has
  * gone to zero.
+ *
+ * This is achieved by clients looking up services as they need,
+ * and maintaining a cache here.
+ *
+ * The cache is explicitly invalidated when bundles are installed and when brooklyn finishes loading.
  */
 public class FrameworkLookup {
 
     private static final Logger LOG = LoggerFactory.getLogger(FrameworkLookup.class);
+
+    private static boolean cachingEnabled = false;
+    public static void setCachingEnabled(boolean cachingEnabled) {
+        FrameworkLookup.cachingEnabled = cachingEnabled;
+    }
+
+    public static void invalidateCaches() {
+        cacheOfSingleInstancesWithNoLoader.clear();
+    }
+
+    static Map<Class,Maybe> cacheOfSingleInstancesWithNoLoader = Maps.newConcurrentMap();
+    static Map<Class,Iterable> cacheOfAllInstancesWithNoLoader = Maps.newConcurrentMap();
 
     /**
      * Find an instance of the given class in the framework.
@@ -72,13 +87,18 @@ public class FrameworkLookup {
      * @return  A maybe of the instance found in the framework.
      */
     public static <T> Maybe<T> lookup (Class<T> clazz, ClassLoader loader) {
-
         Maybe<T> result;
+        if (loader==null) {
+            result = cacheOfSingleInstancesWithNoLoader.get(clazz);
+            if (result!=null) return result;
+        }
+
         if (OsgiUtil.isBrooklynInsideFramework()) {
             result = lookupInOsgi(clazz);
         } else {
             result = lookupViaServiceLoader(clazz, loader);
         }
+        cacheOfSingleInstancesWithNoLoader.put(clazz, result);
 
         return result;
     }
@@ -108,13 +128,20 @@ public class FrameworkLookup {
      * @return  An iterable over the instances found in the framework.
      */
     public static <T> Iterable<T> lookupAll(Class<T> clazz, ClassLoader loader) {
-
         Iterable<T> result;
+
+        if (loader==null) {
+            result = cacheOfAllInstancesWithNoLoader.get(clazz);
+            if (result!=null) return result;
+        }
+
         if (OsgiUtil.isBrooklynInsideFramework()) {
             result = lookupAllInOsgi(clazz);
         } else {
             result = lookupAllViaServiceLoader(clazz, loader);
         }
+        cacheOfAllInstancesWithNoLoader.put(clazz, result);
+
         return result;
     }
 
