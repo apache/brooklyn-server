@@ -154,7 +154,7 @@ public class WorkflowRetentionAndExpiration {
             BasicExecutionManager em = ((BasicExecutionManager) w.getManagementContext().getExecutionManager());
             w.getReplays().forEach(wr -> {
                 Task<?> wrt = em.getTask(wr.getTaskId());
-                if (wrt != null) em.deleteTask(wrt, false);
+                if (wrt != null) em.deleteTask(wrt, false, true);
             });
         }
         return removed;

@@ -400,7 +400,7 @@ public class BasicExecutionManager implements ExecutionManager {
         if (tasks != null) {
             for (Task<?> task : tasks) {
                 if (task.isDone(true)) {
-                    deleteTask(task);
+                    deleteTask(task, true, true);
                 } else {
                     tagEmpty = false;
                 }
@@ -415,22 +415,29 @@ public class BasicExecutionManager implements ExecutionManager {
     }
 
     public boolean deleteTask(Task<?> task) {
-        return deleteTask(task, true);
+        return deleteTask(task, true, false);
+    }
+    public boolean deleteTask(Task<?> task, boolean keepByIdIfParentPresentById) {
+        return deleteTask(task, true, false);
     }
     /** removes all exec manager records of a task, except, if second argument is true (usually is) keep the pointer to ID
      * if its submitter is a parent with an active record to this child.
-     * returns true if completely deleted (false if not deleted, or deleted in byTags map but kept due to parent ID) */
-    public boolean deleteTask(Task<?> task, boolean keepByIdIfParentPresentById) {
-        Boolean removed = deleteTaskNonRecursive(task, keepByIdIfParentPresentById);
-        if (!Boolean.TRUE.equals(removed)) return false;
+     * returns true if the task is completely deleted (false if not deleted, or deleted in byTags map but kept due to parent ID); children may be kept */
+    public boolean deleteTask(Task<?> task, boolean keepByIdIfParentPresentById, boolean keepActiveTasks) {
+        boolean result = false;
+        if (!keepActiveTasks || task.isDone() || !task.isSubmitted()) {
+            Boolean removed = deleteTaskNonRecursive(task, keepByIdIfParentPresentById);
+            if (!Boolean.TRUE.equals(removed)) return false;
+            result = true;
+        }
 
         if (task instanceof HasTaskChildren) {
             List<Task<?>> children = ImmutableList.copyOf(((HasTaskChildren) task).getChildren());
             for (Task<?> child : children) {
-                deleteTask(child, keepByIdIfParentPresentById);
+                deleteTask(child, keepByIdIfParentPresentById, keepActiveTasks);
             }
         }
-        return true;
+        return result;
     }
 
     protected Boolean deleteTaskNonRecursive(Task<?> task) {
@@ -481,6 +488,7 @@ public class BasicExecutionManager implements ExecutionManager {
         if (removedById != null && removedById.isSubmitted() && !removedById.isDone(true)) {
             Entity context = BrooklynTaskTags.getContextEntity(removedById);
             if (context != null && !Entities.isManaged(context)) {
+                // this cautiously only does debug if already unmanaged; will warn if still unmanaging
                 log.debug("Deleting active task on unmanagement of " + context + ": " + removedById);
             } else {
                 boolean debugOnly = removedById.isDone();
