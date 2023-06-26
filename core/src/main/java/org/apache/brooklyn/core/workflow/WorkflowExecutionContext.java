@@ -892,7 +892,14 @@ public class WorkflowExecutionContext {
         }
 
         if (currentStepInstance!=null) {
-            considerTask.accept(getManagementContext().getExecutionManager().getTask(currentStepInstance.getTaskId()));
+            Task<?> lastTask = null;
+            try {
+                lastTask = getManagementContext().getExecutionManager().getTask(currentStepInstance.getTaskId());
+            } catch (Exception e) {
+                // probably not being managed; ignore
+                Exceptions.propagateIfFatal(e);
+            }
+            considerTask.accept(lastTask);
         }
 
         return result.get();
