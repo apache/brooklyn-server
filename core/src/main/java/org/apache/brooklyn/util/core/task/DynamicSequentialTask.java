@@ -20,11 +20,7 @@ package org.apache.brooklyn.util.core.task;
 
 import groovy.lang.Closure;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -35,6 +31,7 @@ import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.CountdownTimer;
@@ -75,6 +72,7 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
 
     protected final Queue<Task<?>> secondaryJobsAll = new ConcurrentLinkedQueue<Task<?>>();
     protected final Queue<Task<?>> secondaryJobsRemaining = new ConcurrentLinkedQueue<Task<?>>();
+    protected final List<Task<?>> notionalChildren = MutableList.of();
     protected final Object jobTransitionLock = new Object();
     protected volatile boolean primaryStarted = false;
     protected volatile boolean primaryFinished = false;
@@ -165,6 +163,11 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
         }
     }
 
+    /** adds a child which this task is not dependent upon, but which should be known as a child of this, eg in the UI */
+    public void recordIndependentChild(Task<?> independentChild) {
+        notionalChildren.add(independentChild);
+    }
+
     @Override
     protected boolean doCancel(TaskCancellationMode mode) {
         boolean result = false;
@@ -218,7 +221,13 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
 
     @Override
     public Iterable<Task<?>> getChildren() {
-        return Collections.unmodifiableCollection(secondaryJobsAll);
+        Collection<Task<?>> result;
+        if (notionalChildren!=null && !notionalChildren.isEmpty()) {
+            result = MutableList.copyOf(secondaryJobsAll).appendAll(notionalChildren);
+        } else {
+            result = secondaryJobsAll;
+        }
+        return Collections.unmodifiableCollection(result);
     }
     
     /** submits the indicated task for execution in the current execution context, and returns immediately */
