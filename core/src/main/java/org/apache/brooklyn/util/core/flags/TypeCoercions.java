@@ -320,7 +320,7 @@ public class TypeCoercions {
         }
 
         public void registerWrappedValueAdapters() {
-            registerAdapter("10-unwrap-wrapped-value", new TryCoercer() {
+            registerAdapter("10-unwrap-wrapped-value", new TryCoercer.TryCoercerReturningNull() {
                         @Override
                         public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
                             if (!(input instanceof WrappedValue)) {

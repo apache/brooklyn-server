@@ -41,4 +41,6 @@ public interface TryCoercer {
      * </ul>
      */
     <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type);
+
+    interface TryCoercerReturningNull extends TryCoercer {}
 }

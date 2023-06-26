@@ -20,12 +20,7 @@ package org.apache.brooklyn.util.javalang.coerce;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.*;
@@ -178,10 +173,14 @@ public class TypeCoercerExtensible implements TypeCoercer {
             if (result!=null) {
                 if (result.isAbsent()) errors.add(result);
                 else {
-                    log.warn("Coercer " + coercer + " returned wrapped null when coercing " + value);
-                    errors.add(Maybe.absent("coercion returned null"));
-                    // arguably it should return null here
-//                    return null;
+                    if (coercer instanceof TryCoercer.TryCoercerReturningNull) {
+                        return result;
+                    } else {
+                        String c = getCoercerName(coercer);
+                        log.warn("Coercer " + c + " returned wrapped null when coercing " + value);
+                        errors.add(Maybe.absent("coercion returned null ("+c+")"));
+                        // coercers the return null should implement 'TryCoercerReturningNull'
+                    }
                 }
             }
         }
@@ -256,6 +255,13 @@ public class TypeCoercerExtensible implements TypeCoercer {
             return Maybe.absent(new ClassCoercionException("Cannot coerce map to "+targetTypeToken+" ("+value+"): no adapter known"));
         }
         return Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetTypeToken+" ("+value+"): no adapter known"));
+    }
+
+    protected String getCoercerName(TryCoercer coercer) {
+        Optional<Map.Entry<String, TryCoercer>> bn = genericCoercersByName.entrySet().stream().filter(es -> Objects.equal(coercer, es.getValue())).findAny();
+        if (bn.isPresent()) return bn.get().getKey();
+        int index = genericCoercers.indexOf(coercer);
+        return coercer.toString() + (index>=0 ? " (index "+index+")" : "");
     }
 
     @SuppressWarnings("unchecked")
