@@ -155,8 +155,8 @@ public class WorkflowStatePersistenceViaSensors {
 
     int updateMap(Entity entity, boolean doExpiry, boolean persist, Consumer<Map<String,WorkflowExecutionContext>> action) {
         AtomicInteger delta = new AtomicInteger(0);
-        entity.sensors().modify(INTERNAL_WORKFLOWS, v -> {
-            if (v == null) v = MutableMap.of();
+        entity.sensors().modify(INTERNAL_WORKFLOWS, vo -> {
+            Map<String, WorkflowExecutionContext> v = MutableMap.copyOf(vo);
             delta.set(-v.size());
             if (action!=null) action.accept(v);
             if (doExpiry) v = WorkflowRetentionAndExpiration.recomputeExpiration(v, null);
@@ -174,10 +174,11 @@ public class WorkflowStatePersistenceViaSensors {
     }
 
     public void updateWithoutPersist(Entity entity, List<WorkflowExecutionContext> workflows) {
-        if (workflows!=null && !workflows.isEmpty()) entity.sensors().modify(INTERNAL_WORKFLOWS, v -> {
-            if (v == null) {
+        if (workflows!=null && !workflows.isEmpty()) entity.sensors().modify(INTERNAL_WORKFLOWS, vo -> {
+            if (vo == null) {
                 throw new IllegalStateException("Update workflows requested for "+workflows+" when none recorded against "+entity);
             }
+            Map<String, WorkflowExecutionContext> v = MutableMap.copyOf(vo);
             workflows.forEach(w -> v.put(w.getWorkflowId(), w));
             return Maybe.of(v);
         });
