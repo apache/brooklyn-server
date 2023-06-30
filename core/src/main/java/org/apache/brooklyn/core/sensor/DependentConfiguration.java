@@ -114,14 +114,20 @@ public class DependentConfiguration {
     private DependentConfiguration() {}
 
     /**
-     * Default readiness is Groovy truth.
-     * 
+     * Default readiness is Groovy truth, with timeout.
      * @see #attributeWhenReady(Entity, AttributeSensor, Predicate)
      */
     public static <T> Task<T> attributeWhenReady(Entity source, AttributeSensor<T> sensor) {
         return attributeWhenReady(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate());
     }
-    
+
+    /**
+     * @see #attributeWhenReadyAllowingOnFire(Entity, AttributeSensor, Predicate)
+     */
+    public static <T> Task<T> attributeWhenReadyAllowingOnFire(Entity source, AttributeSensor<T> sensor) {
+        return attributeWhenReadyAllowingOnFire(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate());
+    }
+
     /**
      * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
      */
@@ -132,10 +138,22 @@ public class DependentConfiguration {
     }
     
     /** returns an unsubmitted {@link Task} which blocks until the given sensor on the given source entity gives a value that satisfies ready, then returns that value;
-     * particular useful in Entity configuration where config will block until Tasks have a value
+     * particular useful in Entity configuration where config will block until Tasks have a value.
+     * This task will fail if the entity goes on fire and timeout after 1 minute if starting or stopping,
+     * so is suitable for use in contexts where there is not a straightforward way to bail out in the case of those events
+     * (such as resolving template files as part of an upload).
+     * If this is not desired see {@link #attributeWhenReadyAllowingOnFire(Entity, AttributeSensor, Predicate)}.
      */
     public static <T> Task<T> attributeWhenReady(final Entity source, final AttributeSensor<T> sensor, final Predicate<? super T> ready) {
         Builder<T, T> builder = builder().attributeWhenReady(source, sensor);
+        if (ready != null) builder.readiness(ready);
+        return builder.build();
+
+    }
+
+    /** as {@link #attributeWhenReady(Entity, AttributeSensor, Predicate)} but with no timeout and not aborting if the entity goes on fire. */
+    public static <T> Task<T> attributeWhenReadyAllowingOnFire(final Entity source, final AttributeSensor<T> sensor, final Predicate<? super T> ready) {
+        Builder<T, T> builder = builder().attributeWhenReadyAllowingOnFire(source, sensor);
         if (ready != null) builder.readiness(ready);
         return builder.build();
 
