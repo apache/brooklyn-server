@@ -49,6 +49,7 @@ import org.apache.brooklyn.test.support.FlakyRetryAnalyser;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -271,6 +272,24 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
         assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         assertAttributeEquals(entity, Attributes.SERVICE_UP, true);
         assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+    }
+
+    public void testEntityWithoutServiceStateOrUp() throws Exception {
+        app.start(null);
+
+        entity.sensors().remove(Attributes.SERVICE_STATE_EXPECTED);
+        entity.sensors().remove(Attributes.SERVICE_STATE_ACTUAL);
+        entity.sensors().remove(Attributes.SERVICE_UP);
+
+        ServiceStateLogic.updateMapSensorEntry(entity, Attributes.SERVICE_PROBLEMS, "foo", "bar");
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+
+        ServiceStateLogic.clearMapSensorEntry(entity, Attributes.SERVICE_PROBLEMS, "foo");
+        Time.sleep(Duration.ONE_SECOND);
+        Dumper.dumpInfo(app);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, null);
+        EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
     }
 
     @Test

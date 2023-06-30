@@ -18,10 +18,9 @@
  */
 package org.apache.brooklyn.core.enricher;
 
-import static com.google.common.base.Preconditions.checkState;
-
-import java.util.Map;
-
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.collect.Maps;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EnricherMemento;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -38,9 +37,9 @@ import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
 
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.collect.Maps;
+import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkState;
 
 /**
 * Base {@link Enricher} implementation; all enrichers should extend this or its children
@@ -129,6 +128,8 @@ public abstract class AbstractEnricher extends AbstractEntityAdjunct implements 
             return;
         }
         if (val == Entities.REMOVE) {
+            // set null prior to removal so that listeners can receive it
+            ((EntityInternal)entity).sensors().set((AttributeSensor<T>) sensor, null);
             ((EntityInternal)entity).sensors().remove((AttributeSensor<T>) sensor);
             return;
         }
