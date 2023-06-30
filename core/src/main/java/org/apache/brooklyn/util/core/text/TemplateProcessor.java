@@ -41,7 +41,6 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.EffectorBase;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
@@ -87,6 +86,7 @@ public class TemplateProcessor {
 
     static ThreadLocalStack<Map<TemplateModel,Object>> TEMPLATE_MODEL_UNWRAP_CACHE = new ThreadLocalStack<>(true);
     static ThreadLocalStack<String> TEMPLATE_FILE_WANTING_LEGACY_SYNTAX = new ThreadLocalStack<>(true);
+    static ThreadLocalStack<Boolean> IS_FOR_WORKFLOW = new ThreadLocalStack<>(true);
 
     public interface UnwrappableTemplateModel {
         Maybe<Object> unwrap();
@@ -600,16 +600,19 @@ public class TemplateProcessor {
             return Maybe.of(entity);
         }
 
-        enum SensorResolutionMode { SENSOR_DEFINITION, ATTRIBUTE_VALUE, ATTRIBUTE_WHEN_READY }
+        enum SensorResolutionMode { SENSOR_DEFINITION,
+            ATTRIBUTE_VALUE,
+            ATTRIBUTE_WHEN_READY_FOR_TEMPLATES,
+            ATTRIBUTE_WHEN_READY_FOR_WORKFLOW }
 
         protected EntityAttributeTemplateModel(EntityInternal entity, SensorResolutionMode mode) {
             this.entity = entity;
             if (TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.peek().isPresentAndNonNull()) {
                 // in templates, we have only ever supported attribute when ready. preserve that for now, but warn of deprecation.
-                if (mode != SensorResolutionMode.ATTRIBUTE_WHEN_READY) {
+                if (mode != SensorResolutionMode.ATTRIBUTE_WHEN_READY_FOR_TEMPLATES) {
                     log.warn("Using deprecated legacy attributeWhenReady behaviour of ${entity.attribute...} or ${entity.sensor...}. Template should be updated to use ${entity.attributeWhenReady...} if that is required: "
                         + TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.peek());
-                    mode = SensorResolutionMode.ATTRIBUTE_WHEN_READY;
+                    mode = SensorResolutionMode.ATTRIBUTE_WHEN_READY_FOR_TEMPLATES;
                 }
             }
             this.mode = mode;
@@ -625,9 +628,12 @@ public class TemplateProcessor {
             Object result;
             try {
                 result =
-                        mode == SensorResolutionMode.ATTRIBUTE_WHEN_READY ?
-                                ((EntityInternal)entity).getExecutionContext().get( DependentConfiguration.attributeWhenReadyAllowingOnFire(entity,
+                        mode == SensorResolutionMode.ATTRIBUTE_WHEN_READY_FOR_TEMPLATES ?
+                                ((EntityInternal)entity).getExecutionContext().get( DependentConfiguration.attributeWhenReady(entity,
                                     Sensors.builder(Object.class, key).persistence(AttributeSensor.SensorPersistenceMode.NONE).build()))
+                        : mode == SensorResolutionMode.ATTRIBUTE_WHEN_READY_FOR_WORKFLOW ?
+                                ((EntityInternal)entity).getExecutionContext().get( DependentConfiguration.attributeWhenReadyAllowingOnFire(entity,
+                                        Sensors.builder(Object.class, key).persistence(AttributeSensor.SensorPersistenceMode.NONE).build()))
                         : mode == SensorResolutionMode.ATTRIBUTE_VALUE ?
                                 entity.sensors().get( Sensors.newSensor(Object.class, key) )
                         : mode == SensorResolutionMode.SENSOR_DEFINITION ?
@@ -679,8 +685,9 @@ public class TemplateProcessor {
         protected final EntityDriver driver;
         protected final ManagementContext mgmt;
         protected final DotSplittingTemplateModel extraSubstitutionsModel;
+        protected boolean isForWorkflow = false;
 
-        // TODO the extra substitutions here (and in LocationAndMapTemplateModel) could be replaced with
+        // note: the extra substitutions here (and in LocationAndMapTemplateModel) could be replaced with
         // FirstAvailableTemplateModel(entityModel, mapHashModel)
 
         protected EntityAndMapTemplateModel(ManagementContext mgmt, EntityInternal entity, EntityDriver driver) {
@@ -688,6 +695,11 @@ public class TemplateProcessor {
             this.entity = entity !=null ? entity : driver!=null ? (EntityInternal) driver.getEntity() : null;
             this.mgmt = mgmt != null ? mgmt : this.entity!=null ? this.entity.getManagementContext() : null;
             extraSubstitutionsModel = new DotSplittingTemplateModel(null);
+        }
+
+        public EntityAndMapTemplateModel setIsForWorkflow(boolean isForWorkflow) {
+            this.isForWorkflow = isForWorkflow;
+            return this;
         }
 
         @Override
@@ -700,7 +712,15 @@ public class TemplateProcessor {
         }
 
         public static TemplateHashModel forEntity(Entity entity, Map<String,? extends Object> extraSubstitutions) {
-            return new FirstAvailableTemplateModel(new EntityAndMapTemplateModel(null, (EntityInternal) entity, null), wrappedBeanToHashOrNull(entity), dotOrNull(extraSubstitutions));
+            EntityAndMapTemplateModel entityModel = new EntityAndMapTemplateModel(null, (EntityInternal) entity, null);
+            if (Boolean.TRUE.equals(IS_FOR_WORKFLOW.peek().orNull())) entityModel.setIsForWorkflow(true);
+            return new FirstAvailableTemplateModel(entityModel, wrappedBeanToHashOrNull(entity), dotOrNull(extraSubstitutions));
+        }
+
+        public static TemplateHashModel forEntityPossiblyInWorkflow(Entity entity, Map<String,? extends Object> extraSubstitutions, boolean isInWorkflow) {
+            return new FirstAvailableTemplateModel(
+                    new EntityAndMapTemplateModel(null, (EntityInternal) entity, null).setIsForWorkflow(isInWorkflow),
+                    wrappedBeanToHashOrNull(entity), dotOrNull(extraSubstitutions));
         }
 
         public static TemplateHashModel forManagementContext(ManagementContext mgmt, Map<String,? extends Object> extraSubstitutions) {
@@ -765,7 +785,8 @@ public class TemplateProcessor {
                 return wrapAsTemplateModel( entity instanceof Group ? ((Group)entity).getMembers() : MutableList.of() );
             if ("sensor".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_VALUE);
             if ("attribute".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_VALUE);
-            if ("attributeWhenReady".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_WHEN_READY);
+            if ("attributeWhenReady".equals(key)) return new EntityAttributeTemplateModel(entity,
+                    isForWorkflow ? EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_WHEN_READY_FOR_WORKFLOW : EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_WHEN_READY_FOR_TEMPLATES);
             // new option
             if ("sensor_definition".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.SENSOR_DEFINITION);
             if ("effector".equals(key)) return wrapAsTemplateModel(Maps.transformValues(entity.getMutableEntityType().getEffectors(), EffectorBase::of));
@@ -980,6 +1001,15 @@ public class TemplateProcessor {
                         + (Strings.isMultiLine(templateContents) ? "\n" + templateContents : templateContents));
             }
             throw Exceptions.propagate(e);
+        }
+    }
+
+    public static Object processTemplateContentsForWorkflow(String context, String templateContents, final TemplateHashModel substitutions, boolean allowSingleVariableObject, boolean logErrors, InterpolationErrorMode errorMode) {
+        try {
+            IS_FOR_WORKFLOW.push(true);
+            return processTemplateContents(context, templateContents, substitutions, allowSingleVariableObject, logErrors, errorMode);
+        } finally {
+            IS_FOR_WORKFLOW.pop();
         }
     }
 

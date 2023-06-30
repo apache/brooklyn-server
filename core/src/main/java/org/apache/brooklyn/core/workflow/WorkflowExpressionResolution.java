@@ -604,7 +604,7 @@ public class WorkflowExpressionResolution {
 
         boolean ourWait = interruptSetIfNeededToPreventWaiting();
         try {
-            result = TemplateProcessor.processTemplateContents("workflow", expression, model, true, false, errorMode);
+            result = TemplateProcessor.processTemplateContentsForWorkflow("workflow", expression, model, true, false, errorMode);
         } catch (Exception e) {
             Exception e2 = e;
             if (wrappingMode.deferAndRetryErroneousExpressions) {

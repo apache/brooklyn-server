@@ -226,7 +226,7 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testWorkflowExpressionAllowsOnFire() throws Exception {
+    public void testWorkflowTemplateExpressionAllowsOnFire() throws Exception {
         Entity entity = createEntity();
         WorkflowExecutionContext workflow = invocationWorkflowOnLastEntity(
                 "    - step: transform ${entity.attributeWhenReady.foo} | wait | set foo_in_workflow",
@@ -248,7 +248,7 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testDSLExpressionAbortWhenOnFire() throws Exception {
+    public void testBrooklynDslExpressionAbortWhenOnFire() throws Exception {
         createEntity();
         WorkflowExecutionContext workflow = invocationWorkflowOnLastEntity(
                 "    - step: transform $brooklyn:attributeWhenReady(\"foo\") | wait | set foo_in_workflow",
