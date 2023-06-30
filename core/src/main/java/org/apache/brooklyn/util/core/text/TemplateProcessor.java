@@ -626,7 +626,7 @@ public class TemplateProcessor {
             try {
                 result =
                         mode == SensorResolutionMode.ATTRIBUTE_WHEN_READY ?
-                                ((EntityInternal)entity).getExecutionContext().get( DependentConfiguration.attributeWhenReady(entity,
+                                ((EntityInternal)entity).getExecutionContext().get( DependentConfiguration.attributeWhenReadyAllowingOnFire(entity,
                                     Sensors.builder(Object.class, key).persistence(AttributeSensor.SensorPersistenceMode.NONE).build()))
                         : mode == SensorResolutionMode.ATTRIBUTE_VALUE ?
                                 entity.sensors().get( Sensors.newSensor(Object.class, key) )

@@ -121,7 +121,11 @@ public class DependentConfiguration {
     public static <T> Task<T> attributeWhenReady(Entity source, AttributeSensor<T> sensor) {
         return attributeWhenReady(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate());
     }
-    
+
+    public static <T> Task<T> attributeWhenReadyAllowingOnFire(Entity source, AttributeSensor<T> sensor) {
+        return attributeWhenReadyAllowingOnFire(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate());
+    }
+
     /**
      * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
      */
@@ -136,6 +140,16 @@ public class DependentConfiguration {
      */
     public static <T> Task<T> attributeWhenReady(final Entity source, final AttributeSensor<T> sensor, final Predicate<? super T> ready) {
         Builder<T, T> builder = builder().attributeWhenReady(source, sensor);
+        if (ready != null) builder.readiness(ready);
+        return builder.build();
+
+    }
+
+    /** returns an unsubmitted {@link Task} which blocks until the given sensor on the given source entity gives a value that satisfies ready, then returns that value;
+     * particular useful in Entity configuration where config will block until Tasks have a value
+     */
+    public static <T> Task<T> attributeWhenReadyAllowingOnFire(final Entity source, final AttributeSensor<T> sensor, final Predicate<? super T> ready) {
+        Builder<T, T> builder = builder().attributeWhenReadyAllowingOnFire(source, sensor).timeoutIfStoppingOrDestroyed(Duration.ONE_MINUTE);
         if (ready != null) builder.readiness(ready);
         return builder.build();
 

@@ -22,23 +22,21 @@ import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
-import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.entity.stock.BasicEntityImpl;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.internal.TypeCoercionsTest;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -50,6 +48,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
@@ -80,6 +79,18 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }
+    }
+
+    private Entity createEntity() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName());
+        waitForApplicationTasks(app);
+
+        // Deploy the blueprint.
+        Entity entity = lastEntity = Iterables.getOnlyElement(app.getChildren());
+        synchronized (this) { this.notifyAll(); }
+        return entity;
     }
 
     private Entity createEntityWithWorkflowEffector(String ...stepLines) throws Exception {
@@ -212,6 +223,47 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
             Object x = invokeWorkflowStepsWithLogging("- wait ${entity.attributeWhenReady.foo}");
             Asserts.assertEquals(x, "bar");
         }
+    }
+
+    @Test
+    public void testWorkflowExpressionAllowsOnFire() throws Exception {
+        Entity entity = createEntity();
+        WorkflowExecutionContext workflow = invocationWorkflowOnLastEntity(
+                "    - step: transform ${entity.attributeWhenReady.foo} | wait | set foo_in_workflow",
+                "      timeout: 4s",
+                "    - step: set-sensor new-foo = ${foo_in_workflow}"
+                );
+
+        Time.sleep(Duration.ONE_SECOND);
+        Asserts.assertFalse(workflow.getTask(false).get().isDone());
+
+        waitForLastEntity().sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        Time.sleep(Duration.of(2, TimeUnit.SECONDS));
+        waitForLastEntity().sensors().set(Sensors.newIntegerSensor("foo"), 10);
+
+        workflow.getTask(false).get().blockUntilEnded(Duration.TEN_SECONDS);
+        Asserts.assertFalse(workflow.getTask(true).get().isError());
+        Integer fooInWorkflow = entity.sensors().get(Sensors.newIntegerSensor("new-foo"));
+        Asserts.assertEquals((Integer) 10, fooInWorkflow);
+    }
+
+    @Test
+    public void testDSLExpressionAbortWhenOnFire() throws Exception {
+        createEntity();
+        WorkflowExecutionContext workflow = invocationWorkflowOnLastEntity(
+                "    - step: transform $brooklyn:attributeWhenReady(\"foo\") | wait | set foo_in_workflow",
+                "      timeout: 3s"
+        );
+
+        Time.sleep(Duration.ONE_SECOND);
+        Asserts.assertFalse(workflow.getTask(false).get().isDone());
+
+        waitForLastEntity().sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        Time.sleep(Duration.of(2, TimeUnit.SECONDS));
+        waitForLastEntity().sensors().set(Sensors.newIntegerSensor("foo"), 10);
+
+        workflow.getTask(false).get().blockUntilEnded(Duration.TEN_SECONDS);
+        Asserts.assertTrue(workflow.getTask(true).get().isError());
     }
 
     @Test
