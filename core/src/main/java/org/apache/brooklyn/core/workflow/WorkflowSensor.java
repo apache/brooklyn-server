@@ -99,7 +99,8 @@ public class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> implement
             LOG.debug("Adding workflow sensor {} to {}", sensor.getName(), entity);
         }
 
-        WorkflowPollCallable wc = new WorkflowPollCallable("Workflow for sensor " + sensor.getName(), params, null);
+        WorkflowPollCallable wc = new WorkflowPollCallable(WorkflowExecutionContext.WorkflowContextType.SENSOR,
+                "Workflow for sensor " + sensor.getName(), params, null);
         FunctionPollConfig<Object,Object> pollConfig = new FunctionPollConfig<Object,T>(sensor)
                 .callable(wc)
                 .onSuccess(TypeCoercions.<T>function((Class)sensor.getTypeToken().getRawType()));
@@ -156,8 +157,10 @@ public class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> implement
         private final String workflowCallableName;
         private BrooklynObject entityOrAdjunct;
         private final Map<String,Object> params;
+        private final WorkflowExecutionContext.WorkflowContextType wcType;
 
-        protected WorkflowPollCallable(String workflowCallableName, ConfigBag params, BrooklynObject entityOrAdjunct) {
+        protected WorkflowPollCallable(WorkflowExecutionContext.WorkflowContextType wcType, String workflowCallableName, ConfigBag params, BrooklynObject entityOrAdjunct) {
+            this.wcType = wcType;
             this.workflowCallableName = workflowCallableName;
             this.params = params.getAllConfigRaw();
             this.entityOrAdjunct = entityOrAdjunct;
@@ -175,7 +178,7 @@ public class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> implement
             if (entityOrAdjunct==null) entityOrAdjunct = BrooklynTaskTags.getContextEntity(Tasks.current());
             if (entityOrAdjunct==null) throw new IllegalStateException("No entity adjunct or entity available for "+this);
 
-            WorkflowExecutionContext wc = WorkflowExecutionContext.newInstancePersisted(entityOrAdjunct, WorkflowExecutionContext.WorkflowContextType.SENSOR,
+            WorkflowExecutionContext wc = WorkflowExecutionContext.newInstancePersisted(entityOrAdjunct, wcType,
                     workflowCallableName, ConfigBag.newInstance(params), null, null, null);
             Task<Object> wt = wc.getTask(false /* condition checked by poll config framework */).get();
             if (entityOrAdjunct instanceof EntityAdjunct) {

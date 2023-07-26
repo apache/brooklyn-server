@@ -46,7 +46,7 @@ import java.util.function.Supplier;
  * Configurable policy which runs workflow according to schedule and/or trigger.
  */
 @Beta
-public class WorkflowPolicy<T> extends AbstractPolicy {
+public class WorkflowPolicy<T> extends AbstractPolicy implements WorkflowCommonConfig {
 
     private static final Logger LOG = LoggerFactory.getLogger(WorkflowPolicy.class);
 
@@ -55,9 +55,6 @@ public class WorkflowPolicy<T> extends AbstractPolicy {
             "Sensors which should trigger this policy, supplied with list of maps containing sensor (name or sensor instance) and entity (ID or entity instance), or just sensor names or just one sensor");
 
     public static final ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition", "Optional condition required for this sensor feed to run");
-
-    public static final ConfigKey<Map<String,Object>> INPUT = WorkflowCommonConfig.INPUT;
-    public static final ConfigKey<List<Object>> STEPS = WorkflowCommonConfig.STEPS;
 
     public static final ConfigKey<String> UNIQUE_TAG_CAMEL = WorkflowSensor.UNIQUE_TAG_CAMEL;
     public static final ConfigKey<String> UNIQUE_TAG_UNDERSCORE = WorkflowSensor.UNIQUE_TAG_UNDERSCORE;
@@ -144,7 +141,7 @@ public class WorkflowPolicy<T> extends AbstractPolicy {
                 .condition(new ConditionSupplierFromAdjunct());
 
         Set<PollConfig> pollConfigs = MutableSet.of(pc);
-        poller.schedulePoll(this, pollConfigs, new WorkflowSensor.WorkflowPollCallable(
+        poller.schedulePoll(this, pollConfigs, new WorkflowSensor.WorkflowPollCallable(WorkflowExecutionContext.WorkflowContextType.POLICY,
                 getDisplayName() + " (policy)", config().getBag(), this), new PolicyNoOpPollHandler());
 
         if (!isSuspended()) resume();

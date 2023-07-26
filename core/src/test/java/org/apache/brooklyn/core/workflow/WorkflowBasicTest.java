@@ -409,6 +409,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
             if (logWatcher.getMessages().size()!=8) {
                 // add logging for intermittent failure; sometimes we are getting way more messages than we expect
+                // on slow servers we might see 9, with a "Blocked by lock on lock-for-incrementor, currently held by <other task>" at the end
                 throw new IllegalStateException("Wrong number of messages found ("+logWatcher.getMessages().size()+", not 8): "+logWatcher.getMessages());
             }
 
