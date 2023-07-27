@@ -36,6 +36,8 @@ import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.SensorTransformer;
 import org.apache.brooklyn.rest.util.EntityAttributesUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -85,17 +87,23 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
         Iterable<AttributeSensor> sensors = filter(entity.getEntityType().getSensors(), AttributeSensor.class);
 
         for (AttributeSensor<?> sensor : sensors) {
-            // Exclude sensors that user is not allowed to see
-            if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_SENSOR, new EntityAndItem<String>(entity, sensor.getName()))) {
-                log.trace("User {} not authorized to see sensor {} of entity {}; excluding from current-state results", 
-                        new Object[] {Entitlements.getEntitlementContext().user(), sensor.getName(), entity});
-                continue;
-            }
+            try {
+                // Exclude sensors that user is not allowed to see
+                if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_SENSOR, new EntityAndItem<String>(entity, sensor.getName()))) {
+                    log.trace("User {} not authorized to see sensor {} of entity {}; excluding from current-state results",
+                            new Object[]{Entitlements.getEntitlementContext().user(), sensor.getName(), entity});
+                    continue;
+                }
 
-            Object value = EntityAttributesUtils.tryGetAttribute(entity, findSensor(entity, sensor.getName()));
-            sensorMap.put(sensor.getName(),
-                resolving(value).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(useDisplayHints).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(sensor)
-                        .suppressIfSecret(sensor.getName(), suppressSecrets).filterOutputFields(sensor.getName().startsWith("internal")).resolve());
+                Object value = EntityAttributesUtils.tryGetAttribute(entity, findSensor(entity, sensor.getName()));
+                sensorMap.put(sensor.getName(),
+                        resolving(value).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(useDisplayHints).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(sensor)
+                                .suppressIfSecret(sensor.getName(), suppressSecrets).filterOutputFields(sensor.getName().startsWith("internal")).resolve());
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                log.error(""+sensor+" on "+entity+" cannot be serialized for REST output; ignoring: "+e, e);
+                sensorMap.put(sensor.getName(), MutableMap.of("type", "error", "message", "Value not available. See logs."));
+            }
         }
         return sensorMap;
     }

@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import com.google.common.annotations.Beta;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
@@ -591,6 +592,7 @@ public abstract class RebindIteration {
             adjunctProxies.entrySet().forEach(entry -> {
                 if (entry.getValue() instanceof Policy) exceptionHandler.onDanglingPolicyRef(entry.getKey());
                 else if (entry.getValue() instanceof Enricher) exceptionHandler.onDanglingEnricherRef(entry.getKey());
+                else if (entry.getValue() instanceof Feed) exceptionHandler.onDanglingFeedRef(entry.getKey());
                 else {
                     LOG.warn("Adjunct proxy for "+entry.getKey()+" is of unexpected type; "+entry.getValue()+"; reporting as dangling of unknown type");
                     exceptionHandler.onDanglingUntypedItemRef(entry.getKey());
@@ -1451,7 +1453,8 @@ public abstract class RebindIteration {
                 }
             }
             throw new IllegalStateException("Cannot instantiate instance of type " + clazz +
-                    "; expected constructor signature not found (" + args + ")");
+                    "; expected constructor signature not found (" + args + " / " +
+                    Arrays.asList(args).stream().map(a -> a.getClass()).collect(Collectors.toList()) + ")");
         }
 
         protected ManagedBundle newManagedBundle(ManagedBundleMemento bundleMemento) {

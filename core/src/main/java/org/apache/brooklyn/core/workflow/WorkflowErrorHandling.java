@@ -256,7 +256,9 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
 
         // don't consider replaying automatically here; only done at workflow level
 
-        logWarnOnExceptionOrDebugIfKnown(entity, error, "Error in step '" + stepTaskThrowingError.getDisplayName() + "'; " + problemHere + "rethrowing: " + Exceptions.collapseText(error));
+        logWarnOnExceptionOrDebugIfKnown(entity, error,
+                currentStepInstance.getWorkflowExectionContext().getName() + ": " +
+                "Error in step '" + stepTaskThrowingError.getDisplayName() + "'; " + problemHere + "rethrowing: " + Exceptions.collapseText(error));
         throw Exceptions.propagate(error);
     }
 

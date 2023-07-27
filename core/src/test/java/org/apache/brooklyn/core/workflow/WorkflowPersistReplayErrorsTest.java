@@ -632,7 +632,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
             Asserts.assertEntriesSatisfy(msgs, MutableList.of(
                     m -> m.matches("Starting workflow 'myWorkflow .workflow effector.', moving to first step .*-1"),
                     m -> m.matches("Starting step .*-1 in task .*"),
-                    m -> m.matches("Error in step '1 - invoke-effector does-not-exist'; rethrowing: No effector matching 'does-not-exist'"),
+                    m -> m.matches("myWorkflow .*: Error in step '1 - invoke-effector does-not-exist'; rethrowing: No effector matching 'does-not-exist'"),
                     m -> m.matches("Error in workflow 'myWorkflow .workflow effector.' around step .*-1, running error handler"),
                     m -> m.matches("Encountered error in workflow .*/.* 'myWorkflow' .handler present.: No effector matching 'does-not-exist'"),
                     m -> m.matches("Starting .*-error-handler with 1 step in task .*"),

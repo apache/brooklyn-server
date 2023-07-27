@@ -153,7 +153,8 @@ public abstract class AbstractBrooklynObjectProxyImpl<T extends BrooklynObject> 
             if ("getId".equals(sig.name)) return getId();
             if ("hashCode".equals(sig.name)) return hashCode();
             if ("equals".equals(sig.name) && args.length==1) return equals(args[0]);
-            throw new NullPointerException("Access to proxy before initialized, method "+m);
+            throw new NullPointerException("Access to proxy on "+toString()+" before initialized, method "+m+"; " +
+                    "likely the target either is still being initialized or the target had an error when being created/rebinded");
         } else if (OBJECT_METHODS.contains(sig)) {
             result = m.invoke(delegate, args);
         } else if (isPermittedReadOnlyMethod(sig)) {

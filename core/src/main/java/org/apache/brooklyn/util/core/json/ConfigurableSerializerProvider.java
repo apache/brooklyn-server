@@ -29,9 +29,13 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializationConfig;
 import com.fasterxml.jackson.databind.ser.DefaultSerializerProvider;
 import com.fasterxml.jackson.databind.ser.SerializerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** allows the serializer-of-last-resort to be customized, ie used for unknown-types */
 final class ConfigurableSerializerProvider extends DefaultSerializerProvider {
+
+    private static final Logger log = LoggerFactory.getLogger(ConfigurableSerializerProvider.class);
 
     private static final long serialVersionUID = 6094990395562170217L;
     protected JsonSerializer<Object> unknownTypeSerializer;
@@ -83,7 +87,14 @@ final class ConfigurableSerializerProvider extends DefaultSerializerProvider {
 
         JsonSerializer<Object> unknownTypeSerializer = getUnknownTypeSerializer(value.getClass());
         if (unknownTypeSerializer instanceof ErrorAndToStringUnknownTypeSerializer) {
-            ((ErrorAndToStringUnknownTypeSerializer)unknownTypeSerializer).serializeFromError(ctxt, e, value, jgen, this);
+            try {
+                ((ErrorAndToStringUnknownTypeSerializer) unknownTypeSerializer).serializeFromError(ctxt, e, value, jgen, this);
+            } catch (Exception e2) {
+                Exceptions.propagateIfFatal(e2);
+                log.warn("Unable to nicely recover from original error during serialization "+e+"; got "+e2+"; rethrowing original");
+                log.trace("Secondary error", e2);
+                throw Exceptions.propagate(e);
+            }
         } else {
             unknownTypeSerializer.serialize(value, jgen, this);
         }
