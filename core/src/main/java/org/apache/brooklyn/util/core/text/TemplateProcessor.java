@@ -83,8 +83,17 @@ public class TemplateProcessor {
     }
 
     static BrooklynFreemarkerUnwrappableObjectWrapper BROOKLYN_WRAPPER = new BrooklynFreemarkerUnwrappableObjectWrapper();
+    public static TemplateModel wrapAsTemplateModel(Object o) throws TemplateModelException { return BROOKLYN_WRAPPER.wrap(o); }
+    public static Maybe<Object> unwrapTemplateModelMaybe(TemplateModel templateModel) { return BROOKLYN_WRAPPER.unwrapMaybe(templateModel); }
 
     static ThreadLocalStack<Map<TemplateModel,Object>> TEMPLATE_MODEL_UNWRAP_CACHE = new ThreadLocalStack<>(true);
+    /** A cache is used to be able to retrieve the object from which a TemplateModel was created, if needed,
+     *  because Freemarker doesn't support that except on selected UnwrappableTemplateModel subclasses.
+     *  Use wrap and unwrap methods above to access.
+     *  Calls to this must be balanced with a 'close' to avoid memory leaks */
+    public static void openLocalTemplateModelCache() { TEMPLATE_MODEL_UNWRAP_CACHE.push(MutableMap.of()); }
+    public static void closeLocalTemplateModelCache() { TEMPLATE_MODEL_UNWRAP_CACHE.pop(); }
+
     static ThreadLocalStack<String> TEMPLATE_FILE_WANTING_LEGACY_SYNTAX = new ThreadLocalStack<>(true);
     static ThreadLocalStack<Boolean> IS_FOR_WORKFLOW = new ThreadLocalStack<>(true);
 
@@ -254,10 +263,6 @@ public class TemplateProcessor {
         public boolean isEmpty() throws TemplateModelException {
             return false;
         }
-    }
-
-    public static TemplateModel wrapAsTemplateModel(Object o) throws TemplateModelException {
-        return BROOKLYN_WRAPPER.wrap(o);
     }
 
     /** As per {@link #processTemplateContents(String, Map)}, but taking a file. */
@@ -948,7 +953,7 @@ public class TemplateProcessor {
                 Environment env = template.createProcessingEnvironment(substitutions, null);
                 Maybe<Method> evalMethod = Reflections.findMethodMaybe(Expression.class, "eval", Environment.class);
                 try {
-                    TEMPLATE_MODEL_UNWRAP_CACHE.push(MutableMap.of());
+                    openLocalTemplateModelCache();
                     Maybe<Object> model = evalMethod.isAbsent() ? Maybe.Absent.castAbsent(evalMethod) : escapedExpression.map(expr -> {
                         try {
                             return Reflections.invokeMethodFromArgs(expr,
@@ -968,7 +973,7 @@ public class TemplateProcessor {
                     });
                     if (model.isPresent()) {
                         if (model.get() instanceof TemplateModel) {
-                            return BROOKLYN_WRAPPER.unwrapMaybe((TemplateModel) model.get()).get();
+                            return unwrapTemplateModelMaybe((TemplateModel) model.get()).get();
                         } else if (model.get()==null) {
                             // key not found, fall through to below for proper error handling
                         } else {
@@ -978,7 +983,7 @@ public class TemplateProcessor {
                         log.warn("Unable to access FreeMarker internals to resolve " + templateContents + "; will cast argument as string");
                     }
                 } finally {
-                    TEMPLATE_MODEL_UNWRAP_CACHE.pop();
+                    closeLocalTemplateModelCache();
                 }
             }
 

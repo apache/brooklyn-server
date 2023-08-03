@@ -130,7 +130,7 @@ public class WorkflowExpressionResolution {
         return null;
     }
 
-    class WorkflowFreemarkerModel implements TemplateHashModel, TemplateProcessor.UnwrappableTemplateModel {
+    public class WorkflowFreemarkerModel implements TemplateHashModel, TemplateProcessor.UnwrappableTemplateModel {
         @Override
         public Maybe<Object> unwrap() {
             return Maybe.of(context);
@@ -585,6 +585,10 @@ public class WorkflowExpressionResolution {
         return Tasks.resolving(expression).as(Object.class).deep().context(context.getEntity()).get();
     }
 
+    public WorkflowFreemarkerModel newWorkflowFreemarkerModel() {
+        return new WorkflowFreemarkerModel();
+    }
+
     public Object processTemplateExpressionString(String expression, AllowBrooklynDslMode allowBrooklynDsl) {
         if (expression==null) return null;
         if (expression.startsWith("$brooklyn:") && allowBrooklynDsl.isAllowedHere()) {
@@ -599,7 +603,7 @@ public class WorkflowExpressionResolution {
             return expressionTemplateAndDslResolved;
         }
 
-        TemplateHashModel model = new WorkflowFreemarkerModel();
+        TemplateHashModel model = newWorkflowFreemarkerModel();
         Object result;
 
         boolean ourWait = interruptSetIfNeededToPreventWaiting();
