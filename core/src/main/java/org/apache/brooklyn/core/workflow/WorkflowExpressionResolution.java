@@ -24,6 +24,8 @@ import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
 import freemarker.template.TemplateModelException;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
@@ -48,10 +50,13 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class WorkflowExpressionResolution {
+
+    public static ConfigKey<BiFunction<String,WorkflowExpressionResolution,Object>> WORKFLOW_CUSTOM_INTERPOLATION_FUNCTION = ConfigKeys.newConfigKey(new TypeToken<BiFunction<String,WorkflowExpressionResolution,Object>>() {}, "workflow.custom_interpolation_function");
 
     public enum WorkflowExpressionStage implements Comparable<WorkflowExpressionStage> {
         WORKFLOW_INPUT,
@@ -589,6 +594,14 @@ public class WorkflowExpressionResolution {
         return new WorkflowFreemarkerModel();
     }
 
+    public WorkflowExecutionContext getWorkflowExecutionContext() {
+        return context;
+    }
+
+    public TemplateProcessor.InterpolationErrorMode getErrorMode() {
+        return errorMode;
+    }
+
     public Object processTemplateExpressionString(String expression, AllowBrooklynDslMode allowBrooklynDsl) {
         if (expression==null) return null;
         if (expression.startsWith("$brooklyn:") && allowBrooklynDsl.isAllowedHere()) {
@@ -603,12 +616,14 @@ public class WorkflowExpressionResolution {
             return expressionTemplateAndDslResolved;
         }
 
-        TemplateHashModel model = newWorkflowFreemarkerModel();
         Object result;
 
         boolean ourWait = interruptSetIfNeededToPreventWaiting();
         try {
-            result = TemplateProcessor.processTemplateContentsForWorkflow("workflow", expression, model, true, false, errorMode);
+            BiFunction<String, WorkflowExpressionResolution, Object> fn = context.getManagementContext().getScratchpad().get(WORKFLOW_CUSTOM_INTERPOLATION_FUNCTION);
+            if (fn!=null) result = fn.apply(expression, this);
+            else result = TemplateProcessor.processTemplateContentsForWorkflow("workflow", expression,
+                    newWorkflowFreemarkerModel(), true, false, errorMode);
         } catch (Exception e) {
             Exception e2 = e;
             if (wrappingMode.deferAndRetryErroneousExpressions) {
