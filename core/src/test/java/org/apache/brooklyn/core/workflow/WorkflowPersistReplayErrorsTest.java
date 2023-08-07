@@ -643,6 +643,22 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     }
 
     @Test
+    public void testSimpleErrorHandlerOnWorkflowFailing() throws IOException {
+        lastInvocation = runSteps(MutableList.of("invoke-effector does-not-exist"),
+                null,
+                ConfigBag.newInstance().configure(
+                        WorkflowEffector.ON_ERROR, MutableList.of("set-sensor had_error = yes", "fail rethrow message rethrown")) );
+        Asserts.assertFailsWith(() -> lastInvocation.getUnchecked(), e -> {
+            Asserts.expectedFailureContains(e, "rethrown");
+            Asserts.assertThat(Exceptions.getCausalChain(e), ee -> ee.stream().filter(e2 -> e2.toString().contains("does-not-exist")).findAny().isPresent());
+            return true;
+        });
+        Asserts.assertEquals(app.sensors().get(Sensors.newSensor(Object.class, "had_error")), "yes");
+        findSingleLastWorkflow();
+        Asserts.assertEquals(lastWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.ERROR);
+    }
+
+    @Test
     public void testErrorHandlerListWithGotoExit() throws IOException {
         try (ClassLogWatcher logWatcher = new ClassLogWatcher(getClass().getPackage().getName())) {
             lastInvocation = runSteps(MutableList.of(

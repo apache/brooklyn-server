@@ -1394,6 +1394,7 @@ public class WorkflowExecutionContext {
         private Object endWithError(Throwable e, WorkflowStatus provisionalStatus) {
             updateStatus(provisionalStatus);
             WorkflowReplayUtils.updateOnWorkflowError(WorkflowExecutionContext.this, task, e);
+            persist();
 
             try {
                 log.debug("Error running workflow " + this + "; will persist then rethrow: " + e);
