@@ -40,6 +40,7 @@ import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ssh.ConnectionDefinition;
 import org.apache.brooklyn.util.core.task.system.internal.ExecWithLoggingHelpers;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Networking;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +48,7 @@ import org.slf4j.LoggerFactory;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class RemoteExecTaskConfigHelper {
     public interface RemoteExecCapability {
@@ -139,14 +141,23 @@ public class RemoteExecTaskConfigHelper {
         }
 
         private Map<String, Object> resolveConnectionSettings() {
-            MutableMap<String, Object> config = MutableMap.of();
-            definition.getOther()
-                    .forEach((k, v) -> config.put(k, v instanceof WrappedValue ? ((WrappedValue<Object>) v).get() : v));
-            config.put("user", WrappedValue.getMaybe(definition.getUser()).or(() -> System.getProperty("user.name")));
-            config.put("password",  WrappedValue.get(definition.getPassword()));
-            config.put("host", WrappedValue.get(definition.getHost()));
-            config.put("port", WrappedValue.getMaybe(definition.getPort()).or("22"));
-            return config;
+            AtomicReference<String> s = new AtomicReference<>();
+            try {
+                MutableMap<String, Object> config = MutableMap.of();
+                definition.getOther()
+                        .forEach((k, v) -> {
+                            s.set(k);
+                            config.put(k, v instanceof WrappedValue ? ((WrappedValue<Object>) v).get() : v);
+                        });
+                s.set("user"); config.put(s.get(), WrappedValue.getMaybe(definition.getUser()).or(() -> System.getProperty("user.name")));
+                s.set("password"); config.put(s.get(), WrappedValue.get(definition.getPassword()));
+                s.set("host"); config.put(s.get(), WrappedValue.get(definition.getHost()));
+                s.set("port"); config.put(s.get(), WrappedValue.getMaybe(definition.getPort()).or("22"));
+                return config;
+            } catch (Throwable e) {
+                Exceptions.propagateIfFatal(e);
+                throw new IllegalArgumentException("Connection settings could not be resolved (resolving '"+s+"')", e);
+            }
         }
 
         @Override
