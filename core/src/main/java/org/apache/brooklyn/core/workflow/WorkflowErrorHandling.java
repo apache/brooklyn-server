@@ -44,7 +44,8 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
     private static final Logger log = LoggerFactory.getLogger(WorkflowErrorHandling.class);
 
     /*
-     * TODO ui for error handling
+     * ui for error handling
+     *
      * step task's workflow tag will have ERROR_HANDLED_BY single-key map tag pointing at handler parent task, created in this method.
      * error handler parent task will have 'errorHandlerForTask' field in the workflow tag pointing at step task, but no errorHandlerIndex.
      * if any of the handler steps match, the parent will have ERROR_HANDLED_BY pointing at it, and will have a task with the workflow tag with
@@ -135,7 +136,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
 
             WorkflowStepInstanceExecutionContext handlerContext = new WorkflowStepInstanceExecutionContext(stepIndexIfStepErrorHandler!=null ? stepIndexIfStepErrorHandler : WorkflowExecutionContext.STEP_INDEX_FOR_ERROR_HANDLER, errorStep, context);
             context.errorHandlerContext = handlerContext;
-            handlerContext.error = error;
+            handlerContext.setError(error);
             lastStepConditionMatched = false;
 
             String potentialTaskName = Tasks.current().getDisplayName()+"-"+(i+1);

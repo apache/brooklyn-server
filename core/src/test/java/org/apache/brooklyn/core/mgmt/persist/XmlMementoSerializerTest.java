@@ -306,8 +306,8 @@ public class XmlMementoSerializerTest {
         }
     }
 
-    private LookupContextImpl newEmptyLookupManagementContext(ManagementContext managementContext, boolean failOnDangling) {
-        return new LookupContextImpl("empty context for test", managementContext,
+    private LookupContextTestImpl newEmptyLookupManagementContext(ManagementContext managementContext, boolean failOnDangling) {
+        return new LookupContextTestImpl("empty context for test", managementContext,
                 ImmutableList.<Entity>of(), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
                 ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?, ?>>of(), ImmutableList.<ManagedBundle>of(), failOnDangling);
     }
@@ -670,8 +670,8 @@ public class XmlMementoSerializerTest {
         LOG.info("serializedForm=" + serializedForm);
         return (T) serializer.fromString(serializedForm);
     }
-    
-    static class LookupContextImpl implements LookupContext {
+
+    public static class LookupContextTestImpl implements LookupContext {
         private final Stack<String> description;
         private final ManagementContext mgmt;
         private final Map<String, Entity> entities;
@@ -682,11 +682,9 @@ public class XmlMementoSerializerTest {
         private final Map<String, CatalogItem<?, ?>> catalogItems;
         private final Map<String, ManagedBundle> bundles;
         private final boolean failOnDangling;
+        private boolean lookupInMgmtContext;
 
-        LookupContextImpl(String description, ManagementContext mgmt, Iterable<? extends Entity> entities, Iterable<? extends Location> locations,
-                Iterable<? extends Policy> policies, Iterable<? extends Enricher> enrichers, Iterable<? extends Feed> feeds,
-                Iterable<? extends CatalogItem<?, ?>> catalogItems, Iterable<? extends ManagedBundle> bundles,
-                    boolean failOnDangling) {
+        public LookupContextTestImpl(String description, ManagementContext mgmt, boolean failOnDangling) {
             this.description = new Stack<>();
             this.description.push(description);
             this.mgmt = mgmt;
@@ -697,6 +695,16 @@ public class XmlMementoSerializerTest {
             this.feeds = Maps.newLinkedHashMap();
             this.catalogItems = Maps.newLinkedHashMap();
             this.bundles = Maps.newLinkedHashMap();
+            this.failOnDangling = failOnDangling;
+            this.lookupInMgmtContext = true;
+        }
+
+        public LookupContextTestImpl(String description, ManagementContext mgmt, Iterable<? extends Entity> entities, Iterable<? extends Location> locations,
+                                     Iterable<? extends Policy> policies, Iterable<? extends Enricher> enrichers, Iterable<? extends Feed> feeds,
+                                     Iterable<? extends CatalogItem<?, ?>> catalogItems, Iterable<? extends ManagedBundle> bundles,
+                                     boolean failOnDangling) {
+            this(description, mgmt, failOnDangling);
+            this.lookupInMgmtContext = false;
             for (Entity entity : entities) this.entities.put(entity.getId(), entity);
             for (Location location : locations) this.locations.put(location.getId(), location);
             for (Policy policy : policies) this.policies.put(policy.getId(), policy);
@@ -704,12 +712,12 @@ public class XmlMementoSerializerTest {
             for (Feed feed : feeds) this.feeds.put(feed.getId(), feed);
             for (CatalogItem<?, ?> catalogItem : catalogItems) this.catalogItems.put(catalogItem.getId(), catalogItem);
             for (ManagedBundle bundle : bundles) this.bundles.put(bundle.getId(), bundle);
-            this.failOnDangling = failOnDangling;
         }
-        LookupContextImpl(String description, ManagementContext mgmt, Map<String,? extends Entity> entities, Map<String,? extends Location> locations,
-                Map<String,? extends Policy> policies, Map<String,? extends Enricher> enrichers, Map<String,? extends Feed> feeds,
-                Map<String, ? extends CatalogItem<?, ?>> catalogItems, Map<String,? extends ManagedBundle> bundles,
-                boolean failOnDangling) {
+
+        public LookupContextTestImpl(String description, ManagementContext mgmt, Map<String,? extends Entity> entities, Map<String,? extends Location> locations,
+                                     Map<String,? extends Policy> policies, Map<String,? extends Enricher> enrichers, Map<String,? extends Feed> feeds,
+                                     Map<String, ? extends CatalogItem<?, ?>> catalogItems, Map<String,? extends ManagedBundle> bundles,
+                                     boolean failOnDangling) {
             this.description = new Stack<>();
             this.description.push(description);
             this.mgmt = mgmt;
@@ -735,6 +743,10 @@ public class XmlMementoSerializerTest {
             return mgmt;
         }
         @Override public Entity lookupEntity(String id) {
+            if (lookupInMgmtContext) {
+                Entity result = mgmt.lookup(id, Entity.class);
+                if (result != null) return result;
+            }
             if (entities.containsKey(id)) {
                 return entities.get(id);
             }
@@ -744,6 +756,10 @@ public class XmlMementoSerializerTest {
             return null;
         }
         @Override public Location lookupLocation(String id) {
+            if (lookupInMgmtContext) {
+                Location result = mgmt.lookup(id, Location.class);
+                if (result != null) return result;
+            }
             if (locations.containsKey(id)) {
                 return locations.get(id);
             }
@@ -753,6 +769,10 @@ public class XmlMementoSerializerTest {
             return null;
         }
         @Override public Policy lookupPolicy(String id) {
+            if (lookupInMgmtContext) {
+                Policy result = mgmt.lookup(id, Policy.class);
+                if (result != null) return result;
+            }
             if (policies.containsKey(id)) {
                 return policies.get(id);
             }
@@ -762,6 +782,10 @@ public class XmlMementoSerializerTest {
             return null;
         }
         @Override public Enricher lookupEnricher(String id) {
+            if (lookupInMgmtContext) {
+                Enricher result = mgmt.lookup(id, Enricher.class);
+                if (result != null) return result;
+            }
             if (enrichers.containsKey(id)) {
                 return enrichers.get(id);
             }
@@ -771,6 +795,10 @@ public class XmlMementoSerializerTest {
             return null;
         }
         @Override public Feed lookupFeed(String id) {
+            if (lookupInMgmtContext) {
+                Feed result = mgmt.lookup(id, Feed.class);
+                if (result != null) return result;
+            }
             if (feeds.containsKey(id)) {
                 return feeds.get(id);
             }
@@ -781,6 +809,10 @@ public class XmlMementoSerializerTest {
         }
 
         @Override public EntityAdjunct lookupAnyEntityAdjunct(String id) {
+            if (lookupInMgmtContext) {
+                EntityAdjunct result = mgmt.lookup(id, EntityAdjunct.class);
+                if (result != null) return result;
+            }
             if (policies.containsKey(id)) {
                 return policies.get(id);
             }
@@ -797,6 +829,10 @@ public class XmlMementoSerializerTest {
         }
 
         @Override public CatalogItem<?, ?> lookupCatalogItem(String id) {
+            if (lookupInMgmtContext) {
+                CatalogItem result = mgmt.lookup(id, CatalogItem.class);
+                if (result != null) return result;
+            }
             if (catalogItems.containsKey(id)) {
                 return catalogItems.get(id);
             }
@@ -806,6 +842,10 @@ public class XmlMementoSerializerTest {
             return null;
         }
         @Override public ManagedBundle lookupBundle(String id) {
+            if (lookupInMgmtContext) {
+                ManagedBundle result = mgmt.lookup(id, ManagedBundle.class);
+                if (result != null) return result;
+            }
             if (bundles.containsKey(id)) {
                 return bundles.get(id);
             }
@@ -818,7 +858,12 @@ public class XmlMementoSerializerTest {
         @Override
         public BrooklynObject lookup(BrooklynObjectType type, String id) {
             if (type==null) {
-                BrooklynObject result = peek(null, id);
+                BrooklynObject result = null;
+                if (lookupInMgmtContext) {
+                    result = mgmt.lookup(id, BrooklynObject.class);
+                    if (result != null) return result;
+                }
+                result = peek(null, id);
                 if (result==null) {
                     if (failOnDangling) {
                         throw new NoSuchElementException("no brooklyn object with id "+id+"; type not specified");
@@ -871,7 +916,7 @@ public class XmlMementoSerializerTest {
         
         @SuppressWarnings("unchecked")
         @VisibleForTesting
-        public LookupContextImpl add(BrooklynObject object) {
+        public LookupContextTestImpl add(BrooklynObject object) {
             if (object!=null) {
                 ((Map<String,BrooklynObject>) getMapFor(BrooklynObjectType.of(object))).put(object.getId(), object);
             }

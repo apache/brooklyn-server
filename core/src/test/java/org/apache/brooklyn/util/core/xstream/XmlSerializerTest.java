@@ -25,6 +25,8 @@ import com.thoughtworks.xstream.converters.basic.BooleanConverter;
 import com.thoughtworks.xstream.converters.extended.ToAttributedValueConverter;
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -32,6 +34,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.xstream.LambdaPreventionMapper.LambdaPersistenceMode;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static org.testng.Assert.assertEquals;
@@ -145,9 +148,13 @@ public class XmlSerializerTest {
         Asserts.assertNull(s2);
     }
     private void serializeExpectingFailure(Supplier<String> s) {
+        serializeExpectingFailure(s, null);
+    }
+    private void serializeExpectingFailure(Object s, Consumer<Throwable> ...otherChecks) {
         Asserts.assertFailsWith(()->serializer.toString(s),
                 error -> {
                     Asserts.expectedFailureContainsIgnoreCase(error, "lambda");
+                    if (otherChecks!=null) Arrays.asList(otherChecks).forEach(c -> c.accept(error));
                     return true;
                 });
     }
@@ -173,8 +180,33 @@ public class XmlSerializerTest {
     @Test
     public void testLambdaXstreamFailingAllSerializable() throws Exception {
         serializer = new XmlSerializer<Object>(null, null, LambdaPreventionMapper.factory(ConfigBag.newInstance().configure(LambdaPreventionMapper.LAMBDA_PERSISTENCE, LambdaPersistenceMode.FAIL)));
-        serializeExpectingFailure( () -> "hello" );
-        serializeExpectingFailure( (SerializableSupplier<String>) () -> "hello" );
+        serializeExpectingFailure(() -> "hello");
+        serializeExpectingFailure((SerializableSupplier<String>) () -> "hello");
+        serializeExpectingFailure(MutableMap.of("key", (Supplier) () -> "hello"), e -> Asserts.expectedFailureContainsIgnoreCase(e, "MutableMap/key"));
+    }
+
+    @Test(groups="WIP")
+    public void testLambdaXstreamFailingWithNonSerializableException() throws Exception {
+        SafeThrowableConverter.TODO++;
+
+        // this test passes but the fact it comes back as object is problematic; if the field needs a supplier or something else, it won't deserialize.
+
+        serializer = new XmlSerializer<Object>(null, null, LambdaPreventionMapper.factory(ConfigBag.newInstance().configure(LambdaPreventionMapper.LAMBDA_PERSISTENCE, LambdaPersistenceMode.FAIL)));
+        String safelyTidiedException = serializer.toString(MutableMap.of("key", new RuntimeException("some exception",
+                new TestExceptionWithContext("wrapped exception", null, (Supplier) () -> "hello"))));
+        Object tidiedException = serializer.fromString(safelyTidiedException);
+        Throwable e1 = (Throwable) ((Map)tidiedException).get("key");
+        Throwable e2 = e1.getCause();
+        Asserts.assertEquals("wrapped exception", e2.getMessage());
+        Asserts.assertThat(((TestExceptionWithContext)e2).context, x -> x==null || x.getClass().equals(Object.class));
+    }
+
+    public static class TestExceptionWithContext extends Exception {
+        final Object context;
+        public TestExceptionWithContext(String msg, Throwable cause, Object context) {
+            super(msg, cause);
+            this.context = context;
+        }
     }
 
     @Test

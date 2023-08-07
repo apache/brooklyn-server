@@ -275,7 +275,7 @@ public class WorkflowExpressionResolution {
             //error (if there is an error in scope)
             WorkflowStepInstanceExecutionContext currentStepInstance = context.currentStepInstance;
             WorkflowStepInstanceExecutionContext errorHandlerContext = context.errorHandlerContext;
-            if ("error".equals(key)) return TemplateProcessor.wrapAsTemplateModel(errorHandlerContext!=null ? errorHandlerContext.error : null);
+            if ("error".equals(key)) return TemplateProcessor.wrapAsTemplateModel(errorHandlerContext!=null ? errorHandlerContext.getError() : null);
 
             if ("input".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.input);
             if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getOutput());

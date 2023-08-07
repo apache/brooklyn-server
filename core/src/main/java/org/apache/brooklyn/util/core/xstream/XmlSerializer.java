@@ -19,8 +19,34 @@
 package org.apache.brooklyn.util.core.xstream;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.thoughtworks.xstream.XStream;
+import com.thoughtworks.xstream.XStreamException;
+import com.thoughtworks.xstream.converters.extended.JavaClassConverter;
+import com.thoughtworks.xstream.core.ClassLoaderReference;
+import com.thoughtworks.xstream.core.DefaultConverterLookup;
+import com.thoughtworks.xstream.core.util.CompositeClassLoader;
+import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
+import com.thoughtworks.xstream.io.naming.NameCoder;
+import com.thoughtworks.xstream.io.path.PathTracker;
+import com.thoughtworks.xstream.io.xml.PrettyPrintWriter;
+import com.thoughtworks.xstream.io.xml.XppDriver;
+import com.thoughtworks.xstream.mapper.DefaultMapper;
+import com.thoughtworks.xstream.mapper.Mapper;
+import com.thoughtworks.xstream.mapper.MapperWrapper;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -29,25 +55,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-
 import java.util.function.Function;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
-
-import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.thoughtworks.xstream.XStream;
-import com.thoughtworks.xstream.converters.extended.JavaClassConverter;
-import com.thoughtworks.xstream.mapper.DefaultMapper;
-import com.thoughtworks.xstream.mapper.Mapper;
-import com.thoughtworks.xstream.mapper.MapperWrapper;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.Reflections;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class XmlSerializer<T> {
 
@@ -55,6 +63,8 @@ public class XmlSerializer<T> {
 
     private final Map<String, String> deserializingClassRenames;
     protected final XStream xstream;
+    protected final XppDriver hierarchicalStreamDriver;
+    protected final DefaultConverterLookup converterLookup;
 
     public XmlSerializer() {
         this(null);
@@ -70,7 +80,19 @@ public class XmlSerializer<T> {
 
     public XmlSerializer(ClassLoader loader, Map<String, String> deserializingClassRenames, Function<MapperWrapper,MapperWrapper> mapperCustomizer) {
         this.deserializingClassRenames = deserializingClassRenames == null ? ImmutableMap.of() : deserializingClassRenames;
-        xstream = new XStream() {
+
+        hierarchicalStreamDriver = new XppDriver() {
+            public HierarchicalStreamWriter createWriter(Writer out) {
+                return new PrettyPrintWriterExposingStack(out, getNameCoder());
+            }
+        };
+
+        converterLookup = new DefaultConverterLookup();
+
+        xstream = new XStream(null, hierarchicalStreamDriver, new ClassLoaderReference(new CompositeClassLoader()), (Mapper)null,
+                type ->  converterLookup.lookupConverterForType(type),
+                (converter,priority) -> converterLookup.registerConverter(converter, priority)
+        ) {
             @Override
             protected MapperWrapper wrapMapper(MapperWrapper next) {
                 MapperWrapper result = XmlSerializer.this.wrapMapperForNormalUsage(super.wrapMapper(next));
@@ -87,8 +109,33 @@ public class XmlSerializer<T> {
             xstream.setClassLoader(loader);
         }
 
+//        // we could accept losing fields in exceptions; usually they are context that we don't care about; but it can generate XML which cannot be read back
+//        xstream.registerConverter(new SafeThrowableConverter(t -> Throwable.class.isAssignableFrom(t), converterLookup));
+
         xstream.registerConverter(newCustomJavaClassConverter(), XStream.PRIORITY_NORMAL);
+
         addStandardHelpers(xstream);
+    }
+
+    static class PrettyPrintWriterExposingStack extends PrettyPrintWriter {
+        private final Writer origWriter;
+
+        public PrettyPrintWriterExposingStack(Writer writer, NameCoder nameCoder) { super(writer, nameCoder); this.origWriter = writer; }
+        public PathTracker path = new PathTracker();
+        public void startNode(String name) {
+            path.pushElement(name);
+            super.startNode(name);
+        }
+
+        @Override
+        public void endNode() {
+            super.endNode();
+            path.popElement();
+        }
+
+        public Writer getOrigWriter() {
+            return origWriter;
+        }
     }
 
     @VisibleForTesting
@@ -228,8 +275,29 @@ public class XmlSerializer<T> {
         return wrapMapperForHandlingClasses(next);
     }
 
-    public void serialize(Object object, Writer writer) {
-        xstream.toXML(object, writer);
+    public void serialize(Object obj, Writer out) {
+//        xstream.toXML(obj, writer);
+
+        // we replace the above (parent impl) with the following, expanded to give better output for errors
+        // (mainly used for lambdas which are not serializable)
+        HierarchicalStreamWriter writer = hierarchicalStreamDriver.createWriter(out);
+        try {
+            xstream.marshal(obj, writer);
+        } catch (Throwable e) {
+            Exceptions.propagateIfInterrupt(e);
+
+            if (writer instanceof PrettyPrintWriterExposingStack) {
+                String path = ("" + ((PrettyPrintWriterExposingStack)writer).path.getPath()).trim();
+                if (!e.toString().contains(path)) {
+                    throw new XStreamException(Exceptions.collapseText(e) + "; while converting element at " + path, e);
+                }
+            }
+
+            throw Exceptions.propagate(e);
+        } finally {
+            writer.flush();
+        }
+
     }
 
     @SuppressWarnings("unchecked")

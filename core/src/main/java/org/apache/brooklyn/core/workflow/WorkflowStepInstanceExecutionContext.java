@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.reflect.TypeToken;
+import com.thoughtworks.xstream.annotations.XStreamAlias;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
@@ -31,6 +32,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.LossySerializingThrowable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,11 +73,28 @@ public class WorkflowStepInstanceExecutionContext {
     // replay instructions or a string explicit next step identifier
     public Object next;
 
-    /** set if the step is in an error handler context, containing the error being handled,
-     * or if the step had an error that was not handled */
-    Throwable error;
+    /** Return any error we are handling, if the step is in an error handler,
+     * or an unhandled error if the step is not in an error handler,
+     * otherwise null.
+     *
+     * After persistence, this stores a simplified form of the error (via {@link LossySerializingThrowable}). */
+    public Throwable getError() {
+        if (error==null && errorRecord!=null) error = errorRecord.getError();
+        return error;
+    }
+    transient Throwable error;
+    @XStreamAlias("error")
+    @JsonIgnore
+    Throwable errorLegacyDeserialized;
+    @JsonIgnore
+    LossySerializingThrowable errorRecord;
+    void setError(Throwable t) {
+        error = t;
+        errorRecord = new LossySerializingThrowable(error);
+    }
+    /** The Jackson error is always just a string. */
     @JsonGetter("error") String getErrorForJson() { return Exceptions.collapseText(error); }
-    @JsonSetter("error") void setErrorFromJaon(String error) { this.error = new RuntimeException(error); }
+    @JsonSetter("error") void setErrorFromJson(String error) { setError(new RuntimeException(error)); }
 
     /** set if there was an error handled locally */
     String errorHandlerTaskId;
@@ -192,11 +211,6 @@ public class WorkflowStepInstanceExecutionContext {
         return subWorkflows;
     }
 
-    /** Return any error we are handling, if we are an error handler; otherwise null */
-    public Throwable getError() {
-        return error;
-    }
-
     public TypeToken<?> lookupType(String type, Supplier<TypeToken<?>> ifUnset) {
         return context.lookupType(type, ifUnset);
     }
@@ -221,7 +235,7 @@ public class WorkflowStepInstanceExecutionContext {
 
     @JsonIgnore
     public String getWorkflowStepReference() {
-        return context==null ? "unknown-"+stepDefinitionDeclaredId+"-"+stepIndex : context.getWorkflowStepReference(stepIndex, stepDefinitionDeclaredId, error!=null);
+        return context==null ? "unknown-"+stepDefinitionDeclaredId+"-"+stepIndex : context.getWorkflowStepReference(stepIndex, stepDefinitionDeclaredId, getError()!=null);
     }
 
     @JsonIgnore
@@ -242,4 +256,14 @@ public class WorkflowStepInstanceExecutionContext {
     public String toString() {
         return "WorkflowStepInstanceExecutionContext{"+getWorkflowStepReference()+" / "+getName()+"}";
     }
+
+    // standard deserialization method
+    private WorkflowStepInstanceExecutionContext readResolve() {
+        if (errorLegacyDeserialized!=null && errorRecord==null) {
+            setError(errorLegacyDeserialized);
+            errorLegacyDeserialized = null;
+        }
+        return this;
+    }
+
 }

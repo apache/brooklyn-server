@@ -1082,7 +1082,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         WorkflowExecutionContext.OldStepRecord step2 = run.oldStepInfo.get(1);
         Asserts.assertNotNull(step2);
         Asserts.assertNotNull(step2.context);
-        Asserts.assertNull(step2.context.error);  // should be null because handled
+        Asserts.assertNull(step2.context.getError());  // should be null because handled
         Asserts.assertNull(step2.context.errorHandlerTaskId);  // should be null because not treated as a step handler, but handler for the workflow - step2sub.errorHandlerTaskId
 
         BrooklynTaskTags.WorkflowTaskTag step2subTag = Iterables.getOnlyElement(step2.context.getSubWorkflows());
@@ -1096,7 +1096,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
         Asserts.assertNotNull(step22);
         Asserts.assertNotNull(step22.context);
-        Asserts.assertNotNull(step22.context.error);   // not null because not handled here
+        Asserts.assertNotNull(step22.context.getError());   // not null because not handled here
         Asserts.assertNotNull(step22.context.errorHandlerTaskId);
     }
 
@@ -1128,7 +1128,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         WorkflowExecutionContext.OldStepRecord step22 = step2sub.oldStepInfo.get(1);
         Asserts.assertNotNull(step22);
         Asserts.assertNotNull(step22.context);
-        Asserts.assertNotNull(step22.context.error);
+        Asserts.assertNotNull(step22.context.getError());
         Asserts.assertNotNull(step22.context.errorHandlerTaskId);
     }
 }

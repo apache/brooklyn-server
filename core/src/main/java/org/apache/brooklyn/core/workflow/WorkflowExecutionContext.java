@@ -861,6 +861,9 @@ public class WorkflowExecutionContext {
         return false;
     }
 
+    // for json
+    private void setMostRecentActivityTime(Object ignored) {}
+
     /** look in tasks, steps, and replays to find most recent activity */
     // keep on jackson serialization for api?
     public long getMostRecentActivityTime() {
@@ -1534,7 +1537,7 @@ public class WorkflowExecutionContext {
                 try {
                     handleErrorAtStep(step, t, onFinish, e);
                 } catch (Exception e2) {
-                    currentStepInstance.error = e2;
+                    currentStepInstance.setError(e2);
                     throw e2;
                 }
             } finally {
@@ -1544,7 +1547,7 @@ public class WorkflowExecutionContext {
                         log.warn("Lost old step info for " + this + ", step " + index);
                         old = new OldStepRecord();
                     }
-                    if (currentStepInstance.error==null) old.countCompleted++;
+                    if (currentStepInstance.getError()==null) old.countCompleted++;
                     // okay if this gets picked up by accident because we will check the stepIndex it records against the currentStepIndex,
                     // and ignore it if different
                     old.context = currentStepInstance;

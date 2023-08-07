@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright 2015 The Apache Software Foundation.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<org.apache.brooklyn.core.workflow.WorkflowExecutionContext>
+    <name>test-failure</name>
+    <entity>__ENTITY_ID__</entity>
+    <status>ERROR</status>
+    <lastStatusChangeTime>2023-08-07T19:29:29.778Z</lastStatusChangeTime>
+    <stepsDefinition>
+        <string>fail message Testing failure</string>
+    </stepsDefinition>
+    <input class="MutableMap"/>
+    <inputResolved class="MutableMap"/>
+    <onError class="MutableList"/>
+    <workflowId>Zt1C3W5k</workflowId>
+    <taskId>Zt1C3W5k</taskId>
+    <retention>
+        <expiryResolved>parent</expiryResolved>
+    </retention>
+    <replays class="MutableSet">
+        <org.apache.brooklyn.core.workflow.WorkflowReplayUtils_-WorkflowReplayRecord>
+            <taskId>Zt1C3W5k</taskId>
+            <reasonForReplay>initial run</reasonForReplay>
+            <submitTimeUtc>1691436569686</submitTimeUtc>
+            <startTimeUtc>1691436569686</startTimeUtc>
+            <endTimeUtc>1691436569779</endTimeUtc>
+            <status>Failed</status>
+            <isError>true</isError>
+            <result class="string">WorkflowFailException: Testing failure</result>
+        </org.apache.brooklyn.core.workflow.WorkflowReplayUtils_-WorkflowReplayRecord>
+    </replays>
+    <currentStepIndex>0</currentStepIndex>
+    <currentStepInstance>
+        <stepIndex>0</stepIndex>
+        <taskId>a1DHbS0O</taskId>
+        <input class="MutableMap">
+            <rethrow type="boolean">false</rethrow>
+            <message>Testing failure</message>
+        </input>
+        <inputResolved class="MutableMap"/>
+        <error class="org.apache.brooklyn.util.exceptions.PropagatedRuntimeException">
+            <detailMessage></detailMessage>
+            <cause class="java.util.concurrent.ExecutionException">
+                <detailMessage>org.apache.brooklyn.core.workflow.steps.flow.FailWorkflowStep$WorkflowFailException: Testing failure</detailMessage>
+                <cause class="org.apache.brooklyn.core.workflow.steps.flow.FailWorkflowStep$WorkflowFailException">
+                    <detailMessage>Testing failure</detailMessage>
+                    <stackTrace>
+                        <trace>org.apache.brooklyn.core.workflow.steps.flow.FailWorkflowStep.doTaskBody(FailWorkflowStep.java:55)</trace>
+                        <trace>org.apache.brooklyn.core.workflow.WorkflowStepDefinition.lambda$null$1(WorkflowStepDefinition.java:226)</trace>
+                        <trace>org.apache.brooklyn.core.workflow.WorkflowStepDefinition.lambda$newTask$2(WorkflowStepDefinition.java:230)</trace>
+                        <trace>org.apache.brooklyn.util.core.task.DynamicSequentialTask$DstJob.call(DynamicSequentialTask.java:382)</trace>
+                        <trace>org.apache.brooklyn.util.core.task.BasicExecutionManager$SubmissionCallable.call(BasicExecutionManager.java:910)</trace>
+                        <trace>java.util.concurrent.FutureTask.run$$$capture(FutureTask.java:266)</trace>
+                        <trace>java.util.concurrent.FutureTask.run(FutureTask.java)</trace>
+                        <trace>java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)</trace>
+                        <trace>java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)</trace>
+                        <trace>java.lang.Thread.run(Thread.java:750)</trace>
+                    </stackTrace>
+                    <suppressedExceptions class="java.util.Collections$UnmodifiableRandomAccessList" resolves-to="java.util.Collections$UnmodifiableList">
+                        <c class="list"/>
+                        <list reference="../c"/>
+                    </suppressedExceptions>
+                </cause>
+                <stackTrace>
+                    <trace>java.util.concurrent.FutureTask.report(FutureTask.java:122)</trace>
+                    <trace>java.util.concurrent.FutureTask.get(FutureTask.java:192)</trace>
+                    <trace>com.google.common.util.concurrent.ForwardingFuture.get(ForwardingFuture.java:62)</trace>
+                    <trace>org.apache.brooklyn.util.core.task.BasicTask.get(BasicTask.java:384)</trace>
+                    <trace>org.apache.brooklyn.util.core.task.BasicTask.getUnchecked(BasicTask.java:393)</trace>
+                    <trace>org.apache.brooklyn.core.workflow.WorkflowExecutionContext$Body.runCurrentStepInstanceApproved(WorkflowExecutionContext.java:1526)</trace>
+                    <trace>org.apache.brooklyn.core.workflow.WorkflowExecutionContext$Body.runCurrentStepIfPreconditions(WorkflowExecutionContext.java:1434)</trace>
+                    <trace>org.apache.brooklyn.core.workflow.WorkflowExecutionContext$Body.callSteps(WorkflowExecutionContext.java:1099)</trace>
+                    <trace>org.apache.brooklyn.core.workflow.WorkflowExecutionContext$Body.callWithLock(WorkflowExecutionContext.java:1029)</trace>
+                    <trace>org.apache.brooklyn.core.workflow.WorkflowExecutionContext$Body.call(WorkflowExecutionContext.java:951)</trace>
+                    <trace>org.apache.brooklyn.util.core.task.DynamicSequentialTask$DstJob.call(DynamicSequentialTask.java:382)</trace>
+                    <trace>org.apache.brooklyn.util.core.task.BasicExecutionManager$SubmissionCallable.call(BasicExecutionManager.java:910)</trace>
+                    <trace>java.util.concurrent.FutureTask.run$$$capture(FutureTask.java:266)</trace>
+                    <trace>java.util.concurrent.FutureTask.run(FutureTask.java)</trace>
+                    <trace>java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)</trace>
+                    <trace>java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)</trace>
+                    <trace>java.lang.Thread.run(Thread.java:750)</trace>
+                </stackTrace>
+                <suppressedExceptions class="java.util.Collections$UnmodifiableRandomAccessList" reference="../cause/suppressedExceptions"/>
+            </cause>
+            <stackTrace>
+                <trace>org.apache.brooklyn.util.exceptions.Exceptions.propagate(Exceptions.java:128)</trace>
+                <trace>org.apache.brooklyn.util.core.task.BasicTask.getUnchecked(BasicTask.java:395)</trace>
+                <trace>org.apache.brooklyn.core.workflow.WorkflowExecutionContext$Body.runCurrentStepInstanceApproved(WorkflowExecutionContext.java:1526)</trace>
+                <trace>org.apache.brooklyn.core.workflow.WorkflowExecutionContext$Body.runCurrentStepIfPreconditions(WorkflowExecutionContext.java:1434)</trace>
+                <trace>org.apache.brooklyn.core.workflow.WorkflowExecutionContext$Body.callSteps(WorkflowExecutionContext.java:1099)</trace>
+                <trace>org.apache.brooklyn.core.workflow.WorkflowExecutionContext$Body.callWithLock(WorkflowExecutionContext.java:1029)</trace>
+                <trace>org.apache.brooklyn.core.workflow.WorkflowExecutionContext$Body.call(WorkflowExecutionContext.java:951)</trace>
+                <trace>org.apache.brooklyn.util.core.task.DynamicSequentialTask$DstJob.call(DynamicSequentialTask.java:382)</trace>
+                <trace>org.apache.brooklyn.util.core.task.BasicExecutionManager$SubmissionCallable.call(BasicExecutionManager.java:910)</trace>
+                <trace>java.util.concurrent.FutureTask.run$$$capture(FutureTask.java:266)</trace>
+                <trace>java.util.concurrent.FutureTask.run(FutureTask.java)</trace>
+                <trace>java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)</trace>
+                <trace>java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)</trace>
+                <trace>java.lang.Thread.run(Thread.java:750)</trace>
+            </stackTrace>
+            <suppressedExceptions class="java.util.Collections$UnmodifiableRandomAccessList" reference="../cause/cause/suppressedExceptions"/>
+            <causeEmbeddedInMessage>false</causeEmbeddedInMessage>
+        </error>
+        <subWorkflows class="MutableSet"/>
+        <otherMetadata class="MutableMap"/>
+    </currentStepInstance>
+    <oldStepInfo class="MutableMap">
+        <entry>
+            <int>0</int>
+            <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                <countStarted>1</countStarted>
+                <countCompleted>0</countCompleted>
+                <context reference="../../../../currentStepInstance"/>
+                <previous class="MutableSet">
+                    <int>-1</int>
+                </previous>
+            </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+        </entry>
+        <entry>
+            <int>-1</int>
+            <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                <countStarted>0</countStarted>
+                <countCompleted>0</countCompleted>
+                <next class="MutableSet">
+                    <int>0</int>
+                </next>
+                <nextTaskId>a1DHbS0O</nextTaskId>
+            </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+        </entry>
+    </oldStepInfo>
+    <retryRecords class="MutableMap"/>
+</org.apache.brooklyn.core.workflow.WorkflowExecutionContext>
