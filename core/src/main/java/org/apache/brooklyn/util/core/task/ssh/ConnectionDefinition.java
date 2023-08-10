@@ -47,11 +47,11 @@ public class ConnectionDefinition {
     }
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    protected Map<String,Object> other = MutableMap.of();
+    protected Map<String,WrappedValue<Object>> other = MutableMap.of();
 
     @JsonAnySetter
     public void setOther(String k, Object v) {
-        other.put(k,v);
+        other.put(k,v instanceof WrappedValue ?  (WrappedValue<Object>) v: WrappedValue.of(v));
     }
 
     public String getType() {
@@ -97,7 +97,7 @@ public class ConnectionDefinition {
     public Object getOther(final String key) {
         return other.get(key);
     }
-    public Map<String, Object> getOther() {
+    public Map<String, WrappedValue<Object>> getOther() {
         return other;
     }
 

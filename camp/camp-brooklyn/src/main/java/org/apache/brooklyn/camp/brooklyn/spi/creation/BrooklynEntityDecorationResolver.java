@@ -193,7 +193,9 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
 
     public static class InitializerResolver extends BrooklynEntityDecorationResolver<EntityInitializer> {
 
-        public InitializerResolver(BrooklynYamlTypeInstantiator.Factory instantiator) { super(instantiator, "Entity initializer", "initializer", BrooklynCampReservedKeys.BROOKLYN_INITIALIZERS); }
+        public InitializerResolver(BrooklynYamlTypeInstantiator.Factory instantiator) {
+            super(instantiator, "Entity initializer", "initializer", BrooklynCampReservedKeys.BROOKLYN_INITIALIZERS);
+        }
 
         @Override
         public void decorate(EntitySpec<?> entitySpec, ConfigBag attrs, Set<String> encounteredRegisteredTypeIds) {
