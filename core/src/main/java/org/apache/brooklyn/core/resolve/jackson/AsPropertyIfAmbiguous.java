@@ -21,7 +21,6 @@ package org.apache.brooklyn.core.resolve.jackson;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.WritableTypeId;
@@ -45,7 +44,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +65,11 @@ public class AsPropertyIfAmbiguous {
     public static final Function<String,String> CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM_ALT = t -> "@" + t;  // allow this old form too
     /** @deprecated since 1.1 now use transform fn, and prefer wrapped in parens */
     public static final String CONFLICTING_TYPE_NAME_PROPERTY_PREFIX = "@";
+
+    // we can change this to false to allow e.g. deserialize "{type: unknown}" as a map when an object is expected;
+    // however it is probably more useful to return that as an error, because usually it is an error,
+    // and have a special way of permitting it in places
+    public static final boolean THROW_ON_OBJECT_EXPECTED_AND_INVALID_TYPE_KEY_SUPPLIED = true;
 
     public interface HasBaseType {
         JavaType getBaseType();
@@ -310,6 +313,12 @@ public class AsPropertyIfAmbiguous {
         }
 
         private DiscoveredTypeAndCachedTokenBuffer findTypeIdOrUnambiguous(JsonParser p, DeserializationContext ctxt, JsonToken t, TokenBuffer tb, boolean ignoreCase, boolean mustUseConflictingTypePrefix) throws IOException {
+            if (baseType()!=null && Map.class.isAssignableFrom(baseType().getRawClass())) {
+                // if a map is expected, don't try to do fancy type lookup;
+                // we ignore subclasses of maps anyway (eg see test for FancyMap)
+                return new DiscoveredTypeAndCachedTokenBuffer(null, tb, false);
+            }
+
             String typeUnambiguous1 = CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM.apply(_typePropertyName);
             String typeUnambiguous2 = CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM_ALT.apply(_typePropertyName);
 
@@ -328,9 +337,30 @@ public class AsPropertyIfAmbiguous {
                     String typeId = p.getValueAsString();
                     if (typeId != null) {
                         boolean disallowed = false;
-                        if (ambiguousName) {
-                            JavaType tt = _idResolver.typeFromId(ctxt, typeId);
-                            if (BrooklynObject.class.isAssignableFrom(tt.getRawClass()) && !Feed.class.isAssignableFrom(tt.getRawClass())) {
+
+                        JavaType tt = null;
+                        try {
+                            tt = _idResolver.typeFromId(ctxt, typeId);
+                        } catch (Exception e) {
+                            Exceptions.propagateIfInterrupt(e);
+                            if (!THROW_ON_OBJECT_EXPECTED_AND_INVALID_TYPE_KEY_SUPPLIED && (baseType()==null || hasTypePropertyNameAsField(baseType()) || baseType().getRawClass().isAssignableFrom(Map.class))) {
+                                // if we allow an object with a type key here, don't throw
+
+                                // 2023-08 previously we would throw here if it was an ambiguous name; if an unambiguous name we didn't check the type,
+                                // and it would throw later, but throwing now is fine (if we want to throw)
+
+                            } else {
+                                throw Exceptions.propagate(e);
+                            }
+                            // incompatible type, or type not found; just ignore for now
+                            // (although the error might be useful)
+                            tt = null;
+                            disallowed = true;
+                        }
+
+                        if (ambiguousName && !disallowed) {
+
+                            if (tt!=null && BrooklynObject.class.isAssignableFrom(tt.getRawClass()) && !Feed.class.isAssignableFrom(tt.getRawClass())) {
                                 Boolean wantsSpec = null;
                                 Boolean wantsBO = null;
 

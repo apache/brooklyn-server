@@ -27,10 +27,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.WorkflowSensor;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -42,7 +39,9 @@ import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmtUnitTestSupport implements MapperTestFixture {
 
@@ -76,7 +75,12 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
     public void testDeserializeUnknownTypeFails() throws JsonProcessingException {
         try {
             Object x = BeanWithTypeUtils.newYamlMapper(mgmt, true, null, true).readValue("type: DeliberatelyMissing", Object.class);
-            Asserts.shouldHaveFailedPreviously("Should have failed due to unknown type; instead got "+x);
+            if (AsPropertyIfAmbiguous.THROW_ON_OBJECT_EXPECTED_AND_INVALID_TYPE_KEY_SUPPLIED) {
+                Asserts.shouldHaveFailedPreviously("Should have failed due to unknown type; instead got " + x);
+            } else {
+                Asserts.assertInstanceOf(x, Map.class);
+                Asserts.assertSize((Map)x, 1);
+            }
         } catch (Exception e) {
             Asserts.expectedFailureContains(e, "DeliberatelyMissing");
         }
@@ -230,6 +234,95 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
 
         SampleBeanWithType redeserObj = TypeCoercions.coerce(deser(deser), SampleBeanWithType.class);
         Asserts.assertEquals(redeserObj.x, "hello");
+    }
+
+    static class FancyHolder {
+        Map map;
+        Object obj;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            FancyHolder mapHolder = (FancyHolder) o;
+            return Objects.equals(map, mapHolder.map) && Objects.equals(obj, mapHolder.obj);
+        }
+    }
+
+    static class FancyMap extends LinkedHashMap {
+    }
+
+    @Test
+    public void testSerializeAndDesMapWithTypeEntry() throws Exception {
+        // if a map is _expected_ at least we should ignore the field type
+        FancyHolder a = new FancyHolder();
+        a.map = MutableMap.of("type", "not_a_type");
+
+        {
+            String expectedSerialization = "{\"map\":{\"type\":\"not_a_type\"}}";
+            Assert.assertEquals(ser(a, FancyHolder.class), expectedSerialization);
+            Assert.assertEquals(deser(expectedSerialization, FancyHolder.class), a);
+        }
+
+        {
+            FancyMap f = new FancyMap();
+            f.put("a",1);
+            // types ignored when serializing any subclass of map; we could change if we want (but make MutableMap the default)
+            Assert.assertEquals(ser(f), "{\"a\":1}");
+        }
+
+        {
+            String expectedDeserialization = "{\"type\":\""+ BrooklynRegisteredTypeJacksonSerializationTest.FancyHolder.class.getName() +"\"," +
+                    "\"map\":{\"type\":\"not_a_type\"}}";
+            Assert.assertEquals(ser(a), expectedDeserialization);
+            Assert.assertEquals(deser(expectedDeserialization), a);
+        }
+
+        a.map = null;
+        a.obj = MutableMap.of("type", BrooklynRegisteredTypeJacksonSerializationTest.FancyHolder.class.getName());
+        {
+            // it is expected that a map containing a type comes back as an instance of that type if possible
+            String expectedSerialization = "{\"obj\":{\"type\":\"" + BrooklynRegisteredTypeJacksonSerializationTest.FancyHolder.class.getName() + "\"}}";
+            Assert.assertEquals(ser(a, FancyHolder.class), expectedSerialization);
+            Asserts.assertThat(deser(expectedSerialization, FancyHolder.class).obj, r -> r instanceof FancyHolder);
+
+            // an unknown field should undo that
+            ((Map) a.obj).put("unfield", "should_force_map");
+            Asserts.assertThat(deser(ser(a, FancyHolder.class), FancyHolder.class), r -> {
+                Asserts.assertInstanceOf(r.obj, Map.class);
+                Asserts.assertEquals(((Map) r.obj).get("type"), BrooklynRegisteredTypeJacksonSerializationTest.FancyHolder.class.getName());
+                Asserts.assertEquals(((Map) r.obj).get("unfield"), "should_force_map");
+                return true;
+            });
+        }
+
+        if (!AsPropertyIfAmbiguous.THROW_ON_OBJECT_EXPECTED_AND_INVALID_TYPE_KEY_SUPPLIED) {
+            // all the below will throw if the above is true;
+            // see other tests that reference the constant above
+
+            // and an unknown field also forces a map
+            ((Map) a.obj).put("type", "not_a_type");
+            Asserts.assertThat(deser(ser(a, FancyHolder.class), FancyHolder.class), r -> {
+                Asserts.assertInstanceOf(r.obj, Map.class);
+                Asserts.assertEquals(((Map) r.obj).get("type"), "not_a_type");
+                Asserts.assertEquals(((Map) r.obj).get("unfield"), "should_force_map");
+                return true;
+            });
+            // also with unambiguous name
+            ((Map) a.obj).put("@type", "not_a_type");
+            Asserts.assertThat(deser(ser(a, FancyHolder.class), FancyHolder.class), r -> {
+                Asserts.assertInstanceOf(r.obj, Map.class);
+                Asserts.assertEquals(((Map) r.obj).get("type"), "not_a_type");
+                Asserts.assertEquals(((Map) r.obj).get("unfield"), "should_force_map");
+                return true;
+            });
+
+            // what if it's an Object where we don't know the type? probably we should throw, we always have in the past, but we could allow
+            Map b = MutableMap.of("type", "not_a_type");
+            Asserts.assertEquals(ser(b), "{\"type\":\"not_a_type\"}");
+            Asserts.assertEquals(deser(ser(b)), MutableMap.of("type", "not_a_type"));
+        }
+
     }
 
     @Test
