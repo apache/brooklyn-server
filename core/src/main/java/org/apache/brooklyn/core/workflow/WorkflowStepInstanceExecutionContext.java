@@ -158,6 +158,12 @@ public class WorkflowStepInstanceExecutionContext {
     public <T> T getInput(String key, TypeToken<T> type) {
         return getInput(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, key, type);
     }
+    public boolean hasInput(ConfigKey<?> key) {
+        return hasInput(key.getName());
+    }
+    public boolean hasInput(String key) {
+        return input.containsKey(key);
+    }
     public <T> T getInput(WorkflowExpressionResolution.WorkflowExpressionStage stage, String key, TypeToken<T> type) {
         if (inputResolved.containsKey(key)) return (T)inputResolved.get(key);
 
