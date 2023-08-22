@@ -136,6 +136,7 @@ public class RebindFeedTest extends RebindTestFixtureWithApp {
     }
 
     @Test(groups="Integration", invocationCount=50)
+    // TODO occasionally this fails at the start, the first 'EntityAsserts.assertAttributeEqualsEventually(origEntity, SENSOR_INT, 200);' is never satisfied, it just shows 'null'
     public void testHttpFeedRegisteredInInitIsPersistedAndFeedsStopManyTimes() throws Exception {
         testHttpFeedRegisteredInInitIsPersistedAndFeedsStop();
     }
