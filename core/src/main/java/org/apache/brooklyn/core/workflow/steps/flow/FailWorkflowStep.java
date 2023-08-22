@@ -56,6 +56,9 @@ public class FailWorkflowStep extends WorkflowStepDefinition {
         if (value==null && cause!=null && !context.hasInput(VALUE)) {
             value = WorkflowFailException.getValueFromCausalChain(cause);
         }
+        if (value!=null) {
+            context.noteOtherMetadata("Value", value);
+        }
 
         throw new WorkflowFailException(message, cause, value);
     }
