@@ -767,22 +767,23 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         log.debug("Analyzing item " + loggedId + " for addition to catalog");
 
         Exception resolutionError = null;
-        if (sourceYaml.trim().matches("[A-Za-z0-9]+:[^\\s]+")) {
+        String itemAsString = item instanceof String ? (String) item : null;
+        if (itemAsString!=null && itemAsString.matches("[A-Za-z0-9]+:[^\\s]+")) {
             // if sourceYaml is one word and looks like a URL, then read it as a URL first
             BrooklynClassLoadingContext loader = getClassLoadingContext("catalog item url loader", parentMetadata, libraryBundles);
 
-            log.debug("Catalog load, loading referenced item at "+url+" for "+loggedId+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" ("+(resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items before load)");
-            if (sourceYaml.startsWith("http")) {
+            log.debug("Catalog load, loading referenced item at "+item+" for "+loggedId+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" ("+(resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items before load)");
+            if (itemAsString.startsWith("http")) {
                 // give greater visibility to these
-                log.info("Loading external referenced item at "+url+" for "+loggedId+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName()));
+                log.info("Loading external referenced item at "+item+" for "+loggedId+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName()));
             }
             try {
-                sourceYaml = ResourceUtils.create(loader).getResourceAsString(sourceYaml.trim());
+                sourceYaml = ResourceUtils.create(loader).getResourceAsString(itemAsString.trim());
                 item = Yamls.parseAll(sourceYaml).iterator().next();
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 // don't throw, but include in list of proposed errors
-                resolutionError = new IllegalStateException("Unable to load '"+sourceYaml+"' as URL", e);
+                resolutionError = new IllegalStateException("Unable to load '"+itemAsString+"' as URL", e);
             }
         }
         PlanInterpreterInferringType planInterpreter = new PlanInterpreterInferringType(id, item, sourceYaml, itemType, format,

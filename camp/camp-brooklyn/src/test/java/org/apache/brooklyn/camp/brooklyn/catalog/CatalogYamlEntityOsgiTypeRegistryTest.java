@@ -18,9 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
@@ -36,11 +35,11 @@ import org.apache.brooklyn.util.yaml.Yamls;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 /** Variant of parent tests using OSGi, bundles, and type registry, instead of lightweight non-osgi catalog */
 @Test
@@ -66,8 +65,8 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
             // this is the default because some "bundles" aren't resolvable or library BOMs loadable in test context
             CatalogItemsInstallationMode.BUNDLE_BUT_NOT_STARTED) {
         case ADD_YAML_ITEMS_UNBUNDLED:
-            super.addCatalogItems(catalogYaml);
-            break;
+            return super.addCatalogItems(catalogYaml);
+
         case BUNDLE_BUT_NOT_STARTED:
             skipStart = true;
             // continue to below
@@ -254,4 +253,17 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
     public void testCatalogItemIdInReferencedItems() throws Exception {
         super.testCatalogItemIdInReferencedItems();
     }
+
+    @Test
+    public void addFromClasspath() {
+        itemsInstallMode = CatalogItemsInstallationMode.ADD_YAML_ITEMS_UNBUNDLED;
+        super.addFromClasspath();
+    }
+
+    @Test
+    public void addFromClasspathWithComment() {
+        itemsInstallMode = CatalogItemsInstallationMode.ADD_YAML_ITEMS_UNBUNDLED;
+        super.addFromClasspathWithComment();
+    }
+
 }

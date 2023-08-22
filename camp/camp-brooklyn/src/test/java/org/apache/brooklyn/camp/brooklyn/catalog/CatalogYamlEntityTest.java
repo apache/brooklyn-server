@@ -29,6 +29,7 @@ import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static org.testng.Assert.assertEquals;
@@ -927,4 +928,17 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "  item:",
                 "    type: " + serviceType);
     }
+
+    @Test
+    public void addFromClasspath() {
+        Collection<RegisteredType> typesW = addCatalogItems(ResourceUtils.create(this).getResourceAsString("classpath://yaml-ref-classpath.bom"));
+        Asserts.assertThat(Iterables.getOnlyElement(typesW), r -> r.getId().equals("simple:0.1.2"));
+    }
+
+    @Test
+    public void addFromClasspathWithComment() {
+        Collection<RegisteredType> typesW = addCatalogItems(ResourceUtils.create(this).getResourceAsString("classpath://yaml-ref-classpath-with-comment.bom"));
+        Asserts.assertThat(Iterables.getOnlyElement(typesW), r -> r.getId().equals("simple:0.1.2"));
+    }
+
 }

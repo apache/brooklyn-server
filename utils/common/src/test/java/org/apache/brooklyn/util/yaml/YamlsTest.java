@@ -209,6 +209,12 @@ public class YamlsTest {
         Asserts.assertEquals(Yamls.lastDocumentFunction().apply(null), null);
     }
 
+    @Test
+    public void testCommentsAtEnd() {
+        String input = "  item: x\n#comment";
+        Asserts.assertEquals(Yamls.getTextOfYamlAtPath(input, "item").getMatchedYamlTextOrWarn(), "x\n#comment");
+    }
+
     // convenience, since running with older TestNG IDE plugin will fail (older snakeyaml dependency);
     // if you run as a java app it doesn't bring in the IDE TestNG jar version, and it works
     public static void main(String[] args) {
