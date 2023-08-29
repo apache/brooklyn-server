@@ -237,23 +237,19 @@ public class ContainerEffectorTest extends BrooklynAppUnitTestSupport {
     // prior to executing this test make sure you create an ec2 instance and tag it with "a2/vm"
     // equivalent of: // docker run -e "AWS_ACCESS_KEY_ID=.." -e "AWS_SECRET_ACCESS_KEY=.." -e "AWS_REGION=eu-north-1" --rm -it amazon/aws-cli ec2 describe-instances --filters "Name=tag:Name,Values=a2/vm"
     @Test(groups="Live")
-    public void testAwsCLI(){
+    public void testTerraformCommandContainer(){
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
-                ContainerEffector.EFFECTOR_NAME, "test-container-effector",
-                ContainerCommons.CONTAINER_IMAGE, "amazon/aws-cli",
-                ContainerCommons.ARGUMENTS, ImmutableList.of( "ec2", "describe-instances", "--filters", "Name=tag:Name,Values=a2/vm"),
-                BrooklynConfigKeys.SHELL_ENVIRONMENT, ImmutableMap.<String, Object>of(
-                        "AWS_ACCESS_KEY_ID", System.getenv("AWS_ACCESS_KEY_ID"),
-                        "AWS_SECRET_ACCESS_KEY", System.getenv("AWS_SECRET_ACCESS_KEY"),
-                        "AWS_REGION", "eu-north-1"
-                )));
+                ContainerEffector.EFFECTOR_NAME, "test-command-container-effector",
+                ContainerCommons.CONTAINER_IMAGE, "hashicorp/terraform:1.5.6",
+                ContainerCommons.ARGUMENTS, ImmutableList.of( "version")
+              ));
         ContainerEffector initializer = new ContainerEffector(parameters);
         TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
         app.start(ImmutableList.of());
 
         EntityAsserts.assertAttributeEqualsEventually(parentEntity, Attributes.SERVICE_UP, true);
-        Object output = Entities.invokeEffector(app, parentEntity, parentEntity.getEffector("test-container-effector")).getUnchecked(Duration.ONE_MINUTE);
-        assertTrue(output.toString().contains("PublicIpAddress"));
+        Object output = Entities.invokeEffector(app, parentEntity, parentEntity.getEffector("test-command-container-effector")).getUnchecked(Duration.ONE_MINUTE);
+        assertTrue(output.toString().contains("Terraform v1.5.6"));
     }
 
 }
