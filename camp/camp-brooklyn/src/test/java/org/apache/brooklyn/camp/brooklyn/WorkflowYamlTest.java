@@ -44,6 +44,7 @@ import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -85,6 +86,7 @@ import java.util.function.Predicate;
 
 import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecContains;
 import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecsContain;
+import static org.testng.Assert.assertTrue;
 
 public class WorkflowYamlTest extends AbstractYamlTest {
 
@@ -796,6 +798,41 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         x1.getTask(false).get().cancel(true);
         Asserts.assertEquals(x2.getTask(false).get().getUnchecked(), "done");
         Asserts.assertEquals(x2.getTask(false).get().getUnchecked(Duration.seconds(5)), "done");
+    }
+
+    // prior to executing this test make sure you create an ec2 instance and tag it with "a2/vm"
+    // equivalent of: // docker run -e "AWS_ACCESS_KEY_ID=.." -e "AWS_SECRET_ACCESS_KEY=.." -e "AWS_REGION=eu-north-1" --rm -it amazon/aws-cli ec2 describe-instances --filters "Name=tag:Name,Values=a2/vm"
+    @Test(groups="Live")
+    public void testAwsContainer() {
+        WorkflowBasicTest.addRegisteredTypeBean(mgmt(), "container", ContainerWorkflowStep.class);
+        BrooklynDslCommon.registerSerializationHooks();
+
+        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class);
+        TestApplication app = mgmt().getEntityManager().createEntity(appSpec);
+
+        ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
+                WorkflowEffector.EFFECTOR_NAME, "test-aws-cli-effector",
+                WorkflowEffector.STEPS, MutableList.of(
+                        MutableMap.<String, Object>of(
+                                "step", "container amazon/aws-cli" ,
+                                "input",
+                                MutableMap.of(
+                                        "args", "ec2    describe-instances --filters Name=tag:Name,Values=a2/vm",
+                                        "env",
+                                        MutableMap.of(
+                                                "AWS_ACCESS_KEY_ID", System.getenv("AWS_ACCESS_KEY_ID"),
+                                                "AWS_SECRET_ACCESS_KEY", System.getenv("AWS_SECRET_ACCESS_KEY"),
+                                                "AWS_REGION", "eu-north-1"
+                                        )
+                                ),
+                                "output", "${stdout}"))));
+        WorkflowEffector effector = new WorkflowEffector(parameters);
+        TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(effector));
+        app.start(ImmutableList.of());
+
+        EntityAsserts.assertAttributeEqualsEventually(parentEntity, Attributes.SERVICE_UP, true);
+        Object output = Entities.invokeEffector(app, parentEntity, parentEntity.getEffector("test-aws-cli-effector")).getUnchecked(Duration.ONE_MINUTE);
+        assertTrue(output.toString().contains("PublicIpAddress"));
     }
 
     @Test(groups="Live")
