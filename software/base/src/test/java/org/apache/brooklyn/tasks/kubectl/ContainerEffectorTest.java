@@ -233,9 +233,6 @@ public class ContainerEffectorTest extends BrooklynAppUnitTestSupport {
         assertTrue(output.toString().contains("WORLD"), "Wrong output: "+output);
     }
 
-
-    // prior to executing this test make sure you create an ec2 instance and tag it with "a2/vm"
-    // equivalent of: // docker run -e "AWS_ACCESS_KEY_ID=.." -e "AWS_SECRET_ACCESS_KEY=.." -e "AWS_REGION=eu-north-1" --rm -it amazon/aws-cli ec2 describe-instances --filters "Name=tag:Name,Values=a2/vm"
     @Test(groups="Live")
     public void testTerraformCommandContainer(){
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
