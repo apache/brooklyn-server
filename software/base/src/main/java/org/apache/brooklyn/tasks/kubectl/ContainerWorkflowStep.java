@@ -30,6 +30,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
 
 import java.util.Arrays;
@@ -95,7 +96,7 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
 
         String args = context.getInput(ARGS);
         if (Strings.isNonBlank(args)) {
-            tf.arguments(args.split(" +"));
+            tf.arguments(new QuotedStringTokenizer(args).remainderAsList());
         }
 
         Map<String, Object> env = context.getInput(ENV);
