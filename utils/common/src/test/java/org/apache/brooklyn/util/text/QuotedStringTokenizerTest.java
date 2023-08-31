@@ -25,6 +25,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -194,5 +195,13 @@ public class QuotedStringTokenizerTest {
         String unquoted = defaultTokenizer.unquoteToken(quoted);
         //System.out.println("expected="+expected+"  quoted="+quoted+"   unquoted="+unquoted);
         assertEquals(unquoted, expected);
+    }
+
+    @Test
+    public void testBashLike() throws Exception {
+        Asserts.assertEquals(new QuotedStringTokenizer("This is a test\\ of spaces and \"some in quotes\" too").remainderAsList(),
+                MutableList.of("This", "is", "a", "test\\", "of", "spaces", "and", "\"some in quotes\"", "too"));
+        // note: backslashed escapes are not handled at present; ideally it would give us back this:
+                //MutableList.of("This", "is", "a", "test\\ of", "spaces", "and", "\"some in quotes\"", "too"));
     }
 }
