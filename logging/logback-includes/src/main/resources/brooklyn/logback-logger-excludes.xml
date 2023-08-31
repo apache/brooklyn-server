@@ -82,5 +82,7 @@
     <logger name="org.ops4j.pax.web.utils.ServletContainerInitializerScanner" level="ERROR"/>
     <!-- Again verbose, warning about No HttpConfig Element found in jetty.xml, using default -->
     <logger name="org.ops4j.pax.web.service.jetty.internal.JettyFactoryImpl" level="ERROR"/>
+    <!-- logs stack traces at info level for commands not found while still initializing -->
+    <logger name="org.apache.karaf.shell.impl.action.osgi.CommandExtension" level="WARN"/>
 
 </included>
