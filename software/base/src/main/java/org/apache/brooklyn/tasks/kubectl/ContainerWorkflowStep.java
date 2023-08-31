@@ -44,6 +44,7 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
 
     public static final ConfigKey<String> IMAGE = ConfigKeys.newStringConfigKey("image");
     public static final ConfigKey<String> COMMAND = ConfigKeys.newStringConfigKey("command");
+    public static final ConfigKey<String> ARGS = ConfigKeys.newStringConfigKey("args");
     public static final ConfigKey<List<String>> COMMANDS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "commands");
     public static final ConfigKey<List<String>> RAW_COMMAND = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "raw_command");
     public static final ConfigKey<PullPolicy> PULL_POLICY = ConfigKeys.newConfigKey(PullPolicy.class, "pull_policy", ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDescription(), ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDefaultValue());
@@ -90,6 +91,11 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
 
         if (commandTypesSet.size()>1) {
             throw new IllegalStateException("Incompatible command specification, max 1, received: "+commandTypesSet);
+        }
+
+        String args = context.getInput(ARGS);
+        if (Strings.isNonBlank(args)) {
+            tf.arguments(args.split(" +"));
         }
 
         Map<String, Object> env = context.getInput(ENV);

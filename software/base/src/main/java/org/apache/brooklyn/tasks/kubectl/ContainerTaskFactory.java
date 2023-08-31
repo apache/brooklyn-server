@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.tasks.kubectl;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import org.apache.brooklyn.api.entity.Entity;
@@ -599,6 +600,10 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
     public T summary(String summary) { this.summary = summary; return self(); }
     public T timeout(Duration timeout) { config.put(TIMEOUT, timeout); return self(); }
     public T command(List<String> commands) { config.put(COMMAND, commands); return self(); }
+
+    public T arguments(String[] arguments) {
+        config.put(ARGUMENTS, Arrays.asList(arguments)); return self();
+    }
     public T command(String baseCommandWithNoArgs, String ...extraCommandArguments) { config.put(COMMAND, MutableList.of(baseCommandWithNoArgs).appendAll(Arrays.asList(extraCommandArguments))); return self(); }
     public T bashScriptCommands(List<String> commands) {
         config.put(BASH_SCRIPT, commands);
