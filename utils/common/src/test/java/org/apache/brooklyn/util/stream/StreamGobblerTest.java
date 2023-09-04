@@ -28,6 +28,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.*;
+import java.nio.charset.Charset;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -35,6 +36,11 @@ import static org.testng.Assert.assertFalse;
 public class StreamGobblerTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(StreamGobblerTest.class);
+    private static final String TEST_CHARSET_NAME =
+            "UTF-8";
+//            "US-ASCII";  // fails
+
+    private static final Charset TEST_CHARSET = Charset.forName(TEST_CHARSET_NAME);
 
     private final String NL = Os.LINE_SEPARATOR;
 
@@ -43,7 +49,7 @@ public class StreamGobblerTest {
 
         LOG.info("Processing text: '{}'", text);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        ByteArrayInputStream in = new ByteArrayInputStream(text.getBytes());
+        ByteArrayInputStream in = new ByteArrayInputStream(text.getBytes(TEST_CHARSET));
         StreamGobbler streamGobbler = new StreamGobbler(in, out, (Logger) null);
         streamGobbler.start();
         streamGobbler.join(5000);
@@ -52,7 +58,7 @@ public class StreamGobblerTest {
 
         // approximate regex-- might not work for all whitespace combos
         String expected = Strings.isBlank(text) ? "" : text.replace("\t\r","\r").replaceAll("\r","\n") + NL;
-        Assert.assertEquals(out.toString(), expected);
+        Assert.assertEquals(out.toString(TEST_CHARSET_NAME), expected);
     }
 
     @Test
