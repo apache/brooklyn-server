@@ -83,10 +83,12 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.6.1</version>
+                    <version>3.11.0</version>
                     <configuration>
                         <source>${java.version}</source>
                         <target>${java.version}</target>
+                        <encoding>UTF-8</encoding>
+                        <!-- <release>8</release> only available with more recent JVMs -->
                     </configuration>
                 </plugin>
                 <plugin>
