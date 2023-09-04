@@ -87,7 +87,7 @@
                     <configuration>
                         <source>${java.version}</source>
                         <target>${java.version}</target>
-                        <encoding>UTF-8</encoding>
+                        <encoding>${project.build.sourceEncoding}</encoding>
                         <!-- <release>8</release> only available with more recent JVMs -->
                     </configuration>
                 </plugin>
@@ -206,7 +206,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${surefire.version}</version>
                     <configuration>
-                         <argLine>-Xms768m -Xmx768m -verbose:gc -XX:SoftRefLRUPolicyMSPerMB=1</argLine>
+                         <argLine>-Xms768m -Xmx768m -verbose:gc -XX:SoftRefLRUPolicyMSPerMB=1 -Dfile.encoding=${project.build.sourceEncoding}</argLine>
                     </configuration>
                 </plugin>
                 <plugin>
