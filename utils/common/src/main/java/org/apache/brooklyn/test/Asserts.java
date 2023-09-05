@@ -19,12 +19,30 @@
 package org.apache.brooklyn.test;
 
 import java.lang.reflect.Array;
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Deque;
+import java.util.Enumeration;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Predicates;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import groovy.lang.Closure;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
@@ -40,19 +58,6 @@ import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-
-import groovy.lang.Closure;
 
 /**
  * TODO should move this to new package brooklyn.util.assertions
@@ -782,18 +787,27 @@ public class Asserts {
 
     // --- new routines
     
-    /**  As {@link #eventually(Supplier, Predicate, Duration, Duration, String)} with defaults. */
-    public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate) {
+    /**  As {@link #eventually(Supplier, java.util.function.Predicate, Duration, Duration, String)} with defaults. */
+    public static <T> void eventually(Supplier<? extends T> supplier, java.util.function.Predicate<T> predicate) {
+        eventually(supplier, predicate, null, null, null);
+    }
+    public static <T> void eventually(Supplier<? extends T> supplier, com.google.common.base.Predicate<T> predicate) {
         eventually(supplier, predicate, null, null, null);
     }
     
-    /**  As {@link #eventually(Supplier, Predicate, Duration, Duration, String)} with default. */
-    public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout) {
+    /**  As {@link #eventually(Supplier, java.util.function.Predicate, Duration, Duration, String)} with default. */
+    public static <T> void eventually(Supplier<? extends T> supplier, java.util.function.Predicate<T> predicate, Duration timeout) {
+        eventually(supplier, predicate, timeout, null, null);
+    }
+    public static <T> void eventually(Supplier<? extends T> supplier, com.google.common.base.Predicate<T> predicate, Duration timeout) {
         eventually(supplier, predicate, timeout, null, null);
     }
 
-    /** As {@link #eventually(Supplier, Predicate, Duration, Duration, String)} when no object is going to be notified. */
-    public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout, Duration period, String errMsg) {
+    /** As {@link #eventually(Supplier, java.util.function.Predicate, Duration, Duration, String)} when no object is going to be notified. */
+    public static <T> void eventually(Supplier<? extends T> supplier, java.util.function.Predicate<T> predicate, Duration timeout, Duration period, String errMsg) {
+        eventually(supplier, predicate, timeout, period, errMsg, null);
+    }
+    public static <T> void eventually(Supplier<? extends T> supplier, com.google.common.base.Predicate<T> predicate, Duration timeout, Duration period, String errMsg) {
         eventually(supplier, predicate, timeout, period, errMsg, null);
     }
     /** Asserts that eventually the supplier gives a value accepted by the predicate. 
@@ -801,13 +815,13 @@ public class Asserts {
      * Other arguments can be null.
      * 
      * @param supplier supplies the value to test, such as {@link Suppliers#ofInstance(Object)} for a constant 
-     * @param predicate the {@link Predicate} to apply to each value given by the supplier
+     * @param predicate the {@link java.util.function.Predicate} to apply to each value given by the supplier
      * @param timeout how long to wait, default {@link #DEFAULT_LONG_TIMEOUT}
      * @param period how often to check, default quite often so you won't notice but letting the CPU do work
      * @param errMsg optional error message to display if not satisfied, in addition to the last-tested supplied value and the predicate
      * @param notifyObject optional object that will be notified of change and should pre-empt the period to redo the check
      */
-    public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout, Duration period, String errMsg, Object notifyObject) {
+    public static <T> void eventually(Supplier<? extends T> supplier, java.util.function.Predicate<T> predicate, Duration timeout, Duration period, String errMsg, Object notifyObject) {
         // TODO use Repeater (there are too many args here)
         
         if (timeout==null) timeout = DEFAULT_LONG_TIMEOUT;
@@ -831,17 +845,23 @@ public class Asserts {
                 }
             }
             supplied = supplier.get();
-            if (predicate.apply(supplied)) return;
+            if (predicate.test(supplied)) return;
         } while (timeleft.isNotExpired());
 
         fail("Expected: eventually "+predicate+"; got most recently: "+supplied
             +" (waited "+timeleft.getDurationElapsed()+", checked "+count+")"
             +(errMsg!=null?"; "+errMsg:""));
     }
-    
-    /**  As {@link #continually(Supplier, Predicate, Duration, Duration, String)} with defaults. */
-    public static <T> void continually(Supplier<? extends T> supplier, Predicate<T> predicate) {
-        continually(supplier, predicate, (Duration)null, (Duration)null, (String)null); 
+    public static <T> void eventually(Supplier<? extends T> supplier, com.google.common.base.Predicate<T> predicate, Duration timeout, Duration period, String errMsg, Object notifyObject) {
+        eventually(supplier, (java.util.function.Predicate<T>) predicate, timeout, period, errMsg, null);
+    }
+
+    /**  As {@link #continually(Supplier, java.util.function.Predicate, Duration, Duration, String)} with defaults. */
+    public static <T> void continually(Supplier<? extends T> supplier, java.util.function.Predicate<T> predicate) {
+        continually(supplier, predicate, (Duration)null, (Duration)null, (String)null);
+    }
+    public static <T> void continually(Supplier<? extends T> supplier, com.google.common.base.Predicate<T> predicate) {
+        continually(supplier, predicate, (Duration)null, (Duration)null, (String)null);
     }
 
     /** 
@@ -850,12 +870,15 @@ public class Asserts {
      * Other arguments can be null.
      * 
      * @param supplier supplies the value to test, such as {@link Suppliers#ofInstance(Object)} for a constant 
-     * @param predicate the {@link Predicate} to apply to each value given by the supplier
+     * @param predicate the {@link java.util.function.Predicate} to apply to each value given by the supplier
      * @param duration how long to test for, default {@link #DEFAULT_SHORT_TIMEOUT}
      * @param period how often to check, default quite often to minimise chance of missing a flashing violation but letting the CPU do work
      * @param errMsg an error message to display if not satisfied, in addition to the last-tested supplied value and the predicate
      */
-    public static <T> void continually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration duration, Duration period, String errMsg) {
+    public static <T> void continually(Supplier<? extends T> supplier, com.google.common.base.Predicate<T> predicate, Duration duration, Duration period, String errMsg) {
+        continually(supplier, (java.util.function.Predicate<T>) predicate, duration, period, errMsg);
+    }
+    public static <T> void continually(Supplier<? extends T> supplier, java.util.function.Predicate<T> predicate, Duration duration, Duration period, String errMsg) {
         if (duration==null) duration = DEFAULT_SHORT_TIMEOUT;
         if (period==null) period = DEFAULT_SHORT_PERIOD;
 
@@ -866,7 +889,7 @@ public class Asserts {
         do {
             if (count > 0) Duration.sleep(period);
             supplied = supplier.get();
-            if (!predicate.apply(supplied)) {
+            if (!predicate.test(supplied)) {
                 fail("Expected: continually "+predicate+"; got violation: "+supplied
                     // tell timing if it worked the first time and then failed
                     +(count > 0 ? " (after "+timeleft.getDurationElapsed()+", successfully checked "+count+")" : "")
@@ -1065,42 +1088,40 @@ public class Asserts {
      */
     @Deprecated
     public static void assertFailsWith(Callable<?> c, final Closure<Boolean> exceptionChecker) {
-        assertFailsWith(c, new Predicate<Throwable>() {
-            @Override
-            public boolean apply(Throwable input) {
-                return exceptionChecker.call(input);
-            }
-        });
+        assertFailsWith(c, (input) -> exceptionChecker.call(input));
     }
     
     @SafeVarargs
-    public static void assertFailsWith(Runnable c, final Class<? extends Throwable> validException, final Class<? extends Throwable> ...otherValidExceptions) {
+    public static void assertFailsWith(Runnable c, final Class<? extends Throwable> validException0, final Class<? extends Throwable> ...otherValidExceptions) {
         final List<Class<?>> validExceptions = ImmutableList.<Class<?>>builder()
-                .add(validException)
+                .add(validException0)
                 .addAll(ImmutableList.copyOf(otherValidExceptions))
                 .build();
         
-        assertFailsWith(c, new Predicate<Throwable>() {
-            @Override
-            public boolean apply(Throwable e) {
-                for (Class<?> validException: validExceptions) {
-                    if (validException.isInstance(e)) return true;
+        assertFailsWith(c, (e) -> {
+                for (Class<?> validExceptionI: validExceptions) {
+                    if (validExceptionI.isInstance(e)) return true;
                 }
                 fail("Test threw exception of unexpected type "+e.getClass()+"; expecting "+validExceptions);
                 return false;
-            }
-        });
+            });
     }
 
-    public static void assertFailsWith(Runnable r, Predicate<? super Throwable> exceptionChecker) {
+    public static void assertFailsWith(Runnable r, java.util.function.Predicate<? super Throwable> exceptionChecker) {
+        assertFailsWith(toCallable(r), exceptionChecker, false);
+    }
+    public static void assertFailsWith(Runnable r, com.google.common.base.Predicate<? super Throwable> exceptionChecker) {
         assertFailsWith(toCallable(r), exceptionChecker, false);
     }
     
-    public static void assertFailsWith(Callable<?> c, Predicate<? super Throwable> exceptionChecker) {
+    public static void assertFailsWith(Callable<?> c, java.util.function.Predicate<? super Throwable> exceptionChecker) {
+        assertFailsWith(c, exceptionChecker, true);
+    }
+    public static void assertFailsWith(Callable<?> c, com.google.common.base.Predicate<? super Throwable> exceptionChecker) {
         assertFailsWith(c, exceptionChecker, true);
     }
 
-    private static void assertFailsWith(Callable<?> c, Predicate<? super Throwable> exceptionChecker, boolean showResult) {
+    private static void assertFailsWith(Callable<?> c, java.util.function.Predicate<? super Throwable> exceptionChecker, boolean showResult) {
         boolean failed = false;
         Object result = null;
         try {
@@ -1108,7 +1129,7 @@ public class Asserts {
         } catch (Throwable e) {
             failed = true;
             try {
-                if (!exceptionChecker.apply(e)) {
+                if (!exceptionChecker.test(e)) {
                     log.warn("Test threw invalid exception (failing)", e);
                     fail("Test threw invalid exception: " + e);
                 }
@@ -1152,11 +1173,17 @@ public class Asserts {
         }
     }
 
-    public static <T> void assertThat(T object, Predicate<T> condition) {
+    public static <T> void assertThat(T object, com.google.common.base.Predicate<T> condition) {
         assertThat(object, condition, null);
     }
-    public static <T> void assertThat(T object, Predicate<T> condition, String message) {
-        if (condition.apply(object)) return;
+    public static <T> void assertThat(T object, java.util.function.Predicate<T> condition) {
+        assertThat(object, condition, null);
+    }
+    public static <T> void assertThat(T object, com.google.common.base.Predicate<T> condition, String message) {
+        assertThat(object, (java.util.function.Predicate<T>) condition, message);
+    }
+    public static <T> void assertThat(T object, java.util.function.Predicate<T> condition, String message) {
+        if (condition.test(object)) return;
         fail(Strings.isBlank(message) ? "Failed "+condition+": "+object : message);
     }
 
@@ -1411,19 +1438,25 @@ public class Asserts {
         throw Exceptions.propagate(t);
     }
 
-    /** As {@link #eventuallyOnNotify(Object, Supplier, Predicate, Duration)} with default timeout. */
-    public static <T> void eventuallyOnNotify(Object notifyTarget, Supplier<T> supplier, Predicate<T> predicate) {
+    /** As {@link #eventuallyOnNotify(Object, Supplier, java.util.function.Predicate, Duration)} with default timeout. */
+    public static <T> void eventuallyOnNotify(Object notifyTarget, Supplier<T> supplier, com.google.common.base.Predicate<T> predicate) {
+        eventuallyOnNotify(notifyTarget, supplier, predicate, null);
+    }
+    public static <T> void eventuallyOnNotify(Object notifyTarget, Supplier<T> supplier, java.util.function.Predicate<T> predicate) {
         eventuallyOnNotify(notifyTarget, supplier, predicate, null);
     }
     
-    /** as {@link #eventually(Supplier, Predicate)} for cases where an object is notified;
+    /** as {@link #eventually(Supplier, java.util.function.Predicate)} for cases where an object is notified;
      * more efficient as it waits on the notify target object. 
-     * See also the simpler {@link #eventuallyOnNotify(Object, Predicate)} when looking at a collection which is getting notified.
+     * See also the simpler {@link #eventuallyOnNotify(Object, java.util.function.Predicate)} when looking at a collection which is getting notified.
      * Timeout defaults to {@link #DEFAULT_SHORT_TIMEOUT}. 
      * <p>
      * This synchronizes on the notify target for the duration of the wait, 
      * including while getting and checking the value, so as not to miss any notification. */
-    public static <T> void eventuallyOnNotify(Object notifyTarget, Supplier<T> supplier, Predicate<T> predicate, Duration timeout) {
+    public static <T> void eventuallyOnNotify(Object notifyTarget, Supplier<T> supplier, com.google.common.base.Predicate<T> predicate, Duration timeout) {
+        eventuallyOnNotify(notifyTarget, supplier, (java.util.function.Predicate<T>)predicate, timeout);
+    }
+    public static <T> void eventuallyOnNotify(Object notifyTarget, Supplier<T> supplier, java.util.function.Predicate<T> predicate, Duration timeout) {
         T supplied = null;
         if (timeout==null) timeout = DEFAULT_SHORT_TIMEOUT;
         CountdownTimer remaining = timeout.countdownTimer();
@@ -1434,7 +1467,7 @@ public class Asserts {
                     remaining.waitOnForExpiryUnchecked(notifyTarget);
                 }
                 supplied = supplier.get();
-                if (predicate.apply(supplied)) return;
+                if (predicate.test(supplied)) return;
                 checks++;
             } while (remaining.isNotExpired());
         }
@@ -1446,14 +1479,20 @@ public class Asserts {
             ")");
     }
 
-    /** Convenience for {@link #eventuallyOnNotify(Object, Supplier, Predicate, Duration)}
+    /** Convenience for {@link #eventuallyOnNotify(Object, Supplier, java.util.function.Predicate, Duration)}
      * when the notify target and the value under test are the same. */
-    public static <T> void eventuallyOnNotify(T object, Predicate<T> predicate, Duration timeout) {
+    public static <T> void eventuallyOnNotify(T object, java.util.function.Predicate<T> predicate, Duration timeout) {
+        eventuallyOnNotify(object, Suppliers.ofInstance(object), predicate, timeout);
+    }
+    public static <T> void eventuallyOnNotify(T object, com.google.common.base.Predicate<T> predicate, Duration timeout) {
         eventuallyOnNotify(object, Suppliers.ofInstance(object), predicate, timeout);
     }
 
-    /** As {@link #eventuallyOnNotify(Object, Predicate, Duration)} with the default duration of {@link #eventuallyOnNotify(Object, Supplier, Predicate)}. */
-    public static <T> void eventuallyOnNotify(T object, Predicate<T> predicate) {
+    /** As {@link #eventuallyOnNotify(Object, java.util.function.Predicate, Duration)} with the default duration of {@link #eventuallyOnNotify(Object, Supplier, java.util.function.Predicate)}. */
+    public static <T> void eventuallyOnNotify(T object, java.util.function.Predicate<T> predicate) {
+        eventuallyOnNotify(object, Suppliers.ofInstance(object), predicate, null);
+    }
+    public static <T> void eventuallyOnNotify(T object, com.google.common.base.Predicate<T> predicate) {
         eventuallyOnNotify(object, Suppliers.ofInstance(object), predicate, null);
     }
 
@@ -1513,7 +1552,7 @@ public class Asserts {
         }
 
         Runnable extraTaskOnNoteMemory;
-        Deque<Long> usedMemoryQueue = new ArrayDeque<Long>();
+        Deque<Long> usedMemoryQueue = new ArrayDeque<>();
 
         public void setExtraTaskOnNoteMemory(Runnable extraTaskOnNoteMemory) {
             this.extraTaskOnNoteMemory = extraTaskOnNoteMemory;
