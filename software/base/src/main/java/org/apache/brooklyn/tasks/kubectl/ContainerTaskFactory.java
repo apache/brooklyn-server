@@ -42,6 +42,7 @@ import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.task.system.SimpleProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.internal.SystemProcessTaskFactory;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.StringShortener;
 import org.apache.brooklyn.util.text.Strings;
@@ -124,7 +125,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                     LOG.debug("Submitting container job in namespace "+namespace+", name "+kubeJobName);
 
                     Map<String, String> env = new ShellEnvironmentSerializer(((EntityInternal)entity).getManagementContext()).serialize(EntityInitializers.resolve(config, SHELL_ENVIRONMENT));
-                    final BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> jobYaml =  new KubeJobFileCreator()
+                    KubeJobFileCreator kubeJobFileCreator = new KubeJobFileCreator()
                             .withImage(containerImage)
                             .withImagePullPolicy(containerImagePullPolicy)
                             .withName(kubeJobName)
@@ -133,9 +134,10 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                             .withEnv(env)
                             .withVolumeMounts(volumeMounts)
                             .withVolumes(volumes)
-                            .withWorkingDir(workingDir)
-                            .createFile();
+                            .withWorkingDir(workingDir);
+                    final BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> jobYaml =  kubeJobFileCreator.createFile();
                     Tasks.addTagDynamically(BrooklynTaskTags.tagForEnvStream(BrooklynTaskTags.STREAM_ENV, env));
+                    Tasks.addTagDynamically(BrooklynTaskTags.tagForStream("kube job config", Streams.byteArrayOfString(kubeJobFileCreator.getAsString())));
 
                     try {
 
@@ -612,7 +614,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
     public T image(String image) { config.put(CONTAINER_IMAGE, image); return self(); }
     public T allowingNonZeroExitCode() { return allowingNonZeroExitCode(true); }
     public T allowingNonZeroExitCode(boolean allowNonZero) { config.put(REQUIRE_EXIT_CODE_ZERO, !allowNonZero); return self(); }
-    public T imagePullPolicy(PullPolicy policy) { config.put(CONTAINER_IMAGE_PULL_POLICY, policy); return self(); }
+    public T imagePullPolicy(PullPolicy policy) { if (policy==null) config.remove(CONTAINER_IMAGE_PULL_POLICY); else config.put(CONTAINER_IMAGE_PULL_POLICY, policy); return self(); }
     @Override
     public T environmentVariables(Map<String,String> map) {
         return environmentVariablesRaw(map);

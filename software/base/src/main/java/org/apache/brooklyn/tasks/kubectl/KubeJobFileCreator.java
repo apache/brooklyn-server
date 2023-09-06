@@ -34,6 +34,8 @@ import org.yaml.snakeyaml.representer.Representer;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -129,6 +131,18 @@ public class KubeJobFileCreator {
     }
 
     public BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> createFile(){
+        JobTemplate jobTemplate = buildJobTemplate();
+        return serializeAndWriteToTempFile(jobTemplate);
+    }
+
+    public String getAsString(){
+        JobTemplate jobTemplate = buildJobTemplate();
+        StringWriter sw = new StringWriter();
+        serializeAndWriteToWriter(jobTemplate, sw);
+        return sw.toString();
+    }
+
+    private JobTemplate buildJobTemplate() {
         JobTemplate jobTemplate = new JobTemplate(jobName);
 
         ContainerSpec containerSpec = jobTemplate.getSpec().getTemplate().getContainerSpec(0);
@@ -175,10 +189,23 @@ public class KubeJobFileCreator {
             });
             containerSpec.setVolumeMounts(vms);
         }
-        return serializeAndWriteToTempFile(jobTemplate);
+        return jobTemplate;
     }
 
     private BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> serializeAndWriteToTempFile(JobTemplate jobTemplate) {
+        try {
+            File jobBodyPath = File.createTempFile(prefix, ".yaml");
+            jobBodyPath.deleteOnExit();  // We should have already deleted it, but just in case
+
+            serializeAndWriteToWriter(jobTemplate, new PrintWriter(jobBodyPath));
+            LOG.debug("Job body dumped at: {}", jobBodyPath.getAbsolutePath());
+            return new BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<>(jobBodyPath, true);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create temp file for container", e);
+        }
+    }
+
+    private void serializeAndWriteToWriter(JobTemplate jobTemplate, Writer writer) {
         DumperOptions options = new DumperOptions();
         options.setIndent(2);
         options.setPrettyFlow(true);
@@ -201,13 +228,10 @@ public class KubeJobFileCreator {
             File jobBodyPath = File.createTempFile(prefix, ".yaml");
             jobBodyPath.deleteOnExit();  // We should have already deleted it, but just in case
 
-            PrintWriter sw = new PrintWriter(jobBodyPath);
             Yaml yaml = new Yaml(representer, options);
-            yaml.dump(jobTemplate, sw);
-            LOG.debug("Job body dumped at: {}" , jobBodyPath.getAbsolutePath());
-            return new BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<>(jobBodyPath, true);
+            yaml.dump(jobTemplate, writer);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to create temp file for container", e);
+            throw new RuntimeException("Failed to write job file for container", e);
         }
     }
 }
