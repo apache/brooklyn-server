@@ -1248,7 +1248,8 @@ public class WorkflowExecutionContext {
                 }
 
             } else {
-                log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", no error handler so rethrowing: " + Exceptions.collapseText(e));
+                // provide the error in case useful; if too wasteful, attach an error handler to fail rethrow
+                log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", no error handler so rethrowing: " + Exceptions.collapseText(e), e);
             }
 
             if (errorHandled) return null;
