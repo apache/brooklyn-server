@@ -484,7 +484,7 @@ public class Tasks {
         return warning(message, optionalError, true);
     }
     public static Task<Void> warning(final String message, final Throwable optionalError, boolean logWarning) {
-        if (logWarning) log.warn(message);
+        if (logWarning) log.warn(message, optionalError);
         return TaskTags.markInessential(fail(message, optionalError));
     }
 
