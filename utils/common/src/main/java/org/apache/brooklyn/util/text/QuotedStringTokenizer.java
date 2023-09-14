@@ -93,7 +93,7 @@ public class QuotedStringTokenizer {
             return new QuotedStringTokenizer(stringToTokenize, quoteChars, includeQuotes, delimiterChars, includeDelimiters, expectQuotesDelimited, failOnOpenQuote);
         }
         public List<String> buildList(String stringToTokenize) {
-            return new QuotedStringTokenizer(stringToTokenize, quoteChars, includeQuotes, delimiterChars, includeDelimiters, expectQuotesDelimited, failOnOpenQuote).remainderAsList();
+            return build(stringToTokenize).remainderAsList();
         }
         
         public Builder quoteChars(String quoteChars) { this.quoteChars = quoteChars; return this; }

@@ -30,10 +30,12 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -45,7 +47,7 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
 
     public static final ConfigKey<String> IMAGE = ConfigKeys.newStringConfigKey("image");
     public static final ConfigKey<String> COMMAND = ConfigKeys.newStringConfigKey("command");
-    public static final ConfigKey<String> ARGS = ConfigKeys.newStringConfigKey("args");
+    public static final ConfigKey<Object> ARGS = ConfigKeys.newConfigKey(Object.class, "args", "Arguments as a string, split into words respecting quoted phrases, or as a list of strings");
     public static final ConfigKey<List<String>> COMMANDS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "commands");
     public static final ConfigKey<List<String>> RAW_COMMAND = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "raw_command");
     public static final ConfigKey<PullPolicy> PULL_POLICY = ConfigKeys.newConfigKey(PullPolicy.class, "pull_policy", ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDescription(), ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDefaultValue());
@@ -94,9 +96,20 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
             throw new IllegalStateException("Incompatible command specification, max 1, received: "+commandTypesSet);
         }
 
-        String args = context.getInput(ARGS);
-        if (Strings.isNonBlank(args)) {
-            tf.arguments(new QuotedStringTokenizer(args).remainderAsList());
+        Object args = context.getInput(ARGS);
+        if (args instanceof String && Strings.isNonBlank((String)args)) {
+            // unquote things here since we convert it to a list
+            tf.arguments(QuotedStringTokenizer.builder().includeQuotes(false).keepInternalQuotes(true).buildList((String)args));
+        } else if (args instanceof Collection) {
+            List<String> result = MutableList.of();
+            ((Collection)args).forEach(x -> {
+                if (x instanceof String) result.add((String)x);
+                else if (Boxing.isPrimitiveOrBoxedObject(x)) result.add(x.toString());
+                else throw new IllegalArgumentException("Argument '"+x+"' not supported; should be a string");
+            });
+            tf.arguments(result);
+        } else if (args!=null) {
+            throw new IllegalArgumentException("args must be a string or a list");
         }
 
         Map<String, Object> env = context.getInput(ENV);

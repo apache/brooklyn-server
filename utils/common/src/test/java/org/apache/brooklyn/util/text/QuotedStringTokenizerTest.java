@@ -204,4 +204,14 @@ public class QuotedStringTokenizerTest {
         // note: backslashed escapes are not handled at present; ideally it would give us back this:
                 //MutableList.of("This", "is", "a", "test\\ of", "spaces", "and", "\"some in quotes\"", "too"));
     }
+
+    @Test
+    public void testForArgsList() throws Exception {
+        // per above, ideally note: backslashed escapes are not handled at present; ideally it would give us back this:
+        Asserts.assertEquals(new QuotedStringTokenizer("test \"quoted phrases\" and [\"embedded_quotes\"]", false).remainderAsList(),
+                MutableList.of("test", "quoted phrases", "and", "[embedded_quotes]"));
+        // above is the same as includeQuotes below; but for args lists we will usually want to keepInternalQuotes
+        Asserts.assertEquals(QuotedStringTokenizer.builder().includeQuotes(false).keepInternalQuotes(true).buildList("test \"quoted phrases\" and [\"embedded_quotes\"]"),
+                MutableList.of("test", "quoted phrases", "and", "[\"embedded_quotes\"]"));
+    }
 }
