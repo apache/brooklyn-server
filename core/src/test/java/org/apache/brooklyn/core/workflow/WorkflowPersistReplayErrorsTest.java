@@ -596,7 +596,9 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                     null);
             Asserts.assertEquals(lastInvocation.getUnchecked(), "error-handler worked!");
 
-            List<String> msgs = logWatcher.getMessages();
+            List<String> msgs = logWatcher.getMessages().stream().filter(x -> !x.startsWith("Blocked by lock")).collect(Collectors.toList());
+            // can have "Blocked by lock on lock-for-incrementor, currently held by JPuhvC9I" from a previous invocation?
+
             log.info("Error handler output:\n"+msgs.stream().collect(Collectors.joining("\n")));
             Asserts.assertEntriesSatisfy(msgs, MutableList.of(
                 m -> m.matches("Starting workflow 'myWorkflow .workflow effector.', moving to first step .*-1"),
@@ -627,7 +629,9 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                                             "output", "error-handler worked!"))));
             Asserts.assertEquals(lastInvocation.getUnchecked(), "error-handler worked!");
 
-            List<String> msgs = logWatcher.getMessages();
+            List<String> msgs = logWatcher.getMessages().stream().filter(x -> !x.startsWith("Blocked by lock")).collect(Collectors.toList());
+            // can have "Blocked by lock on lock-for-incrementor, currently held by JPuhvC9I" from a previous invocation?
+
             log.info("Error handler output:\n"+msgs.stream().collect(Collectors.joining("\n")));
             Asserts.assertEntriesSatisfy(msgs, MutableList.of(
                     m -> m.matches("Starting workflow 'myWorkflow .workflow effector.', moving to first step .*-1"),

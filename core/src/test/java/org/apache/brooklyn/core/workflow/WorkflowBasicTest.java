@@ -409,13 +409,12 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
             Object workflowId = ids.get("workflow");
             List tasksIds = (List) ids.get("tasks");
 
-            if (logWatcher.getMessages().size()!=8) {
-                // add logging for intermittent failure; sometimes we are getting way more messages than we expect
-                // on slow servers we might see 9, with a "Blocked by lock on lock-for-incrementor, currently held by <other task>" at the end
-                throw new IllegalStateException("Wrong number of messages found ("+logWatcher.getMessages().size()+", not 8): "+logWatcher.getMessages());
-            }
+            List<String> msgs = logWatcher.getMessages().stream().filter(x -> !x.startsWith("Blocked by lock")).collect(Collectors.toList());
+            // can have "Blocked by lock on lock-for-incrementor, currently held by JPuhvC9I" from a previous invocation?
 
-            Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
+            if (msgs.size()!=8) throw new IllegalStateException("Wrong number of messages found ("+msgs.size()+", not 8): "+msgs);
+
+            Asserts.assertEquals(msgs, MutableList.of(
                     "Starting workflow 'myWorkflow (workflow effector)', moving to first step "+workflowId+"-1",
                     "Starting step "+workflowId+"-1 in task "+tasksIds.get(0),
                     "one",
