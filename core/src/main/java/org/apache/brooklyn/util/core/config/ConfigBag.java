@@ -35,6 +35,7 @@ import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.slf4j.Logger;
@@ -550,9 +551,20 @@ public class ConfigBag {
 
     /** returns the first non-null value to be the type indicated by the key, or the keys default value if no non-null values are supplied */
     public static <T> T coerceFirstNonNullKeyValue(ConfigKey<T> key, Object ...values) {
-        for (Object o: values)
-            if (o!=null) return TypeCoercions.coerce(o, key.getTypeToken());
-        return TypeCoercions.coerce(key.getDefaultValue(), key.getTypeToken());
+        for (Object o: values) {
+            if (o != null) {
+                try {
+                    return TypeCoercions.coerce(o, key.getTypeToken());
+                } catch (Exception e) {
+                    throw Exceptions.propagate("Error resolving "+key.getName()+" value "+o+" as "+key.getTypeToken()+": "+e, e);
+                }
+            }
+        }
+        try {
+            return TypeCoercions.coerce(key.getDefaultValue(), key.getTypeToken());
+        } catch (Exception e) {
+            throw Exceptions.propagate("Error resolving "+key.getName()+" default value "+key.getDefaultValue()+" as "+key.getTypeToken()+": "+e, e);
+        }
     }
 
     protected Object getStringKey(String key, boolean markUsed) {
