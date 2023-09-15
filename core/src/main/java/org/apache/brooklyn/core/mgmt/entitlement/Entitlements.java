@@ -131,9 +131,14 @@ public class Entitlements {
     public static EntitlementClass<Void> LOGBOOK_LOG_STORE_QUERY = new BasicEntitlementClassDefinition<Void>("logbook.query", Void.class);
 
     /**
-     * Permission to execute groovy scripts
+     * Permission to execute groovy scripts. Since 1.1 prefer {@link #EXECUTE_SCRIPT}.
      */
     public static EntitlementClass<Void> EXECUTE_GROOVY_SCRIPT = new BasicEntitlementClassDefinition<Void>("groovy_script.execute", Void.class);
+
+    /**
+     * Permission to run local script commands, eg 'shell' workflow step, groovy scripts, etc
+     */
+    public static EntitlementClass<Void> EXECUTE_SCRIPT = new BasicEntitlementClassDefinition<Void>("script.execute", Void.class);
 
     @SuppressWarnings("unchecked")
     public enum EntitlementClassesEnum {
@@ -154,6 +159,7 @@ public class Entitlements {
         ENTITLEMENT_SERVER_STATUS(SERVER_STATUS) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeServerStatus(); } },
         ENTITLEMENT_ROOT(ROOT) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleRoot(); } },
         ENTITLEMENT_EXECUTE_GROOVY_SCRIPT(EXECUTE_GROOVY_SCRIPT) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleExecuteGroovyScript(); } },
+        ENTITLEMENT_EXECUTE_SCRIPT(EXECUTE_SCRIPT) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleExecuteScript(); } },
 
         /* NOTE, 'ROOT' USER ONLY IS ALLOWED TO SEE THE LOGS. */
         ENTITLEMENT_LOGBOOK_QUERY(LOGBOOK_LOG_STORE_QUERY) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleRoot(); } },
@@ -191,6 +197,7 @@ public class Entitlements {
         public T handleAddJava(Object app);
         public T handleSeeAllServerInfo();
         public T handleExecuteGroovyScript();
+        public T handleExecuteScript();
         public T handleRoot();
     }
     
@@ -267,13 +274,13 @@ public class Entitlements {
     }
 
     /**
-     * @return An entitlement manager allowing everything but {@link #EXECUTE_GROOVY_SCRIPT}.
+     * @return An entitlement manager allowing everything but {@link #EXECUTE_SCRIPT}, {@link #EXECUTE_GROOVY_SCRIPT}.
      */
     public static EntitlementManager powerUser() {
         return new EntitlementManager() {
             @Override
             public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
-                return !EXECUTE_GROOVY_SCRIPT.equals(permission);
+                return !EXECUTE_GROOVY_SCRIPT.equals(permission) && !EXECUTE_SCRIPT.equals(permission);
             }
             @Override
             public String toString() {
@@ -284,7 +291,7 @@ public class Entitlements {
 
     /**
      * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY}, {@link #SEE_ALL_SERVER_INFO},
-     * {@link #EXECUTE_GROOVY_SCRIPT}, {@link #MODIFY_ENTITY}, and {@link #HA_ADMIN}.
+     * {@link #EXECUTE_GROOVY_SCRIPT}, {@link #EXECUTE_SCRIPT}, {@link #MODIFY_ENTITY}, and {@link #HA_ADMIN}.
      */
     public static EntitlementManager user() {
         return new EntitlementManager() {
@@ -295,6 +302,7 @@ public class Entitlements {
                         !ROOT.equals(permission) &&
                         !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
                         !EXECUTE_GROOVY_SCRIPT.equals(permission) &&
+                        !EXECUTE_SCRIPT.equals(permission) &&
                         !MODIFY_ENTITY.equals(permission) &&
                         !HA_ADMIN.equals(permission);
             }

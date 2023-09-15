@@ -138,6 +138,12 @@ public class BrooklynFeatureEnablement {
     public static final String FEATURE_DISALLOW_REPARENTING = "brooklyn.disallowReparenting";
 
     /**
+     * Whether lookup of the location of the host is permitted, either 'true' or 'false'.
+     * Since 1.1 defaults to 'false' normally to prevent odd outbound traffic, but 'true' in development environments for tests to run.
+     */
+    public static final String FEATURE_HOST_GEO_LOOKUP = "brooklyn.hostGeoLookup";
+
+    /**
      * Values explicitly set by Java calls.
      */
     private static final Map<String, Boolean> FEATURE_ENABLEMENTS = Maps.newLinkedHashMap();
@@ -175,6 +181,7 @@ public class BrooklynFeatureEnablement {
         setDefault(FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND, false);
         setDefault(FEATURE_SSH_ASYNC_EXEC, false);
         setDefault(FEATURE_VALIDATE_LOCATION_SSH_KEYS, true);
+        setDefault(FEATURE_HOST_GEO_LOOKUP, BrooklynVersion.isDevelopmentEnvironment());
     }
     
     static {

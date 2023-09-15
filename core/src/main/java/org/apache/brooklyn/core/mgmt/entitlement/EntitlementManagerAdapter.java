@@ -111,6 +111,11 @@ public abstract class EntitlementManagerAdapter implements EntitlementManager {
         }
 
         @Override
+        public Boolean handleExecuteScript() {
+            return isEntitledToExecuteScripts(context);
+        }
+
+        @Override
         public Boolean handleRoot() {
             return isEntitledToRoot(context);
         }
@@ -145,6 +150,7 @@ public abstract class EntitlementManagerAdapter implements EntitlementManager {
     protected abstract boolean isEntitledToSeeAllServerInfo(EntitlementContext context);
     protected abstract boolean isEntitledToSeeServerStatus(EntitlementContext context);
     protected abstract boolean isEntitledToExecuteGroovyScripts(EntitlementContext context);
+    protected abstract boolean isEntitledToExecuteScripts(EntitlementContext context);
     protected abstract boolean isEntitledToRoot(EntitlementContext context);
     
 }
