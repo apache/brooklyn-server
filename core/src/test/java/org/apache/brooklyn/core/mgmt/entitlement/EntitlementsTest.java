@@ -92,6 +92,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertTrue(allowSeeEntity.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+        assertFalse(allowSeeEntity.isEntitled(null, Entitlements.EXECUTE_SCRIPT, null));
     }
 
     // nonSecret

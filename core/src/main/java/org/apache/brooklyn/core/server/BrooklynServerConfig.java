@@ -178,4 +178,7 @@ public class BrooklynServerConfig {
     public static final ConfigKey<List<String>> SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "brooklyn.security.sensitive.fields.ext.blocked.phrases",
             "Extended blocking settings when plaintext values are blocked, allowing also to block DSL and complex values which contain any of the phrases supplied in this config key (comma-separated list)");
 
+    public static final ConfigKey<Boolean> SHELL_WORKFLOW_STEP_DISABLED = ConfigKeys.newBooleanConfigKey("brooklyn.security.shell.workflow_step.disabled",
+            "Whether the ShellWorkflowStep is disabled for security; default false");
+
 }

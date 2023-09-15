@@ -46,8 +46,12 @@ public class ScriptResource extends AbstractBrooklynRestResource implements Scri
     @SuppressWarnings("rawtypes")
     @Override
     public ScriptExecutionSummary groovy(HttpServletRequest request, String script) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.EXECUTE_GROOVY_SCRIPT, null)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+        boolean entitledGS = Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.EXECUTE_GROOVY_SCRIPT, null);
+        boolean entitledS = Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.EXECUTE_SCRIPT, null);
+
+        if (!entitledS || !entitledGS) {
+            if (entitledGS) log.warn("User '"+Entitlements.getEntitlementContext().user()+"' is entitled to run groovy scripts but not scripts. The two permissions should be equivalent and the former may be removed, blocking access. Either grant permission to execute scripts or remove permission to execute groovy scripts.");
+            else throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         }
 
         log.info("Web REST executing user-supplied script");

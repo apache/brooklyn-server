@@ -27,6 +27,10 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
+import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep;
@@ -43,6 +47,8 @@ import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.task.system.internal.SystemProcessTaskFactory;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.text.Strings;
+
+import static org.apache.brooklyn.core.server.BrooklynServerConfig.SHELL_WORKFLOW_STEP_DISABLED;
 
 public class ShellWorkflowStep extends WorkflowStepDefinition {
 
@@ -64,6 +70,11 @@ public class ShellWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        if (Boolean.TRUE.equals(context.getManagementContext().getConfig().getConfig(SHELL_WORKFLOW_STEP_DISABLED))) {
+            throw new IllegalStateException("The 'shell' workflow step is disabled in this intance of Cloudsoft AMP.");
+        }
+        Entitlements.checkEntitled(context.getManagementContext().getEntitlementManager(), Entitlements.EXECUTE_SCRIPT, null);
+
         String command = new SetVariableWorkflowStep.ConfigurableInterpolationEvaluation<>(context, TypeToken.of(String.class), getInput().get(COMMAND.getName()),
                 context.getInputOrDefault(INTERPOLATION_MODE), context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();
 
