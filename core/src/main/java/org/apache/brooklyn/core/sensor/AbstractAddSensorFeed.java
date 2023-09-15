@@ -67,6 +67,10 @@ public abstract class AbstractAddSensorFeed<T> extends AddSensorInitializer<T> {
             "Length of time, after a successful poll, before a subsequent failure can be logged at WARN.",
             Duration.millis(0));
 
+    public static final ConfigKey<Boolean> FAIL_TASK_ON_ERROR = ConfigKeys.newBooleanConfigKey("failTaskOnError",
+            "Whether to fail the task performing the operation if there is an error, or simply to log and continue. " +
+                    "Default is to fail the task." /* since 1.1 */);
+
     protected AbstractAddSensorFeed() {}
     public AbstractAddSensorFeed(final ConfigBag params) {
         super(params);

@@ -29,6 +29,7 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -133,9 +134,13 @@ public class AttributePollHandler<V> implements PollHandler<V> {
                 setSensor( config.getOnException().apply(exception) );
             } catch (Exception e) {
                 if (feed.isConnected()) {
-                    log.warn("unable to compute "+getBriefDescription()+"; on exception="+exception, e);
+                    if (!e.equals(exception)) {
+                        log.warn("Exception handler for "+getBriefDescription()+" returned a different error than the original computation; original error was "+exception, exception);
+                    }
+                    log.debug("Exception handler failed computing "+getBriefDescription()+" (rethrowing): "+e);
+                    throw Exceptions.propagate(e);
                 } else {
-                    if (log.isDebugEnabled()) log.debug("unable to compute "+getBriefDescription()+"; exception="+exception+" (when inactive)", e);
+                    if (log.isDebugEnabled()) log.debug("Unable to compute "+getBriefDescription()+"; exception="+exception+" (when inactive)", e);
                 }
             }
         }

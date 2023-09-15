@@ -18,6 +18,13 @@
  */
 package org.apache.brooklyn.core.sensor;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicates;
@@ -29,19 +36,16 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityPredicates;
-import org.apache.brooklyn.core.feed.*;
+import org.apache.brooklyn.core.feed.PollConfig;
 import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.commons.lang3.tuple.Pair;
-
-import java.util.*;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * Super-class for entity initializers that add feeds.
@@ -186,6 +190,10 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
                 .period(getPeriod(entity, initParams()))
                 .otherTriggers(getTriggersMaybe(entity, configBag).orNull())
                 .condition(new ConditionSupplierFromConfigBag(configBag, entity));
+
+        if (!Boolean.FALSE.equals(configBag.get(FAIL_TASK_ON_ERROR))) {
+            poll.onException(new RethrowException());
+        }
     }
 
     static class ConditionSupplierFromConfigBag implements Supplier<DslPredicates.DslPredicate> {
@@ -203,4 +211,11 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
         }
     }
 
+
+    public static class RethrowException<T> implements com.google.common.base.Function<Throwable,T> {
+        @Override
+        public T apply(Throwable err) {
+            throw Exceptions.propagate(err);
+        }
+    }
 }

@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import java.util.Map;
+import java.util.concurrent.Callable;
+
 import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
@@ -46,10 +49,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
 
 /** 
  * Configurable {@link EntityInitializer} which adds a sensor feed running a given workflow.
@@ -220,4 +219,5 @@ public class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> implement
                     '}';
         }
     }
+
 }
