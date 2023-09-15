@@ -47,6 +47,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.steps.*;
 import org.apache.brooklyn.core.workflow.steps.appmodel.*;
 import org.apache.brooklyn.core.workflow.steps.external.HttpWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.external.ShellWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.external.SshWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.*;
 import org.apache.brooklyn.core.workflow.steps.variables.*;
@@ -125,6 +126,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "workflow", CustomWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "foreach", ForeachWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "ssh", SshWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "shell", ShellWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "http", HttpWorkflowStep.class);
 
         addRegisteredTypeBean(mgmt, "workflow-effector", WorkflowEffector.class);

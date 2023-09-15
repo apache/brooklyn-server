@@ -136,6 +136,12 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(r, MutableMap.of());
     }
 
+    @Test(groups="Integration")
+    public void testShell() {
+        Object result = runStep("shell echo foo", null);
+        Asserts.assertEquals(result, MutableMap.of("exit_code", 0, "stdout", "foo\n", "stderr", ""));
+    }
+
     @Test
     public void testSshLocalhost() throws NoMachinesAvailableException {
         LocalhostMachineProvisioningLocation loc = mgmt.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)

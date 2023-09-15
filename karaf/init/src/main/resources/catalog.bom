@@ -236,6 +236,11 @@ brooklyn.catalog:
     item:
       type: org.apache.brooklyn.core.workflow.steps.appmodel.UpdateChildrenWorkflowStep
 
+  - id: shell
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.external.ShellWorkflowStep
   - id: ssh
     format: java-type-name
     itemType: bean
