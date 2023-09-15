@@ -80,6 +80,8 @@ public class GeoBytesHostGeoLookup implements HostGeoLookup {
     
     @Override
     public HostGeoInfo getHostGeoInfo(InetAddress address) throws MalformedURLException, IOException {
+        if (isHostGeoLookupGloballyDisabled()) return null;
+
         String url = getPropertiesLookupUrlFor(address);
         if (log.isDebugEnabled())
             log.debug("Geo info lookup for "+address+" at "+url);
@@ -101,5 +103,4 @@ public class GeoBytesHostGeoLookup implements HostGeoLookup {
             return null;
         }
     }
-    
 }

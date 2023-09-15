@@ -20,8 +20,13 @@ package org.apache.brooklyn.core.location.geo;
 
 import java.net.InetAddress;
 
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
+
 public interface HostGeoLookup {
 
-    public HostGeoInfo getHostGeoInfo(InetAddress address) throws Exception;
-    
+    HostGeoInfo getHostGeoInfo(InetAddress address) throws Exception;
+
+    default boolean isHostGeoLookupGloballyDisabled() {
+        return !BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_HOST_GEO_LOOKUP);
+    }
 }
