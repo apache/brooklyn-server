@@ -58,6 +58,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -163,8 +164,10 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
         super.validateStep(mgmt, workflow);
 
-        if (steps instanceof List) WorkflowStepResolution.resolveSteps(mgmt, (List<Object>) steps);
-        else if (steps!=null) throw new IllegalArgumentException("Workflow `steps` must be a list");
+        if (steps instanceof List) {
+            if (((List)steps).isEmpty()) throw new IllegalArgumentException("Workflow `steps` must be supplied for a custom or nested workflow");
+            WorkflowStepResolution.resolveSteps(mgmt, (List<Object>) steps, null);
+        } else if (steps!=null) throw new IllegalArgumentException("Workflow `steps` must be a list");
         else if (target!=null) throw new IllegalArgumentException("Workflow cannot take a `target` without `steps`");
     }
 
@@ -561,7 +564,10 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         return newWorkflowExecution(entity, name, extraConfig, null);
     }
     public WorkflowExecutionContext newWorkflowExecution(Entity entity, String name, ConfigBag extraConfig, Map extraTaskFlags) {
-        if (steps==null) throw new IllegalArgumentException("Cannot make new workflow with no steps");
+        if (steps==null) {
+            if (target!=null) throw new IllegalArgumentException("Steps are required for a workflow with a target");
+            else steps = MutableList.of();
+        }
 
         if (target==null) {
             // copy everything as we are going to run it "flat"
@@ -580,12 +586,15 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         }
     }
 
-    private ConfigBag getConfigForSubWorkflow(boolean includeInput) {
+    private ConfigBag getConfigForSubWorkflow(boolean isFlattened) {
+        if (isFlattened && (output!=null && workflowOutput!=null)) {
+            if (!Objects.equals(output, workflowOutput)) throw new IllegalArgumentException("Setting both 'output' and 'workflowOutput' is not supported for custom steps without target");
+        }
         ConfigBag result = ConfigBag.newInstance()
                 .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
                 .configure(WorkflowCommonConfig.STEPS, steps)
-                .configure(WorkflowCommonConfig.INPUT, includeInput ? input : null)  // input is resolved in outer workflow so it can reference outer workflow vars
-                .configure(WorkflowCommonConfig.OUTPUT, workflowOutput)
+                .configure(WorkflowCommonConfig.INPUT, isFlattened ? input : null)  // input is resolved in outer workflow so it can reference outer workflow vars
+                .configure(WorkflowCommonConfig.OUTPUT, isFlattened && workflowOutput==null ? output : workflowOutput)
                 .configure(WorkflowCommonConfig.RETENTION, retention)
                 .configure(WorkflowCommonConfig.REPLAYABLE, replayable)
                 .configure(WorkflowCommonConfig.IDEMPOTENT, idempotent)

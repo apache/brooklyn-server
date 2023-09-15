@@ -216,7 +216,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                         "log test message"
                 );
 
-        List<WorkflowStepDefinition> steps = WorkflowStepResolution.resolveSteps(mgmt, stepsDefinition);
+        List<WorkflowStepDefinition> steps = WorkflowStepResolution.resolveSteps(mgmt, stepsDefinition, null);
         Asserts.assertSize(steps, 4);
     }
 
@@ -229,7 +229,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
             Asserts.assertInstanceOf(wf, CustomWorkflowStep.class);
             Asserts.assertSize(((CustomWorkflowStep) wf).peekSteps(), 1);
             Asserts.assertInstanceOf(
-                    WorkflowStepResolution.resolveSteps( mgmt, ((CustomWorkflowStep) wf).peekSteps() ).get(0), LogWorkflowStep.class);
+                    WorkflowStepResolution.resolveSteps( mgmt, ((CustomWorkflowStep) wf).peekSteps(), null ).get(0), LogWorkflowStep.class);
         };
 
         test.accept( BeanWithTypeUtils.convert(mgmt,
@@ -479,6 +479,18 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(
                 w1.getTask(false).get().getUnchecked(),
                 MutableList.of("a=b", "b=c"));
+    }
+
+    @Test
+    public void testOutputOnlyWorkflow() {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        WorkflowExecutionContext w1 = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "output: 42"
+        ), null);
+        Asserts.assertEquals(
+                w1.getTask(false).get().getUnchecked(),
+                42);
     }
     
 }

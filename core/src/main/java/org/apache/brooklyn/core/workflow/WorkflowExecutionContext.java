@@ -917,7 +917,7 @@ public class WorkflowExecutionContext {
     @JsonIgnore
     List<WorkflowStepDefinition> getStepsResolved() {
         if (stepsResolved ==null) {
-            stepsResolved = MutableList.copyOf(WorkflowStepResolution.resolveSteps(getManagementContext(), WorkflowExecutionContext.this.stepsDefinition));
+            stepsResolved = MutableList.copyOf(WorkflowStepResolution.resolveSteps(getManagementContext(), WorkflowExecutionContext.this.stepsDefinition, outputDefinition));
         }
         return stepsResolved;
     }

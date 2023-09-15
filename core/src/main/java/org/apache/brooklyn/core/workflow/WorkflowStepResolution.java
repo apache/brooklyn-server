@@ -45,8 +45,15 @@ import java.util.Map;
 public class WorkflowStepResolution {
 
     public static List<WorkflowStepDefinition> resolveSteps(ManagementContext mgmt, List<Object> steps) {
+        return resolveSteps(mgmt, steps, null);
+    }
+    public static List<WorkflowStepDefinition> resolveSteps(ManagementContext mgmt, List<Object> steps, Object outputDefinition) {
         List<WorkflowStepDefinition> result = MutableList.of();
-        if (steps==null || steps.isEmpty()) throw new IllegalStateException("No steps defined in workflow");
+        if (steps==null || steps.isEmpty()) {
+            if (outputDefinition==null) throw new IllegalStateException("No steps defined in workflow and no output set");
+            // if there is output, an empty workflow makes sense
+            return result;
+        }
         for (int i=0; i<steps.size(); i++) {
             try {
                 result.add(resolveStep(mgmt, steps.get(i)));
@@ -172,7 +179,7 @@ public class WorkflowStepResolution {
         if (!hasCondition && entityOrAdjunctWhereRunningIfKnown!=null) {
             // ideally try to resolve the steps at entity init time; except if a condition is required we skip that so you can have steps that only resolve late,
             // and if entity isn't available then we don't need that either
-            WorkflowStepResolution.resolveSteps( ((BrooklynObjectInternal)entityOrAdjunctWhereRunningIfKnown).getManagementContext(), steps);
+            WorkflowStepResolution.resolveSteps( ((BrooklynObjectInternal)entityOrAdjunctWhereRunningIfKnown).getManagementContext(), steps, params.containsKey(WorkflowCommonConfig.OUTPUT.getName()) ? "has_output" : null);
         }
     }
 
