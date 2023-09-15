@@ -171,9 +171,10 @@ public class WorkflowStepResolution {
         }
     }
 
-    public static void validateWorkflowParameters(BrooklynObject entityOrAdjunctWhereRunningIfKnown, ConfigBag params) {
+    public static void validateWorkflowParametersForEffector(BrooklynObject entityOrAdjunctWhereRunningIfKnown, ConfigBag params) {
         List<Object> steps = params.get(WorkflowCommonConfig.STEPS);
-        if (steps==null || steps.isEmpty()) throw new IllegalArgumentException("It is required to supply 'steps' to define a workflow effector");
+        if ((steps==null || steps.isEmpty()) && !params.containsKey(WorkflowCommonConfig.OUTPUT))
+            throw new IllegalArgumentException("It is required to supply 'steps' or 'output' to define a workflow effector");
 
         boolean hasCondition = params.containsKey(WorkflowCommonConfig.CONDITION.getName());
         if (!hasCondition && entityOrAdjunctWhereRunningIfKnown!=null) {

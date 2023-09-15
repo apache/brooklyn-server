@@ -88,7 +88,7 @@ public class WorkflowEffector extends AddEffectorInitializerAbstract implements 
             super(null);
             this.definitionParams = definitionParams.getAllConfigRaw();
 
-            WorkflowStepResolution.validateWorkflowParameters(entity, definitionParams);
+            WorkflowStepResolution.validateWorkflowParametersForEffector(entity, definitionParams);
         }
 
         public Map<String,Object> getDefinitionParams() {
