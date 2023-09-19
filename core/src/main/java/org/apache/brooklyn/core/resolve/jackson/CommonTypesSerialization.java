@@ -31,15 +31,21 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
+import org.apache.brooklyn.core.mgmt.internal.NonDeploymentManagementContext;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.time.Duration;
@@ -356,6 +362,17 @@ public class CommonTypesSerialization {
             // we could support 'current' to use tasks to resolve, which might be handy
             BrooklynObject result = mgmt.lookup(value);
             if (result!=null) return result;
+
+            Entity currentEntity = BrooklynTaskTags.getContextEntity(Tasks.current());
+            if (currentEntity!=null) {
+                // during initialization, we can look relative to ourselves, since entities aren't available in mgmt.lookup
+                Iterable<Entity> ents = ((EntityManagerInternal) mgmt.getEntityManager()).getAllEntitiesInApplication(currentEntity.getApplication());
+                for (Entity e : ents) {
+                    if (Objects.equals(value, e.getId())) {
+                        return e;
+                    }
+                }
+            }
             throw new IllegalStateException("Entity or other BrooklynObject '"+value+"' is not known here");
         }
 
@@ -443,7 +460,11 @@ public class CommonTypesSerialization {
                     return super.convertStringToObject(value, p, ctxt);
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
-                    LOG.warn("Reference to BrooklynObject "+value+" which is unknown or no longer available; replacing with 'null'");
+                    if (BrooklynObjectSerialization.this.mgmt instanceof NonDeploymentManagementContext) {
+                        LOG.warn("Reference to BrooklynObject " + value + " which is unknown or not yet known, using NonDeployment context; replacing with 'null': "+e);
+                    } else {
+                        LOG.warn("Reference to BrooklynObject " + value + " which is unknown or no longer available; replacing with 'null': "+e);
+                    }
                     return null;
                 }
             }

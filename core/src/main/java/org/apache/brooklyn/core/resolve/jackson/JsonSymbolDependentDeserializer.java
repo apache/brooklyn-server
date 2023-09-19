@@ -29,6 +29,8 @@ import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.Set;
 import java.util.function.Function;
+
+import org.apache.brooklyn.util.core.units.Range;
 import org.apache.brooklyn.util.core.xstream.ImmutableSetConverter;
 
 import static org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.createBeanDeserializer;
@@ -152,5 +154,4 @@ public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<O
                 /** try to do low level build so we don't recreate ourselves and loop endlessly */ true,
                 true);
     }
-
 }

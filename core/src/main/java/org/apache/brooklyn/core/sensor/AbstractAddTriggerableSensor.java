@@ -26,6 +26,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicates;
 import com.google.common.reflect.TypeToken;
@@ -38,6 +39,7 @@ import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.feed.PollConfig;
 import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
+import org.apache.brooklyn.core.resolve.jackson.PrimitiveTokenOrExpectedObject;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
@@ -105,26 +107,28 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
                     t = new SensorFeedTrigger();
                     t.sensorName = (String) ti;
                 } else {
-                    throw new IllegalStateException("Trigger should be a map specifyin entity and sensor");
+                    throw new IllegalStateException("Trigger should be a map specifying entity and sensor");
                 }
             }
 
             Entity entity = t.entity;
-            if (entity==null && t.entityId!=null) {
-                String desiredComponentId = t.entityId;
-                List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context, true,
-                        Predicates.and(EntityPredicates.configEqualTo(BrooklynConfigKeys.PLAN_ID, desiredComponentId), x->true)::apply);
-                if (firstGroupOfMatches.isEmpty()) {
-                    firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context, true,
-                            Predicates.and(EntityPredicates.idEqualTo(desiredComponentId), x->true)::apply);
-                }
-                if (!firstGroupOfMatches.isEmpty()) {
-                    entity = firstGroupOfMatches.get(0);
+            if (entity==null) {
+                if (t.entityId != null) {
+                    String desiredComponentId = t.entityId;
+                    List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context, true,
+                            Predicates.and(EntityPredicates.configEqualTo(BrooklynConfigKeys.PLAN_ID, desiredComponentId), x -> true)::apply);
+                    if (firstGroupOfMatches.isEmpty()) {
+                        firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context, true,
+                                Predicates.and(EntityPredicates.idEqualTo(desiredComponentId), x -> true)::apply);
+                    }
+                    if (!firstGroupOfMatches.isEmpty()) {
+                        entity = firstGroupOfMatches.get(0);
+                    } else {
+                        throw new IllegalStateException("Cannot find entity with ID '" + desiredComponentId + "'");
+                    }
                 } else {
-                    throw new IllegalStateException("Cannot find entity with ID '"+desiredComponentId+"'");
+                    entity = context;
                 }
-            } else {
-                entity = context;
             }
 
             Sensor sensor = t.sensor;
@@ -157,6 +161,17 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
 
         // could support predicates on the value; but we do it on the entity which is enough
 
+        @JsonSetter
+//        @JsonDeserialize(using = PrimitiveOrObjectDeserializer.class)
+//        @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
+        public void setEntity(PrimitiveTokenOrExpectedObject<Entity> po) {
+                //@JsonTypeInfo(use = JsonTypeInfo.Id.NONE) @JsonDeserialize(using = PrimitiveOrObjectDeserializer.class)
+//                                      Object entity) {
+            if (po.hasObject()) setEntity(po.asObject());
+            else if (po.hasStringPrimitive()) setEntity(po.asString());
+            else if (entity==null) { /* do nothing */ }
+            else throw new IllegalArgumentException("Invalid input for entity to "+this+": "+entity);
+        }
         public void setEntity(Entity entity) {
             this.entity = entity;
         }

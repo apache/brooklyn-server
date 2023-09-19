@@ -18,6 +18,16 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,7 +48,13 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.*;
+import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
+import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -48,7 +64,12 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.*;
+import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
+import org.apache.brooklyn.core.workflow.WorkflowEffector;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowPolicy;
+import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
@@ -73,16 +94,6 @@ import org.apache.brooklyn.util.time.Time;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalUnit;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecContains;
 import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecsContain;
@@ -291,6 +302,17 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         doTestWorkflowPolicy("condition: { sensor: not_exist }\n" + "period: 200 ms", null);
     }
 
+    @Test
+    public void testWorkflowPolicyTriggersWithEntityId() throws Exception {
+        doTestWorkflowPolicy("triggers: [ { sensor: theTrigger, entity: other_entity } ]", Duration.seconds(1)::isLongerThan, null, true);
+    }
+    @Test
+    public void testWorkflowPolicyTriggersWithEntityInstance() throws Exception {
+        // see org.apache.brooklyn.core.resolve.jackson.BrooklynMiscJacksonSerializationTest.testPrimitiveWithObjectForEntity
+        doTestWorkflowPolicy("triggers: [ { sensor: theTrigger, entity: $brooklyn:entity(\"other_entity\") } ]", Duration.seconds(1)::isLongerThan, null, true);
+    }
+
+
     static final AttributeSensor<Object> MY_WORKFLOW_SENSOR = Sensors.newSensor(Object.class, "myWorkflowSensor");
 
     Entity doTestWorkflowSensor(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail) throws Exception {
@@ -350,9 +372,13 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     }
 
     public void doTestWorkflowPolicy(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail, Consumer<Policy> extraChecks) throws Exception {
+        doTestWorkflowPolicy(triggers, timeCheckOrNullIfShouldFail, extraChecks, false);
+    }
+    public void doTestWorkflowPolicy(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail, Consumer<Policy> extraChecks, boolean useOtherEntity) throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: " + BasicEntity.class.getName(),
+                "  id: main_entity",
                 "  brooklyn.policies:",
                 "  - type: workflow-policy",
                 "    brooklyn.config:",
@@ -370,13 +396,17 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "            v: ${v}",
                 "        - transform map x = ${out} | yaml",
                 "        - set-sensor myWorkflowSensor = ${x}",
+                "- type: " + BasicEntity.class.getName(),
+                "  id: other_entity",
                 "");
 
         Stopwatch sw = Stopwatch.createStarted();
         waitForApplicationTasks(app);
         Duration d1 = Duration.of(sw);
 
-        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Iterator<Entity> ci = app.getChildren().iterator();
+        Entity entity = ci.next();
+        Entity otherEntity = ci.next();
         Policy policy = entity.policies().asList().stream().filter(p -> p instanceof WorkflowPolicy).findAny().get();
         Asserts.assertEquals(policy.getDisplayName(), "Set myWorkflowSensor");
         // should really ID be settable from flag?
@@ -390,7 +420,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
             Asserts.assertThat(d2, Duration.millis(500)::isLongerThan);
 //            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 0));
 
-            entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go");
+            (useOtherEntity ? otherEntity : entity).sensors().set(Sensors.newStringSensor("theTrigger"), "go");
             EntityAsserts.assertAttributeEqualsEventually(MutableMap.of("timeout", "5s"), entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 0));
 //            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 1));
             Duration d3 = Duration.of(sw).subtract(d2);

@@ -267,7 +267,9 @@ public class AsPropertyIfAmbiguous {
                 boolean canTryWithoutType = !typeIdFindResult.isUnambiguous;
                 try {
                     Object result = _deserializeTypedForId(p, ctxt, tb, typeIdFindResult.type);
-                    if (_idResolver instanceof HasBaseType) {
+                    if (result==null) {
+                        LOG.trace("Null result deserializing");
+                    } else if (_idResolver instanceof HasBaseType) {
                         JavaType baseType = ((HasBaseType) _idResolver).getBaseType();
                         if (baseType != null) {
                             Class<?> rawClass = baseType.getRawClass();
