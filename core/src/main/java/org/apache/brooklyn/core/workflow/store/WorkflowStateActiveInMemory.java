@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.core.workflow.store;
 
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
@@ -25,10 +28,9 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Map;
 
 public class WorkflowStateActiveInMemory {
 
@@ -64,14 +66,20 @@ public class WorkflowStateActiveInMemory {
 
     public void expireAbsentEntities() {
         lastInMemClear = System.currentTimeMillis();
-        MutableMap.copyOf(data).forEach( (entityId, mapByWorkflowId) -> {
-            if (mgmt.getEntityManager().getEntity(entityId)==null) data.remove(entityId);
+        Set<String> copy;
+        synchronized (data) {
+            copy = MutableSet.copyOf(data.keySet());
+        }
+        copy.forEach(entityId -> {
+            if (mgmt.getEntityManager().getEntity(entityId) == null) {
+                data.remove(entityId);
+            }
         });
     }
 
     public void checkpoint(WorkflowExecutionContext context) {
         // keep active workflows in memory, even if disabled
-        Map<String, WorkflowExecutionContext> entityActiveWorkflows = data.get(context.getEntity().getId());
+        Map<String, WorkflowExecutionContext> entityActiveWorkflows = getSynchronizedForWorkflowId(context.getEntity().getId());
         if (context.getStatus().expirable) {
             if (entityActiveWorkflows!=null) entityActiveWorkflows.remove(context.getWorkflowId());
         } else {
@@ -94,19 +102,25 @@ public class WorkflowStateActiveInMemory {
     }
 
     public Map<String,WorkflowExecutionContext> getWorkflows(Entity entity) {
-        return MutableMap.copyOf(data.get(entity.getId()));
+        return getSynchronizedForWorkflowId(entity.getId());
     }
 
     boolean deleteWorkflow(WorkflowExecutionContext context) {
-        Map<String, WorkflowExecutionContext> entityActiveWorkflows = data.get(context.getEntity().getId());
+        Map<String, WorkflowExecutionContext> entityActiveWorkflows = getSynchronizedForWorkflowId(context.getEntity().getId());
         if (entityActiveWorkflows!=null) {
             return entityActiveWorkflows.remove(context.getWorkflowId()) != null;
         }
         return false;
     }
 
+    private Map<String, WorkflowExecutionContext> getSynchronizedForWorkflowId(String entityId) {
+        synchronized (data) {
+            return data.get(entityId);
+        }
+    }
+
     public WorkflowExecutionContext getFromTag(BrooklynTaskTags.WorkflowTaskTag tag) {
-        Map<String, WorkflowExecutionContext> activeForEntity = data.get(tag.getEntityId());
+        Map<String, WorkflowExecutionContext> activeForEntity = getSynchronizedForWorkflowId(tag.getEntityId());
         if (activeForEntity!=null) {
             return activeForEntity.get(tag.getWorkflowId());
         }

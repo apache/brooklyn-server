@@ -353,6 +353,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         return e;
     }
 
+    // non-det failure, see below
     public void testUnmanagedEntityCanBeGcedEvenIfPreviouslyTagged() throws Exception {
         TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         String eId = e.getId();
@@ -376,6 +377,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
                 }
                 if ((tag instanceof WrappedEntity) && ((WrappedEntity) tag).unwrap().getId().equals(eId)
                         && ((WrappedItem<?>) tag).getWrappingType().equals(BrooklynTaskTags.CONTEXT_ENTITY)) {
+                    // non-deterministic failure observed here; only once so far, so might simply be GC being ignored
                     fail("tags contains unmanaged entity (wrapped) " + tag + "; tasks: " + app.getManagementContext().getExecutionManager().getTasksWithTag(tag));
                 }
             }
