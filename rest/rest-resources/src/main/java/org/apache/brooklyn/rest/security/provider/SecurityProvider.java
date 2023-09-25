@@ -34,6 +34,12 @@ import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
  */
 public interface SecurityProvider {
 
+    /**
+     * Header for return to the user a helper message related to the unauthorized response
+     */
+    public static final String UNAUTHORIZED_MESSAGE_HEADER = "X_BROOKLYN_UNAUTHORIZED_MESSAGE";
+
+
     /** If user supplied a value session, this passes that in so the {@link SecurityProvider}
      * can check whether the user has previously authenticated, e.g. via an {@link HttpSession#setAttribute(String, Object)}
      * done by {@link #authenticate(HttpServletRequest, Supplier, String, String)}.
@@ -78,6 +84,7 @@ public interface SecurityProvider {
     public boolean logout(HttpSession session);
     
     public static class SecurityProviderDeniedAuthentication extends Exception {
+
         private static final long serialVersionUID = -3048228939219746783L;
         private final Response response;
         public SecurityProviderDeniedAuthentication() { this(null); }

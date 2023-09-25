@@ -19,19 +19,25 @@
 package org.apache.brooklyn.rest.filter;
 
 import java.io.IOException;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.annotation.Priority;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.Provider;
 
+import com.google.common.collect.ImmutableSet;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
 import org.apache.brooklyn.util.text.Strings;
 import org.eclipse.jetty.http.HttpHeader;
@@ -45,6 +51,11 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterJersey.class);
     public static final String LOGIN_PAGE_HEADER = "X_BROOKLYN_LOGIN_PAGE";
+
+    private final Set<String> headersToForward = ImmutableSet.of(
+            HttpHeaders.WWW_AUTHENTICATE, // defines the HTTP authentication methods ("challenges") that might be used to gain access to a specific resource
+            SecurityProvider.UNAUTHORIZED_MESSAGE_HEADER // helper message from the security provider
+            );
 
     @Context
     HttpServletRequest webRequest;
@@ -78,7 +89,15 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
                     Strings.isNonBlank(mgmt.getConfig().getConfig(BrooklynSecurityProviderFilterJavax.LOGIN_FORM))) {
                 rin = Response.status(Status.UNAUTHORIZED).entity("Authentication is required").header(LOGIN_PAGE_HEADER, mgmt.getConfig().getConfig(BrooklynSecurityProviderFilterJavax.LOGIN_FORM)).build();
             }
-
+            // adding headers in `headersToForward` if they are present in the original response
+            MultivaluedMap<String, Object> responseHeaders = e.getResponse().getHeaders();
+            if(responseHeaders != null && !responseHeaders.isEmpty()){
+                for(String headerKey: headersToForward) {
+                    if(responseHeaders.containsKey(headerKey)) {
+                        rin = Response.fromResponse(rin).header(headerKey, responseHeaders.get(headerKey).stream().map(Object::toString).collect(Collectors.joining(", "))).build();
+                    }
+                };
+            }
             requestContext.abortWith(rin);
         }
     }
