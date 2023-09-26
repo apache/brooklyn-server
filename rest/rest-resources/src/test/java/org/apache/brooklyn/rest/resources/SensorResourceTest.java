@@ -28,6 +28,7 @@ import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import net.minidev.json.JSONObject;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -444,4 +445,40 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
                 .get();
         Asserts.assertStringDoesNotContain(""+response.readEntity(Object.class), ""+SECRET_VALUE);
     }
+
+    @Test
+    public void testSetFromMapPreservesMaps() throws Exception {
+        final AttributeSensor<Object> OBJ_SENSOR = Sensors.newSensor(Object.class, "obj_sensor");
+        final Runnable REMOVE = () -> entity.sensors().remove(OBJ_SENSOR);
+        try {
+
+            Response response = client().path(SENSORS_ENDPOINT)
+                    .type(MediaType.APPLICATION_JSON_TYPE)
+                    .post(MutableMap.of(OBJ_SENSOR.getName(), MutableMap.of("a", 1, "b", MutableMap.of("bb", "2"))));
+            assertEquals(response.getStatus(), Response.Status.NO_CONTENT.getStatusCode());
+
+            final Runnable CHECK = () -> {
+                // we don't want minidev JSON objects ending up in sensors; convert to normal maps
+                Map osm = (Map) entity.getAttribute(OBJ_SENSOR);
+                assertEquals(osm.get("a"), 1);
+                Asserts.assertFalse(osm instanceof JSONObject);
+
+                Map osmb = (Map) osm.get("b");
+                assertEquals(osmb.get("bb"), "2");
+                Asserts.assertFalse(osmb instanceof JSONObject);
+            };
+            CHECK.run();
+
+            REMOVE.run();
+
+            // and should be similar when posting to the endpont
+            response = client().path(SENSORS_ENDPOINT+"/"+OBJ_SENSOR.getName())
+                    .type(MediaType.APPLICATION_JSON_TYPE)
+                    .post(MutableMap.of("a", 1, "b", MutableMap.of("bb", "2")));
+            assertEquals(response.getStatus(), Response.Status.NO_CONTENT.getStatusCode());
+            CHECK.run();
+
+        } finally { REMOVE.run(); }
+    }
+
 }

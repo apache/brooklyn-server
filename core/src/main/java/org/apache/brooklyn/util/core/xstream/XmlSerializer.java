@@ -159,6 +159,7 @@ public class XmlSerializer<T> {
         xstream.registerConverter(new ImmutableListConverter(xstream.getMapper()));
         xstream.registerConverter(new ImmutableSetConverter(xstream.getMapper()));
         xstream.registerConverter(new ImmutableMapConverter(xstream.getMapper()));
+        xstream.registerConverter(new MinidevJsonObjectConverter(xstream.getMapper()));
 
         xstream.registerConverter(new HashMultimapConverter(xstream.getMapper()));
 

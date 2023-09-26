@@ -28,13 +28,14 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+
+import net.minidev.json.JSONObject;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.xstream.LambdaPreventionMapper.LambdaPersistenceMode;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static org.testng.Assert.assertEquals;
@@ -217,11 +218,12 @@ public class XmlSerializerTest {
     }
 
 
-    protected void assertSerializeAndDeserialize(Object val) throws Exception {
+    protected Object assertSerializeAndDeserialize(Object val) throws Exception {
         String xml = serializer.toString(val);
         Object result = serializer.fromString(xml);
         LOG.debug("val="+val+"'; xml="+xml+"; result="+result);
         assertEquals(result, val);
+        return result;
     }
 
     public static class StringHolder {
@@ -270,7 +272,7 @@ public class XmlSerializerTest {
     public static class IntHolder {
         public int val;
         
-        IntHolder(int val) {
+        public IntHolder(int val) {
             this.val = val;
         }
         @Override
@@ -328,5 +330,31 @@ public class XmlSerializerTest {
             RendezvousMessage o = (RendezvousMessage) obj;
             return (messageType == o.messageType) && important == o.important && content.equals(o.content);
         }
+    }
+
+
+    static class MinidevJsonObjectHolder {
+        JSONObject jo;
+
+        @Override
+        public boolean equals(Object o2) {
+            return (o2 instanceof MinidevJsonObjectHolder) && java.util.Objects.equals( ((MinidevJsonObjectHolder)o2).jo, jo );
+        }
+    }
+
+    @Test
+    public void testMinidevJsonObject() throws Exception {
+        JSONObject x = new JSONObject(MutableMap.of("cc", 3));
+        x = new JSONObject(MutableMap.of("a", 1, "b", 2, "c", x));
+        Map x0 = (Map) assertSerializeAndDeserialize(x);
+        Asserts.assertTrue(x0 instanceof JSONObject);
+        Asserts.assertTrue(x0.get("c") instanceof JSONObject);
+
+        // holder test doesn't really do anything here as above preserves type, type info stored in attribute;
+        // but kept for good measure
+        MinidevJsonObjectHolder y = new MinidevJsonObjectHolder();
+        y.jo = x;
+        MinidevJsonObjectHolder y0 = (MinidevJsonObjectHolder) assertSerializeAndDeserialize(y);
+        Asserts.assertTrue(y0.jo instanceof JSONObject);
     }
 }

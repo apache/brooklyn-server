@@ -25,10 +25,19 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import com.google.common.reflect.TypeToken;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.internal.LazilyParsedNumber;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.MaybeFunctions;
@@ -41,6 +50,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.jayway.jsonpath.JsonPath;
+import org.apache.brooklyn.util.guava.TypeTokens;
+import org.apache.brooklyn.util.math.NumberMath;
 
 public class JsonFunctions {
 
@@ -340,11 +351,20 @@ public class JsonFunctions {
 
     @SuppressWarnings("unchecked")
     protected static <T> T doCast(JsonElement input, Class<T> expected) {
+        return doCast(input, TypeToken.of(expected));
+    }
+    protected static <T> T doCast(JsonElement input, TypeToken<T> expectedType) {
         if (input == null) {
             return null;
         } else if (input.isJsonNull()) {
             return null;
-        } else if (expected == boolean.class || expected == Boolean.class) {
+        }
+        Class<? super T> expected = expectedType.getRawType();
+        Function<Function<JsonPrimitive,Boolean>, Boolean> handlePrimitive = fn -> {
+            if (Object.class.equals(expected) && input.isJsonPrimitive()) return fn.apply((JsonPrimitive) input);
+            return false;
+        };
+        if (expected == boolean.class || expected == Boolean.class || handlePrimitive.apply(JsonPrimitive::isBoolean)) {
             return (T) (Boolean) input.getAsBoolean();
         } else if (expected == char.class || expected == Character.class) {
             return (T) (Character) input.getAsCharacter();
@@ -364,30 +384,76 @@ public class JsonFunctions {
             return (T) input.getAsBigDecimal();
         } else if (expected == BigInteger.class) {
             return (T) input.getAsBigInteger();
-        } else if (Number.class.isAssignableFrom(expected)) {
-            // TODO Will result in a class-cast if it's an unexpected sub-type of Number not handled above
-            return (T) input.getAsNumber();
-        } else if (expected == String.class) {
+        } else if (Number.class.isAssignableFrom(expected) || handlePrimitive.apply(JsonPrimitive::isNumber)) {
+            // May result in a class-cast if it's an unexpected sub-type of Number not handled above
+            // Also ends up as LazilyParsedNumber which we probably don't want
+            Number result = input.getAsNumber();
+            Number r2 = new NumberMath(result, Number.class).asTypeForced(Number.class);
+            if (r2==null) r2 = result;
+            return (T) r2;
+        } else if (expected == String.class || handlePrimitive.apply(JsonPrimitive::isString)) {
             return (T) input.getAsString();
-        } else if (expected.isArray()) {
-            JsonArray array = input.getAsJsonArray();
-            Class<?> componentType = expected.getComponentType();
-            if (JsonElement.class.isAssignableFrom(componentType)) {
-                JsonElement[] result = new JsonElement[array.size()];
-                for (int i = 0; i < array.size(); i++) {
-                    result[i] = array.get(i);
-                }
-                return (T) result;
-            } else {
-                Object[] result = (Object[]) Array.newInstance(componentType, array.size());
-                for (int i = 0; i < array.size(); i++) {
-                    result[i] = cast(componentType).apply(array.get(i));
-                }
-                return (T) result;
-            }
-        } else {
-            throw new IllegalArgumentException("Cannot cast json element to type "+expected);
         }
+
+        // now complex types
+        if (JsonElement.class.isAssignableFrom(expected)) {
+            return (T) input;
+        }
+
+        if (Iterable.class.isAssignableFrom(expected) || expected.isArray()) {
+            JsonArray array = input.getAsJsonArray();
+            MutableList ml = MutableList.of();
+            TypeToken<?> componentType;
+            if (expectedType.getComponentType()!=null) componentType = expectedType.getComponentType();
+            else {
+                TypeToken<?>[] params = TypeTokens.getGenericParameterTypeTokens(expectedType);
+                componentType = params != null && params.length == 1 ? params[0] : TypeToken.of(Object.class);
+            }
+
+            if (JsonElement.class.isAssignableFrom(componentType.getRawType())) ml.addAll(array);
+            else array.forEach(a -> ml.add(doCast(a, componentType)));
+
+            if (expected.isAssignableFrom(MutableList.class)) {
+                return (T) ml;
+            }
+            if (expected.isAssignableFrom(MutableSet.class)) {
+                return (T) MutableSet.copyOf(ml);
+            }
+            if (expected.isArray()) {
+                return (T) ml.toArray((Object[]) Array.newInstance(componentType.getRawType(), 0));
+            }
+        }
+
+        if (Map.class.isAssignableFrom(expected)) {
+            JsonObject jo = input.getAsJsonObject();
+
+            TypeToken<?>[] params = TypeTokens.getGenericParameterTypeTokens(expectedType);
+            TypeToken<?> value;
+            if (params!=null && params.length==1) {
+                // probably shouldn't happen? but if we supported other maps it might
+                value = params[0];
+            } else if (params!=null && params.length==2) {
+                value = params[1];
+                TypeToken<?> key = params[0];
+                if (!TypeTokens.isAssignableFromRaw(key, String.class)) throw new IllegalArgumentException("Keys of type "+key+" not supported when deserializing JSON");
+            } else {
+                value = TypeToken.of(Object.class);
+            }
+
+            Map mm = MutableMap.of();
+            jo.entrySet().forEach(jos -> mm.put(jos.getKey(), doCast(jos.getValue(), value)));
+            if (expected.isAssignableFrom(MutableMap.class)) {
+                return (T) mm;
+            }
+        }
+
+        if (Object.class.equals(expected)) {
+            // primitives should have beenhandled above
+            if (input.isJsonObject()) return (T) doCast(input, Map.class);
+            if (input.isJsonArray()) return (T) doCast(input, List.class);
+        }
+
+        throw new IllegalArgumentException("Cannot cast json element to type "+expected);
     }
     
     public static <T> Function<Maybe<JsonElement>, T> castM(final Class<T> expected) {

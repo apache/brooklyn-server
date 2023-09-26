@@ -18,10 +18,16 @@
  */
 package org.apache.brooklyn.feed.http;
 
+import java.lang.reflect.Array;
+import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
+import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.Jsonya.Navigator;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -101,6 +107,15 @@ public class JsonFunctionsTest {
     public void testCastMWrong() {
         Maybe<JsonElement> m = JsonFunctions.walkM("europe", "france").apply( Maybe.of( europeMap()) );
         JsonFunctions.castM(String.class).apply(m);
+    }
+
+    @Test
+    public void testCastCollectionsAndMaps() {
+        Asserts.assertEquals(JsonFunctions.doCast(JsonParser.parseString("[1,2,3]"), (new Integer[]{}).getClass()), new Integer[] { 1, 2, 3 });
+        Asserts.assertEquals(JsonFunctions.doCast(JsonParser.parseString("[1,2,3]"), new TypeToken<List<Integer>>() {}), MutableList.of(1, 2, 3));
+        Asserts.assertEquals(JsonFunctions.doCast(JsonParser.parseString("[1,2,3]"), JsonElement.class), JsonParser.parseString("[1,2,3]"));
+        Asserts.assertEquals(JsonFunctions.doCast(JsonParser.parseString("{ \"a\": 1 }"), new TypeToken<Map<String,Integer>>() {}), MutableMap.of("a", 1));
+        Asserts.assertEquals(JsonFunctions.doCast(JsonParser.parseString("{ \"a\": 1 }"), Object.class), MutableMap.of("a", 1));
     }
     
     @Test
