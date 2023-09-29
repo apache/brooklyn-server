@@ -79,9 +79,13 @@ public class WorkflowStateActiveInMemory {
 
     public void checkpoint(WorkflowExecutionContext context) {
         // keep active workflows in memory, even if disabled
-        Map<String, WorkflowExecutionContext> entityActiveWorkflows = getSynchronizedForWorkflowId(context.getEntity().getId());
+        Map<String, WorkflowExecutionContext> entityActiveWorkflows = getForWorkflowIdWithLockButResultNeedsSynch(context.getEntity().getId());
         if (context.getStatus().expirable) {
-            if (entityActiveWorkflows!=null) entityActiveWorkflows.remove(context.getWorkflowId());
+            if (entityActiveWorkflows!=null) {
+                synchronized (entityActiveWorkflows) {
+                    entityActiveWorkflows.remove(context.getWorkflowId());
+                }
+            }
         } else {
             if (entityActiveWorkflows==null) {
                 synchronized (data) {
@@ -92,7 +96,9 @@ public class WorkflowStateActiveInMemory {
                     }
                 }
             }
-            entityActiveWorkflows.put(context.getWorkflowId(), context);
+            synchronized (entityActiveWorkflows) {
+                entityActiveWorkflows.put(context.getWorkflowId(), context);
+            }
         }
 
         if (lastInMemClear + GLOBAL_UPDATE_FREQUENCY < System.currentTimeMillis()) {
@@ -101,28 +107,41 @@ public class WorkflowStateActiveInMemory {
         }
     }
 
+    /** @deprecated since 1.1 returns a _copy_; use the method which makes that explicit */
     public Map<String,WorkflowExecutionContext> getWorkflows(Entity entity) {
-        return getSynchronizedForWorkflowId(entity.getId());
+        return getWorkflowsCopy(entity);
+    }
+    public MutableMap<String,WorkflowExecutionContext> getWorkflowsCopy(Entity entity) {
+        Map<String, WorkflowExecutionContext> entityActiveWorkflows = getForWorkflowIdWithLockButResultNeedsSynch(entity.getId());
+        if (entityActiveWorkflows == null) return MutableMap.of();
+        synchronized (entityActiveWorkflows) {
+            return MutableMap.copyOf(entityActiveWorkflows);
+        }
     }
 
     boolean deleteWorkflow(WorkflowExecutionContext context) {
-        Map<String, WorkflowExecutionContext> entityActiveWorkflows = getSynchronizedForWorkflowId(context.getEntity().getId());
+        Map<String, WorkflowExecutionContext> entityActiveWorkflows = getForWorkflowIdWithLockButResultNeedsSynch(context.getEntity().getId());
         if (entityActiveWorkflows!=null) {
-            return entityActiveWorkflows.remove(context.getWorkflowId()) != null;
+            synchronized (entityActiveWorkflows) {
+                return entityActiveWorkflows.remove(context.getWorkflowId()) != null;
+            }
         }
         return false;
     }
 
-    private Map<String, WorkflowExecutionContext> getSynchronizedForWorkflowId(String entityId) {
+    // note: callers should subsequently sync on the returned map
+    private Map<String, WorkflowExecutionContext> getForWorkflowIdWithLockButResultNeedsSynch(String entityId) {
         synchronized (data) {
             return data.get(entityId);
         }
     }
 
     public WorkflowExecutionContext getFromTag(BrooklynTaskTags.WorkflowTaskTag tag) {
-        Map<String, WorkflowExecutionContext> activeForEntity = getSynchronizedForWorkflowId(tag.getEntityId());
+        Map<String, WorkflowExecutionContext> activeForEntity = getForWorkflowIdWithLockButResultNeedsSynch(tag.getEntityId());
         if (activeForEntity!=null) {
-            return activeForEntity.get(tag.getWorkflowId());
+            synchronized (activeForEntity) {
+                return activeForEntity.get(tag.getWorkflowId());
+            }
         }
         return null;
     }

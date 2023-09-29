@@ -168,7 +168,7 @@ public class WorkflowStatePersistenceViaSensors {
     }
 
     public Map<String,WorkflowExecutionContext> getWorkflows(Entity entity) {
-        MutableMap<String, WorkflowExecutionContext> result = MutableMap.copyOf(WorkflowStateActiveInMemory.get(mgmt).getWorkflows(entity));
+        MutableMap<String, WorkflowExecutionContext> result = WorkflowStateActiveInMemory.get(mgmt).getWorkflowsCopy(entity);
         result.add(entity.sensors().get(INTERNAL_WORKFLOWS));
         return result;
     }
