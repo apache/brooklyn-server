@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -251,8 +252,8 @@ public class EntityAsserts {
      */
     @Beta
     public static void assertEntityFailed(Entity entity) {
-        assertAttributeEquals(entity, SERVICE_UP, false);
-        assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        assertAttributeEqualsEventually(MutableMap.of("timeout", Duration.ONE_SECOND), entity, SERVICE_UP, false);
+        assertAttributeEqualsEventually(MutableMap.of("timeout", Duration.ONE_SECOND), entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
     }
 
     @SuppressWarnings("unchecked")
