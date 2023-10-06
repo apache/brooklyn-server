@@ -88,7 +88,7 @@ public abstract class OsgiConfigLoader implements ConfigLoader {
                 map.putAll(dictToMap(config.getProperties()));
             }
         } else {
-            LOG.info("No OSGi configuration found for {}.cfg", propertiesPath);
+            LOG.debug("No OSGi configuration found for {}.cfg; ignoring", propertiesPath);
         }
 
         return map;

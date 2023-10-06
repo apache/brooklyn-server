@@ -15,16 +15,19 @@
  */
 package org.apache.brooklyn.launcher.osgi;
 
-import com.google.common.base.Stopwatch;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
+import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.core.BrooklynVersionService;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
@@ -36,6 +39,8 @@ import org.apache.brooklyn.launcher.common.BasicLauncher;
 import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.BrooklynUserWithRandomPasswordSecurityProvider;
+import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
@@ -94,6 +99,11 @@ public class OsgiLauncherImpl extends BasicLauncher<OsgiLauncherImpl> implements
     private ConfigurationAdmin configAdmin;
     private ConfigSupplier configSupplier;
 
+    public static String getSoftwareName() {
+        String name = System.getProperty("karaf.name");
+        if (Strings.isNonBlank(name)) return name;
+        return "apache-brooklyn";
+    }
 
     @Override
     public OsgiLauncherImpl startPartOne() {
@@ -142,11 +152,11 @@ public class OsgiLauncherImpl extends BasicLauncher<OsgiLauncherImpl> implements
         synchronized (reloadLock) {
             final Stopwatch startupTimer = Stopwatch.createStarted();
             BrooklynShutdownHooks.resetShutdownFlag();
-            LOG.debug("OsgiLauncher init, catalog "+defaultCatalogLocation);
+            LOG.info(getSoftwareName()+" initialization starting, installing catalog from "+defaultCatalogLocation);
             catalogInitialization(new CatalogInitialization(String.format("file:%s", defaultCatalogLocation)));
             startPartOne();
             startupTimer.stop();
-            LOG.info("Brooklyn initialisation (part one) complete after {}", startupTimer.toString());
+            LOG.info(getSoftwareName()+" initialization - part one complete, took {}", startupTimer.toString());
         }
     }
 
@@ -304,10 +314,47 @@ public class OsgiLauncherImpl extends BasicLauncher<OsgiLauncherImpl> implements
             final Stopwatch startupTimer = Stopwatch.createStarted();
             LOG.debug("OsgiLauncher catalog/rebind running initialization (part two)");
             startPartTwo();
+            // initialize delegate, show any relevant init messages
+            new DelegatingSecurityProvider(getManagementContext()).getDelegate();
+
             ((ManagementContextInternal)getManagementContext()).getBrooklynProperties().put(OsgiManager.OSGI_STARTUP_COMPLETE, true);
-            startupTimer.stop();
-            LOG.info("Brooklyn initialization (part two) complete after {}", startupTimer.toString());
             FrameworkLookup.invalidateCaches();
+
+
+            StringBuilder interstitial = new StringBuilder(getSoftwareName().toUpperCase());
+            interstitial.append(" ");
+            List<String> notes = MutableList.of();
+
+            ManagementNodeState state = getManagementContext().getHighAvailabilityManager().getNodeState();
+            if (ManagementNodeState.MASTER.equals(state)) {
+                interstitial.append("RUNNING");
+
+                int appCount = getManagementContext().getApplications().size();
+                if (appCount>0) {
+                    notes.add(appCount+" app" + (appCount!=1 ? "s" : "") +" under management");
+                }
+
+                int catalogSize = Iterables.size(getManagementContext().getTypeRegistry().getAll());
+                notes.add(catalogSize+" items in type registry");
+//                interstitial.append(" - "+notes);
+
+                // URL would be nice but we don't know that
+
+            } else if (ManagementNodeState.FAILED.equals(state)) {
+                interstitial.append("FAILED - see logs for more information");
+            } else {
+                interstitial.append("in state: "+state.name().toUpperCase());
+            }
+            LOG.info(interstitial.toString().toLowerCase()+(notes.isEmpty() ? "" : " - "+notes.stream().collect(Collectors.joining(", "))));
+
+            startupTimer.stop();
+            LOG.info(getSoftwareName()+" initialization - part two complete, took {}", startupTimer.toString());
+
+            new Thread(()-> {
+                // wait 50ms to let other log messages show above us
+                Time.sleep(Duration.millis(50));
+                LOG.info("======== " +interstitial+" ========");
+            }, getSoftwareName()+"-start-completion").start();
         }
     }
 

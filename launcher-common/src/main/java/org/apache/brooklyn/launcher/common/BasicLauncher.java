@@ -18,16 +18,18 @@
  */
 package org.apache.brooklyn.launcher.common;
 
-import com.google.common.annotations.VisibleForTesting;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
+import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
@@ -76,11 +78,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Example usage is:
@@ -159,7 +157,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
      * The application will not be started as part of this call (callers can
      * subsequently call {@link #start()} or {@link #getApplications()}.
      *
-     * @see #application(Application)
+     * @see #application(org.apache.brooklyn.api.entity.EntitySpec)
      */
     public T application(String yaml) {
         this.yamlAppsToManage.add(yaml);

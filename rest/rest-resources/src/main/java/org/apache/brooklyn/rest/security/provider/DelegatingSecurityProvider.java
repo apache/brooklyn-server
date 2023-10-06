@@ -67,7 +67,7 @@ public class DelegatingSecurityProvider implements SecurityProvider {
             log.trace("Brooklyn security: using pre-set security provider {}", presetDelegate);
             return presetDelegate;
         }
-        
+
         String className = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME);
 
         if (delegate != null && BrooklynWebConfig.hasNoSecurityOptions(mgmt.getConfig())) {
@@ -78,18 +78,28 @@ public class DelegatingSecurityProvider implements SecurityProvider {
 
         try {
             String bundle = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_BUNDLE);
-            if (bundle!=null) {
-                String bundleVersion = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_BUNDLE_VERSION);
-                log.info("Brooklyn security: using security provider " + className + " from " + bundle+":"+bundleVersion);
-                BundleContext bundleContext = ((ManagementContextInternal)mgmt).getOsgiManager().get().getFramework().getBundleContext();
-                delegate = loadProviderFromBundle(mgmt, bundleContext, bundle, bundleVersion, className);
-                saveDelegate();
-            } else {
-                log.info("Brooklyn security: using security provider " + className);
-                ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
-                Class<? extends SecurityProvider> clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
-                delegate = createSecurityProviderInstance(mgmt, clazz);
-                saveDelegate();
+            // use synch block to prevent multiple instances and messages from loading
+            synchronized (DelegatingSecurityProvider.class) {
+                // try again with preset delegate
+                presetDelegate = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE);
+                if (presetDelegate!=null) {
+                    log.trace("Brooklyn security: using pre-set security provider, found late - {}", presetDelegate);
+                    return presetDelegate;
+                }
+
+                if (bundle != null) {
+                    String bundleVersion = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_BUNDLE_VERSION);
+                    log.info("Brooklyn security: using security provider " + className + " from " + bundle + ":" + bundleVersion);
+                    BundleContext bundleContext = ((ManagementContextInternal) mgmt).getOsgiManager().get().getFramework().getBundleContext();
+                    delegate = loadProviderFromBundle(mgmt, bundleContext, bundle, bundleVersion, className);
+                    saveDelegate();
+                } else {
+                    log.info("Brooklyn security: using security provider " + className);
+                    ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
+                    Class<? extends SecurityProvider> clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
+                    delegate = createSecurityProviderInstance(mgmt, clazz);
+                    saveDelegate();
+                }
             }
         } catch (Exception e) {
             log.warn("Brooklyn security: unable to instantiate security provider " + className + "; all logins are being disallowed", e);

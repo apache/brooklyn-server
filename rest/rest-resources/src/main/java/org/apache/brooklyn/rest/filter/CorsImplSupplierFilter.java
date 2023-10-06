@@ -144,7 +144,7 @@ public class CorsImplSupplierFilter extends CrossOriginResourceSharingFilter {
         this.enableCors = Boolean.TRUE.equals(enabled);
         setFindResourceMethod(false);
         if (enableCors) {
-            LOGGER.info("CORS brooklyn feature enabled.");
+            LOGGER.debug("CORS brooklyn feature enabled.");
         } else {
             LOGGER.trace("CORS brooklyn feature disabled.");
         }

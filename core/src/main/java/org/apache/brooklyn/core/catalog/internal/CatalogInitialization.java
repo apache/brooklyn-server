@@ -663,7 +663,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         if (catalogUpgrades.isEmpty()) {
             return persistedState;
         } else {
-            rebindLogger.info("Filtering out persisted catalog: removedBundles="+catalogUpgrades.getRemovedBundles()+"; removedLegacyItems="+catalogUpgrades.getRemovedLegacyItems());
+            rebindLogger.debug("Filtering out persisted catalog: removedBundles="+catalogUpgrades.getRemovedBundles()+"; removedLegacyItems="+catalogUpgrades.getRemovedLegacyItems());
         }
         
         Map<VersionedName, InstallableManagedBundle> bundles = new LinkedHashMap<>();

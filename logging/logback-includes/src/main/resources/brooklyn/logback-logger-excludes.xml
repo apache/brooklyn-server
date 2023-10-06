@@ -80,9 +80,13 @@
          `o.o.p.w.u.ServletContainerInitializerScanner [pache.cxf.osgi])] failed to parse and instantiate of javax.servlet.ServletContainerInitializer in classpath`;
          could possibly be fixed with bundle load order but logging from the web bundles seems fine so not worth it -->
     <logger name="org.ops4j.pax.web.utils.ServletContainerInitializerScanner" level="ERROR"/>
+    <!-- Verbose at INFO level -->
+    <logger name="org.ops4j.pax.web.jsp.TldScanner" level="WARN"/>
     <!-- Again verbose, warning about No HttpConfig Element found in jetty.xml, using default -->
     <logger name="org.ops4j.pax.web.service.jetty.internal.JettyFactoryImpl" level="ERROR"/>
     <!-- logs stack traces at info level for commands not found while still initializing -->
     <logger name="org.apache.karaf.shell.impl.action.osgi.CommandExtension" level="WARN"/>
+
+    <!-- NOTE: above need duplicated in features under karaf/features/src/main/resources/resources/etc/org.ops4j.pax.logging.cfg -->
 
 </included>

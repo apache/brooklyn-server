@@ -821,20 +821,26 @@ public class BrooklynBomOsgiArchiveInstaller {
                 result.deferredStart = startRunnable;
                 log.debug(result.message+" (Brooklyn load deferred)");
             } else {
+                int startBundleCount = mgmt().getOsgiManager().map(o -> o.getManagedBundles().size()).or(0);
                 startRunnable.run();
-                if (!result.typesInstalled.isEmpty()) {
+                int newBundleCount = mgmt().getOsgiManager().map(o -> o.getManagedBundles().size()).or(0) - startBundleCount;
+                if (!result.typesInstalled.isEmpty() && newBundleCount<=1) {
                     // show fewer info messages, only for 'interesting' and non-deferred installations
                     // (rebind is deferred, as are tests, but REST is not)
-                    final int MAX_TO_LIST_EXPLICITLY = 5;
-                    Iterable<String> firstN = Iterables.transform(MutableList.copyOf(Iterables.limit(result.typesInstalled, MAX_TO_LIST_EXPLICITLY)),
+                    final int LIST_EXPLICITLY_MAX = 5;
+                    final int LIST_EXPLICITLY_IF_MAX_EXCEEDED = 1;
+                    final int listExplicitlyHereCount = result.typesInstalled.size() > LIST_EXPLICITLY_MAX ? LIST_EXPLICITLY_IF_MAX_EXCEEDED : LIST_EXPLICITLY_MAX;
+                    Iterable<String> firstN = Iterables.transform(MutableList.copyOf(Iterables.limit(result.typesInstalled, listExplicitlyHereCount)),
                             input -> input.getVersionedName().toString());
-                    log.info(result.message+", items: "+firstN+
-                        (result.typesInstalled.size() > MAX_TO_LIST_EXPLICITLY ? " (and others, "+result.typesInstalled.size()+" total)" : "") );
-                    if (log.isDebugEnabled() && result.typesInstalled.size()>MAX_TO_LIST_EXPLICITLY) {
+                    log.info(result.message+" (completed), items: "+firstN+
+                        (result.typesInstalled.size() > listExplicitlyHereCount ? " (and others, "+result.typesInstalled.size()+" total)" : "") );
+                    if (log.isDebugEnabled() && result.typesInstalled.size()>listExplicitlyHereCount) {
                         log.debug(result.message+", all items: "+result.typesInstalled);
                     }
                 } else {
-                    log.debug(result.message+" (complete): bundle started and now managed by Brooklyn, though no catalog items found (may have installed other bundles though)");
+                    log.info(result.message+" (completed), "+result.typesInstalled.size()+" item"+(result.typesInstalled.size()!=1 ? "s" : "")+" "+
+                            (newBundleCount > 1 ? " plus "+(newBundleCount-1)+" other bundle"+(newBundleCount>2 ? "s" :"")+" detected" : "")+
+                            ", "+Iterables.size(mgmt().getTypeRegistry().getAll())+" total in type registry");
                 }
             }
 
