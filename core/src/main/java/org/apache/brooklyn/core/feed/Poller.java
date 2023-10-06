@@ -26,7 +26,12 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.*;
+import com.google.common.base.MoreObjects;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -50,8 +55,6 @@ import org.apache.brooklyn.util.time.Duration;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.MoreObjects;
 
 
 /** 
@@ -91,6 +94,7 @@ public class Poller<V> {
     public void schedulePoll(AbstractEntityAdjunct feed, Set<? extends PollConfig> pollConfigs, Callable pollCallable, PollHandler pollHandler) {
         boolean subscribed = false;
         long minPeriodMillis = Long.MAX_VALUE;
+        boolean overallSkipInitialRun = false;
         Set<Supplier<DslPredicates.DslPredicate>> conditions = MutableSet.of();
 
         for (PollConfig pc: pollConfigs) {
@@ -108,9 +112,10 @@ public class Poller<V> {
             }
 
             for (Pair<Entity, Sensor> pair : triggersResolved) {
-                subscribe(pollCallable, pollHandler, pair.getLeft(), pair.getRight(), pc.getCondition());
+                subscribe(pollCallable, pollHandler, pair.getLeft(), pair.getRight(), Boolean.TRUE.equals(pc.getSkipInitialRun()), pc.getCondition());
                 subscribed = true;
             }
+            overallSkipInitialRun |= Boolean.TRUE.equals(pc.getSkipInitialRun());
         }
 
         if (minPeriodMillis >0 && (minPeriodMillis < Duration.PRACTICALLY_FOREVER.toMilliseconds() || !subscribed)) {
@@ -124,13 +129,14 @@ public class Poller<V> {
                     return aggregate;
                 };
             }
-            scheduleAtFixedRate(pollCallable, pollHandler, Duration.millis(minPeriodMillis), condition);
+            scheduleAtFixedRate(pollCallable, pollHandler, Duration.millis(minPeriodMillis), overallSkipInitialRun, condition);
         }
     }
 
     private static class PollJob<V> {
         final PollHandler<? super V> handler;
         final Duration pollPeriod;
+        boolean skipInitialRun = false;
         final Callable<?> job;
         final Runnable wrappedJob;
         final Entity pollTriggerEntity;
@@ -140,14 +146,15 @@ public class Poller<V> {
         private boolean loggedPreviousException = false;
 
         PollJob(final Callable<V> job, final PollHandler<? super V> handler, Duration period) {
-            this(job, handler, period, null, null, null);
+            this(job, handler, period, null, null, false, null);
         }
 
-        PollJob(final Callable<V> job, final PollHandler<? super V> handler, Duration period, Entity sensorSource, Sensor<?> sensor, Supplier<DslPredicates.DslPredicate> pollCondition) {
+        PollJob(final Callable<V> job, final PollHandler<? super V> handler, Duration period, Entity sensorSource, Sensor<?> sensor, boolean skipInitialRun, Supplier<DslPredicates.DslPredicate> pollCondition) {
             this.handler = handler;
             this.pollPeriod = period;
             this.pollTriggerEntity = sensorSource;
             this.pollTriggerSensor = sensor;
+            this.skipInitialRun = skipInitialRun;
             this.pollCondition = pollCondition;
             this.job = job;
             wrappedJob = new Runnable() {
@@ -200,21 +207,27 @@ public class Poller<V> {
     }
 
     public void scheduleAtFixedRate(Callable<V> job, PollHandler<? super V> handler, long periodMillis) {
-        scheduleAtFixedRate(job, handler, Duration.millis(periodMillis), null);
+        scheduleAtFixedRate(job, handler, Duration.millis(periodMillis), false, null);
     }
     public void scheduleAtFixedRate(Callable<V> job, PollHandler<? super V> handler, Duration period) {
-        scheduleAtFixedRate(job, handler, period, null);
+        scheduleAtFixedRate(job, handler, period, false, null);
     }
     public void scheduleAtFixedRate(Callable<V> job, PollHandler<? super V> handler, Duration period, Supplier<DslPredicates.DslPredicate> pollCondition) {
+        scheduleAtFixedRate(job, handler, period, false, pollCondition);
+    }
+    public void scheduleAtFixedRate(Callable<V> job, PollHandler<? super V> handler, Duration period, boolean skipInitialRun, Supplier<DslPredicates.DslPredicate> pollCondition) {
         if (started) {
             throw new IllegalStateException("Cannot schedule additional tasks after poller has started");
         }
-        PollJob<V> foo = new PollJob<V>(job, handler, period, null, null, pollCondition);
+        PollJob<V> foo = new PollJob<V>(job, handler, period, null, null, skipInitialRun, pollCondition);
         pollJobs.add(foo);
     }
 
     public void subscribe(Callable<V> job, PollHandler<? super V> handler, Entity sensorSource, Sensor<?> sensor, Supplier<DslPredicates.DslPredicate> condition) {
-        pollJobs.add(new PollJob<V>(job, handler, null, sensorSource, sensor, condition));
+        subscribe(job, handler, sensorSource, sensor, false, condition);
+    }
+    public void subscribe(Callable<V> job, PollHandler<? super V> handler, Entity sensorSource, Sensor<?> sensor, boolean skipInitialRun, Supplier<DslPredicates.DslPredicate> condition) {
+        pollJobs.add(new PollJob<V>(job, handler, null, sensorSource, sensor, skipInitialRun, condition));
     }
 
     @SuppressWarnings({ "unchecked" })
@@ -254,7 +267,7 @@ public class Poller<V> {
             return task;
         };
         Multimap<Callable,PollJob> nonScheduledJobs = Multimaps.newSetMultimap(MutableMap.of(), MutableSet::of);
-        pollJobs.forEach(pollJob -> nonScheduledJobs.put(pollJob.job, pollJob));
+        pollJobs.stream().filter(pj -> !pj.skipInitialRun).forEach(pollJob -> nonScheduledJobs.put(pollJob.job, pollJob));
 
         // 'runInitially' could be an option on the job; currently we always do
         // if it's a scheduled task, that happens automatically; if it's a triggered task
@@ -272,6 +285,7 @@ public class Poller<V> {
                 added = true;
                 tb.displayName("Periodic: " + scheduleName);
                 tb.period(pollJob.pollPeriod);
+                if (pollJob.skipInitialRun) tb.delay(pollJob.pollPeriod);
 
                 if (minPeriod==null || (pollJob.pollPeriod.isShorterThan(minPeriod))) {
                     minPeriod = pollJob.pollPeriod;
@@ -309,7 +323,7 @@ public class Poller<V> {
         }
 
         // no period for these, but we do need to run them initially, but combine if the Callable is the same (e.g. multiple triggers)
-        // not the PollJob is one per trigger, and the wrappedJob is specific to the poll job, but doesn't depend on the trigger, so we can just take the first
+        // note the PollJob is one per trigger, and the wrappedJob is specific to the poll job, but doesn't depend on the trigger, so we can just take the first
         nonScheduledJobs.asMap().forEach( (jobC,jobP) -> {
             Runnable job = jobP.iterator().next().wrappedJob;
             String jobSummaries = jobP.stream().map(j -> j.handler.getDescription()).filter(Strings::isNonBlank).collect(Collectors.joining(", "));

@@ -28,6 +28,7 @@ import org.apache.brooklyn.core.feed.PollConfig;
 import org.apache.brooklyn.core.feed.PollHandler;
 import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
+import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -50,9 +51,9 @@ public class WorkflowPolicy<T> extends AbstractPolicy implements WorkflowCommonC
 
     private static final Logger LOG = LoggerFactory.getLogger(WorkflowPolicy.class);
 
-    public static final ConfigKey<Duration> POLICY_PERIOD = ConfigKeys.newConfigKey(Duration.class, "period", "Period, including units e.g. 1m or 5s or 200ms", null);
-    public static final ConfigKey<Object> POLICY_TRIGGERS_SENSORS = ConfigKeys.newConfigKey(new TypeToken<Object>() {}, "triggers",
-            "Sensors which should trigger this policy, supplied with list of maps containing sensor (name or sensor instance) and entity (ID or entity instance), or just sensor names or just one sensor");
+    public static final ConfigKey<Duration> POLICY_PERIOD = AbstractAddTriggerableSensor.SENSOR_PERIOD;
+    public static final ConfigKey<Object> POLICY_TRIGGERS_SENSORS =  AbstractAddTriggerableSensor.SENSOR_TRIGGERS;
+    public static final ConfigKey<Boolean> SKIP_INITIAL_RUN = AbstractAddTriggerableSensor.SKIP_INITIAL_RUN;
 
     public static final ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition", "Optional condition required for this sensor feed to run");
 
@@ -137,6 +138,7 @@ public class WorkflowPolicy<T> extends AbstractPolicy implements WorkflowCommonC
 
         PollConfig pc = new PollConfig( (AttributeSensor) null )
                 .period(getConfig(POLICY_PERIOD))
+                .skipInitialRun(getConfig(SKIP_INITIAL_RUN))
                 .otherTriggers(getConfig(POLICY_TRIGGERS_SENSORS))
                 .condition(new ConditionSupplierFromAdjunct());
 

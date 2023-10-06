@@ -1068,23 +1068,35 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newIntegerSensor("x"), 7);
     }
 
-    @Test
-    public void testAddPolicyStep() throws Exception {
-        Entity app = createAndStartApplication(
-                "services:",
-                "- type: " + BasicEntity.class.getName());
-        Entity entity = Iterables.getOnlyElement(app.getChildren());
+    private void addSetXPolicy(Entity entity, String value, boolean ignoreTrigger, boolean skipInitial) {
         WorkflowExecutionContext x = WorkflowBasicTest.runWorkflow(entity, Strings.lines(
                 "steps:",
                 "  - type: add-policy",
                 "    blueprint:",
                 "      type: workflow-policy",
                 "      brooklyn.config:",
-                "        triggers: [ other_sensor ]",
-                "        steps: [ set-sensor integer x = 1 ]"
+                "        triggers: [ other_sensor" + (ignoreTrigger ? "_ignored" : "") + " ]",
+                "        " + (skipInitial ? "skip_initial_run: true" : ""),
+                "        steps: [ set-sensor integer x = "+value+" ]"
         ), "add-policy");
         x.getTask(false).get().getUnchecked();
+    }
+
+    @Test
+    public void testAddPolicyStep() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName());
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        addSetXPolicy(entity, "1", false, false);
         EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newIntegerSensor("x"), 1);
+        addSetXPolicy(entity, "2", true, false);  // runs initially
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newIntegerSensor("x"), 2);
+        addSetXPolicy(entity, "3", false, true);  // does not run initially
+        // Time.sleep(Duration.millis(250));  // uncomment this to really test it
+        EntityAsserts.assertAttribute(entity, Sensors.newIntegerSensor("x"), v -> !new Integer(3).equals(v));
+        entity.sensors().set(Sensors.newStringSensor("other_sensor"), "go"); // now it will run
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newIntegerSensor("x"), 3);
     }
 
     @Test

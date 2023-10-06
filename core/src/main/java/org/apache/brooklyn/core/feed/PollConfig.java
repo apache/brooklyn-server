@@ -35,6 +35,7 @@ import org.apache.brooklyn.util.time.Duration;
  */
 public class PollConfig<V, T, F extends PollConfig<V, T, F>> extends FeedConfig<V, T, F> {
 
+    private Boolean skipInitialRun = null;  // null default is false
     private long period = -1;
     private Object otherTriggers;
     private String description;
@@ -51,6 +52,9 @@ public class PollConfig<V, T, F extends PollConfig<V, T, F>> extends FeedConfig<
         this.condition = other.condition;
         this.description = other.description;
     }
+
+    public Boolean getSkipInitialRun() { return skipInitialRun; }
+    public F skipInitialRun(Boolean val) { this.skipInitialRun = val; return self(); }
 
     public long getPeriod() {
         return period;

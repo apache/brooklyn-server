@@ -58,6 +58,7 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
     public static final ConfigKey<Duration> SENSOR_PERIOD = ConfigKeys.newConfigKey(Duration.class, "period", "Period, including units e.g. 1m or 5s or 200ms", null);
     public static final ConfigKey<Object> SENSOR_TRIGGERS = ConfigKeys.newConfigKey(new TypeToken<Object>() {}, "triggers",
             "Sensors which should trigger this feed, supplied with list of maps containing sensor (name or sensor instance) and entity (ID or entity instance), or just sensor names or just one sensor");
+    public static final ConfigKey<Boolean> SKIP_INITIAL_RUN = ConfigKeys.newConfigKey(Boolean.class, "skip_initial_run", "If set, skips running when added; runs only after the period or on a subsequent trigger");
     public static final ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition", "Optional condition required for this sensor feed to run");
 
     public static final ConfigKey<Boolean> ONLY_IF_SERVICE_UP = ConfigKeys.newBooleanConfigKey("onlyIfServiceUp", "Whether to run only if service is up.", null);
@@ -203,6 +204,7 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
                 .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
                 .logWarningGraceTime(logWarningGraceTime)
                 .period(getPeriod(entity, initParams()))
+                .skipInitialRun(initParam(SKIP_INITIAL_RUN))
                 .otherTriggers(getTriggersMaybe(entity, configBag).orNull())
                 .condition(new ConditionSupplierFromConfigBag(configBag, entity));
 
