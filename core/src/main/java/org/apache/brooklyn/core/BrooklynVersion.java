@@ -250,7 +250,7 @@ public class BrooklynVersion implements BrooklynVersionService {
         while (paths.hasMoreElements()) {
             URL u = paths.nextElement();
             // running fram a classes directory (including coverage-classes for cobertura) triggers dev env
-            if (u.getPath().endsWith("org/apache/brooklyn/core/BrooklynVersion.class")) {
+            if (u.getPath().endsWith("org/apache/brooklyn/core/BrooklynVersion.class") && "file".equals(u.getProtocol()) && !u.toString().contains("!")) {
                 try {
                     log.debug("Brooklyn dev/src environment detected: BrooklynVersion class is at: " + u);
                     return true;

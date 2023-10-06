@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.AddressableLocation;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -146,6 +147,11 @@ public class HostGeoInfo implements Serializable {
     private static boolean warnedLegacy = false;
     
     private static HostGeoLookup findHostGeoLookupImpl() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+        if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_HOST_GEO_LOOKUP)) {
+            log.debug("Host geo lookup feature not enabled. Returning null. Set system property "+BrooklynFeatureEnablement.FEATURE_HOST_GEO_LOOKUP+" to permit.");
+            return null;
+        }
+
         String type = BrooklynSystemProperties.HOST_GEO_LOOKUP_IMPL.getValue();
         if (type==null) {
             type = BrooklynSystemProperties.HOST_GEO_LOOKUP_IMPL_LEGACY.getValue();
