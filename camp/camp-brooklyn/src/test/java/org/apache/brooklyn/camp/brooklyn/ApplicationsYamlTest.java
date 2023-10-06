@@ -446,6 +446,21 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         e -> Asserts.expectedFailureContains(e, "not_a_real_service"));
     }
 
+    @Test
+    public void testGoodErrorOnServicesBlockWithType() throws Exception {
+        Asserts.assertFailsWith(() -> {
+                    addCatalogItems(
+                            "brooklyn.catalog:",
+                            "  id: simple-test",
+                            "  version: " + TEST_VERSION,
+                            "type: foo",
+                            "services:",
+                            "- type: "+BasicEntity.class.getName());
+                    RegisteredType t = mgmt().getTypeRegistry().get("simple-test", TEST_VERSION);
+                    return t+" - "+t.getSuperTypes();
+                },
+                e -> Asserts.expectedFailureContains(e, "Blueprint contains both a 'services' block and a 'type' specification"));
+    }
 
     @Override
     protected Logger getLogger() {

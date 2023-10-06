@@ -980,8 +980,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (!tags.contains(BrooklynTags.CATALOG_TEMPLATE)) {
                     if (requireValidation) {
                         throw Exceptions.propagate(resolutionError);
+                    } else {
+                        // normally if validation not requested (eg because we are adding multiple bundles and might have forward references,
+                        // we add (below) as unresolved, and then do validation later; but that validation doesn't check basic problems,
+                        // on those it makes sense to fail fast.
+                        planInterpreter.checkResolution(true);
                     }
-                    // warn? add as "unresolved" ? just do nothing?
                 }
             }
 
@@ -1364,6 +1368,11 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
 
         public void resolve() {
+            resolveWithoutChecking();
+            checkResolution(false);
+        }
+
+        public void resolveWithoutChecking() {
             try {
                 currentlyResolvingType.set(Strings.isBlank(itemId) ? itemYaml : itemId);
 
@@ -1411,6 +1420,25 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 return;
             } finally {
                 currentlyResolvingType.remove();
+            }
+        }
+
+        public void checkResolution(boolean failOnBasicProblems) {
+            if (!failOnBasicProblems && !isResolved()) return;
+
+            if (item!=null) {
+                if (CatalogItemType.ENTITY.equals(catalogItemType)) {
+                    if (item.containsKey("services")) {
+                        if (item.containsKey("type")) {
+                            resolved = false;
+                            IllegalArgumentException error = new IllegalArgumentException("Blueprint contains both a 'services' block and a 'type' specification; not permitted");
+                            if (failOnBasicProblems) throw error;
+                            this.errors.add(error);
+                            return;
+                        }
+                    }
+                }
+
             }
         }
 
