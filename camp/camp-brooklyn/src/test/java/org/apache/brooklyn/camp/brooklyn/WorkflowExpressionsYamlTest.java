@@ -18,11 +18,13 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
@@ -36,6 +38,8 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.entity.stock.BasicEntityImpl;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -49,6 +53,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
@@ -339,5 +344,31 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
 
         coercedFromMissingId = Entities.submit(lastEntity, Tasks.of("test", () -> TypeCoercions.tryCoerce("does_not_exist", Entity.class))).get();
         Asserts.assertThat(coercedFromMissingId, Maybe::isAbsent);
+    }
+
+
+    @Test
+    public void testTransformGet() throws Exception {
+        BrooklynDslCommon.registerSerializationHooks();
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName());
+
+        BiFunction<Object,String,Object> get = (input, command) -> {
+            app.config().set(ConfigKeys.newConfigKey(Object.class, "x"), input);
+            return WorkflowBasicTest.runWorkflow(app, " - transform $brooklyn:config(\"x\") | get " + command, "test").getTask(false).get().getUnchecked();
+        };
+
+        Asserts.assertEquals( get.apply(Suppliers.ofInstance(42), ""), 42);
+        Asserts.assertEquals( get.apply(42, ""), 42);
+
+        Asserts.assertEquals( get.apply(MutableList.of(42), "0"), 42);
+        Asserts.assertEquals( get.apply(MutableList.of(42), "[0]"), 42);
+        app.config().set(ConfigKeys.newConfigKey(Object.class, "index"), 0);
+        Asserts.assertEquals( get.apply(MutableList.of(42), "$brooklyn:config(\"index\")"), 42);
+
+        Asserts.assertEquals( get.apply(MutableMap.of("k", MutableList.of(42)), ".k"), MutableList.of(42));
+        Asserts.assertEquals( get.apply(MutableMap.of("k", MutableList.of(42)), "[\"k\"][0]"), 42);
+        Asserts.assertEquals( get.apply(MutableMap.of("k", MutableList.of(42)), ".k[0]"), 42);
     }
 }

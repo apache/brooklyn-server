@@ -272,6 +272,8 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         TRANSFORMATIONS.put("merge", () -> new TransformMerge());
         TRANSFORMATIONS.put("prepend", () -> new TransformPrependAppend(false));
         TRANSFORMATIONS.put("append", () -> new TransformPrependAppend(true));
+        TRANSFORMATIONS.put("join", () -> new TransformJoin());
+        TRANSFORMATIONS.put("split", () -> new TransformSplit());
         TRANSFORMATIONS.put("slice", () -> new TransformSlice());
         TRANSFORMATIONS.put("remove", () -> new TransformRemove());
         TRANSFORMATIONS.put("json", () -> new TransformJsonish(true, false, false));
@@ -300,17 +302,18 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         TRANSFORMATIONS.put("sum", () -> v -> sum(v, "sum"));
         TRANSFORMATIONS.put("average", () -> v -> average(v, "average"));
         TRANSFORMATIONS.put("size", () -> v -> size(v, "size"));
-        TRANSFORMATIONS.put("get", () -> v -> {
-            // TODO should this be able to get indexes etc
-            if (v instanceof Supplier) return ((Supplier)v).get();
-            return v;
-        });
         TRANSFORMATIONS.put("to_string", () -> v -> Strings.toString(v));
         TRANSFORMATIONS.put("to_upper_case", () -> v -> ((String)v).toUpperCase());
         TRANSFORMATIONS.put("to_lower_case", () -> v -> ((String)v).toLowerCase());
         TRANSFORMATIONS.put("return", () -> new TransformReturn());
         TRANSFORMATIONS.put("set", () -> new TransformSetWorkflowVariable());
         TRANSFORMATIONS.put("resolve_expression", () -> new TransformResolveExpression());
+
+        // 'get' is added downstream when DSL is initialized
+        //TRANSFORMATIONS.put("get", () -> new TransformGet());
+    }
+    public static void registerTransformation(String key, Supplier<Function> xform) {
+        TRANSFORMATIONS.put(key, xform);
     }
 
     static final Object minmax(Object v, String word, Predicate<Integer> test) {

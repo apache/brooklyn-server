@@ -18,11 +18,16 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import java.util.Arrays;
+import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import com.google.common.base.Suppliers;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.workflow.steps.variables.TransformVariableWorkflowStep;
@@ -30,16 +35,10 @@ import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import java.util.Arrays;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
 
@@ -65,7 +64,7 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
     }
 
     static Object runWorkflowSteps(Entity entity, String ...steps) {
-        return WorkflowBasicTest.runWorkflow(entity, Arrays.asList(steps).stream().map(s -> "- "+Strings.indent(2, s).trim()).collect(Collectors.joining("\n")), "test").getTask(false).get().getUnchecked();
+        return WorkflowBasicTest.runWorkflow(entity, Arrays.stream(steps).map(s -> "- "+Strings.indent(2, s).trim()).collect(Collectors.joining("\n")), "test").getTask(false).get().getUnchecked();
     }
     Object runWorkflowSteps(String ...steps) {
         return runWorkflowSteps(app, steps);
@@ -119,7 +118,7 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
 
 
     @Test
-    public void testTransformTrim() throws Exception {
+    public void testTransformTrim() {
         String untrimmed = "Hello, World!   ";
         String trimmed = untrimmed.trim();
 
@@ -132,7 +131,7 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testTransformRegex() throws Exception {
+    public void testTransformRegex() {
         Asserts.assertEquals(transform("value 'silly world' | replace regex l. k"), "siky world");
         Asserts.assertEquals(transform("value 'silly world' | replace all regex l. k"), "siky work");
         // with slash
@@ -151,14 +150,14 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testTransformLiteral() throws Exception {
+    public void testTransformLiteral() {
         Asserts.assertEquals(transform("value 'abc def ghi' | replace literal c.*d XXX"), "abc def ghi");
         Asserts.assertEquals(transform("value 'abc.*def ghi c.*d' | replace literal c.*d XXX"), "abXXXef ghi c.*d");
         Asserts.assertEquals(transform("value 'abc.*def ghi c.*d' | replace all literal c.*d XXX"), "abXXXef ghi XXX");
     }
 
     @Test
-    public void testTransformGlob() throws Exception {
+    public void testTransformGlob() {
         Asserts.assertEquals(transform("value 'abc def ghi' | replace glob c*e XXX"), "abXXXf ghi");
         // glob is greedy, unless all is specified where it is not
         Asserts.assertEquals(transform("value 'abc def ghi c2e' | replace glob c*e XXX"), "abXXX");
@@ -274,5 +273,59 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
                     "  b: 2"),
                 MutableMap.of("a", 1));
     }
+
+    @Test
+    public void testTransformJoin() {
+        Asserts.assertEquals( runWorkflowSteps(
+                        "let list words = [ \"hello\" , 1, \"world\" ]",
+                        "transform ${words} | join \" \" | return"),
+                "hello 1 world");
+    }
+
+    @Test
+    public void testTransformSplit() {
+        BiFunction<String,String,Object> split = (input, command) -> runWorkflowSteps(
+                            "let words = "+input,
+                            "transform ${words} | split "+command);
+
+        Asserts.assertEquals( split.apply("\"hello 1 world\"", "\" \""), MutableList.of("hello", "1", "world"));
+        Asserts.assertEquals( split.apply("\"hello  1 world\"", "\"  \""), MutableList.of("hello", "1 world"));
+        Asserts.assertEquals( split.apply("\"hello  1 world\"", "literal \"  \""), MutableList.of("hello", "1 world"));
+        Asserts.assertEquals( split.apply("\"hello  1 world\"", "regex \" +\""), MutableList.of("hello", "1", "world"));
+        Asserts.assertEquals( split.apply("\"hello  1 world\"", "\" +\""), MutableList.of("hello  1 world"));
+        Asserts.assertEquals( split.apply("\"hello  1 world\"", "keep_delimiters regex \" +\""), MutableList.of("hello", "  ", "1", " ", "world"));
+        Asserts.assertEquals( split.apply("\"hello  1 world\"", "limit 4 keep_delimiters regex \" +\""), MutableList.of("hello", "  ", "1", " "));
+        Asserts.assertEquals( split.apply("\"hello  1 world\"", "keep_delimiters \" \""), MutableList.of("hello", " ", "", " ", "1", " ", "world"));
+        Asserts.assertEquals( split.apply("\"hello  1 world\"", "keep_delimiters regex \" \""), MutableList.of("hello", " ", "", " ", "1", " ", "world"));
+
+        Asserts.assertEquals( split.apply("\"hello  1 world\"", "\" \""), MutableList.of("hello", "", "1", "world"));
+        Asserts.assertEquals( split.apply("\"  hello  1 world \"", "\" \" | trim"), MutableList.of("hello", "1", "world"));
+
+        // leading and trailing matches generate an empty string in the output list
+        Asserts.assertEquals( split.apply("\" h ey \"", "\" \""), MutableList.of("", "h", "ey", ""));
+        Asserts.assertEquals( split.apply("\" h ey \"", "regex \" \""), MutableList.of("", "h", "ey", ""));
+
+        // empty string matches every break, including start and end, once
+        Asserts.assertEquals( split.apply("\"hey\"", "regex \"\""), MutableList.of("", "h", "e", "y", ""));
+        Asserts.assertEquals( split.apply("\"hey\"", "\"\""), MutableList.of("", "h", "e", "y", ""));
+        Asserts.assertEquals( split.apply("\"\"", "regex \"\""), MutableList.of(""));
+        Asserts.assertEquals( split.apply("\"\"", "\"\""), MutableList.of(""));
+    }
+
+    @Test
+    public void testTransformSum() {
+        Asserts.assertEquals( runWorkflowSteps(
+                        "let list nums = [ 1, 2, 3]",
+                        "transform ${nums} | sum | return"),
+                6);
+
+        Asserts.assertFailsWith( () -> runWorkflowSteps(
+                        "let list nums = [ 1, 2, 3]",
+                        "transform ${nums} | sum 4 | return"),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "sum", "does not accept args", "4"));
+    }
+
+    // done in camp project, WorkflowExpressionsYamlTest
+    //public void testTransformGet() {
 
 }

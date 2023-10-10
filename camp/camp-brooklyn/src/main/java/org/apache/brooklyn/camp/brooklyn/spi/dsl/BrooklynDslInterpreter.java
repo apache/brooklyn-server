@@ -66,6 +66,9 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
         try {
             currentNode.set(node);
             Object parsedNode = new DslParser(expression).parse();
+            if (parsedNode instanceof PropertyAccess) {
+                parsedNode = new FunctionWithArgs(""+((PropertyAccess)parsedNode).getSelector(), null);
+            }
             if ((parsedNode instanceof FunctionWithArgs) && ((FunctionWithArgs)parsedNode).getArgs()==null) {
                 if (node.getRoleInParent() == Role.MAP_KEY) {
                     node.setNewValue(parsedNode);
@@ -90,11 +93,16 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
     @Override
     public boolean applyMapEntry(PlanInterpretationNode node, Map<Object, Object> mapIn, Map<Object, Object> mapOut,
             PlanInterpretationNode key, PlanInterpretationNode value) {
-        if (key.getNewValue() instanceof FunctionWithArgs) {
+        Object knv = key.getNewValue();
+        if (knv instanceof PropertyAccess) {
+            // when property access is used as a key, it is a function without args
+            knv = new FunctionWithArgs(""+((PropertyAccess)knv).getSelector(), null);
+        }
+        if (knv instanceof FunctionWithArgs) {
             try {
                 currentNode.set(node);
 
-                FunctionWithArgs f = (FunctionWithArgs) key.getNewValue();
+                FunctionWithArgs f = (FunctionWithArgs) knv;
                 if (f.getArgs()!=null)
                     throw new IllegalStateException("Invalid map key function "+f.getFunction()+"; should not have arguments if taking arguments from map");
 

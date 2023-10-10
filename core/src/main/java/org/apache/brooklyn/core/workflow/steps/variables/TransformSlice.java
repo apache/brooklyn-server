@@ -71,7 +71,7 @@ public class TransformSlice extends WorkflowTransformDefault {
         return list.subList(from, to);
     }
 
-    static <T> T resolveAs(Object expression, WorkflowExecutionContext context, String errorPrefix, boolean failIfNull, Class<T> type, String typeName) {
+    public static <T> T resolveAs(Object expression, WorkflowExecutionContext context, String errorPrefix, boolean failIfNull, Class<T> type, String typeName) {
         T result = null;
         try {
             if (expression!=null) result = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, expression, type);

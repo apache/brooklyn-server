@@ -136,22 +136,35 @@ public class DslParseTest {
 
     @Test
     public void testParseObjectAttribute() {
-        Object fx = new DslParser("$brooklyn:object(\"[brooklyn.obj.TestObject,host]\").attributeWhenReady(\"ips_container\")[\"ips\"][0]").parse();
-        assertEquals(((List<?>) fx).size(), 4, "" + fx);
+        List fx = (List) new DslParser("$brooklyn:object(\"[brooklyn.obj.TestObject,host]\").attributeWhenReady(\"ips_container\")[\"ips\"][0]").parse();
+        assertEquals(fx.size(), 4, "" + fx);
 
-        Object fx1 = ((List<?>)fx).get(0);
-        assertEquals( ((FunctionWithArgs)fx1).getFunction(), "$brooklyn:object" );
-        assertEquals( ((FunctionWithArgs)fx1).getArgs(), ImmutableList.of(new QuotedString("\"[brooklyn.obj.TestObject,host]\"")) );
+        assertEquals( ((FunctionWithArgs)fx.get(0)).getFunction(), "$brooklyn:object" );
+        assertEquals( ((FunctionWithArgs)fx.get(0)).getArgs(), ImmutableList.of(new QuotedString("\"[brooklyn.obj.TestObject,host]\"")) );
 
-        Object fx2 = ((List<?>)fx).get(1);
-        assertEquals( ((FunctionWithArgs)fx2).getFunction(), "attributeWhenReady" );
-        assertEquals( ((FunctionWithArgs)fx2).getArgs(), ImmutableList.of(new QuotedString("\"ips_container\"")) );
+        assertEquals( ((FunctionWithArgs)fx.get(1)).getFunction(), "attributeWhenReady" );
+        assertEquals( ((FunctionWithArgs)fx.get(1)).getArgs(), ImmutableList.of(new QuotedString("\"ips_container\"")) );
 
-        Object fx3 = ((List<?>)fx).get(2);
-        assertEquals( ((PropertyAccess)fx3).getSelector(), "ips" );
+        assertEquals( ((PropertyAccess)fx.get(2)).getSelector(), "ips" );
+        assertEquals( ((PropertyAccess)fx.get(3)).getSelector(), "0" );
 
-        Object fx4 = ((List<?>)fx).get(3);
-        assertEquals( ((PropertyAccess)fx4).getSelector(), "0" );
+        fx = (List) new DslParser("$brooklyn:object(\"[brooklyn.obj.TestObject,host]\").attributeWhenReady(\"ips_container\").ips[0]").parse();
+        assertEquals(fx.size(), 4, "" + fx);
+        assertEquals( ((PropertyAccess)fx.get(2)).getSelector(), "ips" );
+
+        fx = (List) new DslParser("$brooklyn:object(\"[brooklyn.obj.TestObject,host]\").attributeWhenReady(\"ips_container\").a.b[0].c.d[1]").parse();
+        assertEquals(fx.size(), 8, "" + fx);
+        assertEquals( ((PropertyAccess)fx.get(3)).getSelector(), "b" );
+        assertEquals( ((PropertyAccess)fx.get(4)).getSelector(), "0" );
+        assertEquals( ((PropertyAccess)fx.get(6)).getSelector(), "d" );
+        assertEquals( ((PropertyAccess)fx.get(7)).getSelector(), "1" );
+    }
+
+    @Test
+    public void testParseFunctionExplicit() {
+        List fx = (List) new DslParser("$brooklyn:function.foo()").parse();
+        assertEquals( ((FunctionWithArgs)fx.get(0)).getFunction(), "$brooklyn:function.foo" );
+        assertEquals( ((FunctionWithArgs)fx.get(0)).getArgs(), ImmutableList.of() );
     }
 
 }

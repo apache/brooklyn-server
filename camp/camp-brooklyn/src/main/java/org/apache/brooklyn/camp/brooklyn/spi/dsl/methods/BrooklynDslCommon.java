@@ -48,6 +48,7 @@ import org.apache.brooklyn.camp.brooklyn.spi.creation.EntitySpecConfiguration;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.WorkflowTransformGet;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
@@ -65,6 +66,7 @@ import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtil
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.steps.variables.TransformVariableWorkflowStep;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -116,6 +118,7 @@ public class BrooklynDslCommon {
         BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION = DslUtils::parseBrooklynDsl;
         BrooklynObjectsJsonMapper.DslToStringSerialization.BROOKLYN_DSL_INTERFACE = BrooklynDslDeferredSupplier.class;
         registerSpecCoercionAdapter();
+        registerWorkflowTransforms();
         INITIALIZED = true;
     }
     private static boolean INITIALIZED = false;
@@ -162,6 +165,9 @@ public class BrooklynDslCommon {
                 }
             }
         });
+    }
+    public static void registerWorkflowTransforms() {
+        TransformVariableWorkflowStep.registerTransformation("get", () -> new WorkflowTransformGet());
     }
     
     // Access specific entities
@@ -463,7 +469,7 @@ public class BrooklynDslCommon {
         return new DslLiteral(expression);
     }
 
-    protected final static class DslLiteral extends BrooklynDslDeferredSupplier<Object> {
+    public final static class DslLiteral extends BrooklynDslDeferredSupplier<Object> {
         final String literalString;
         final String literalObjectJson;
 

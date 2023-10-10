@@ -30,10 +30,9 @@ public class TransformTrim extends WorkflowTransformDefault {
     public Object apply(Object v) {
         if (v == null) return null;
         if (v instanceof String) return ((String) v).trim();
-        if (v instanceof Set) return ((Set) v).stream().filter(x -> x != null).collect(Collectors.toSet());
+        if (v instanceof Set) return ((Set) v).stream().filter(TransformTrim::shouldTrimKeepInList).collect(Collectors.toSet());
         if (v instanceof Collection)
-            return ((Collection) v).stream().filter(x -> x != null).collect(Collectors.toList());
-        ;
+            return ((Collection) v).stream().filter(TransformTrim::shouldTrimKeepInList).collect(Collectors.toList());
         if (v instanceof Map) {
             Map<Object, Object> result = MutableMap.of();
             ((Map) v).forEach((k, vi) -> {
@@ -43,4 +42,11 @@ public class TransformTrim extends WorkflowTransformDefault {
         }
         return v;
     }
+
+    public static boolean shouldTrimKeepInList(Object x) {
+        if (x==null) return false;
+        if (x instanceof String) return !((String) x).isEmpty();
+        return true;
+    }
+
 }

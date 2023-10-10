@@ -21,6 +21,8 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl.parse;
 import java.util.Collection;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
+import com.fasterxml.jackson.databind.annotation.JsonAppend.Prop;
 import org.apache.brooklyn.util.collections.MutableList;
 
 public class DslParser {
@@ -83,8 +85,10 @@ public class DslParser {
                 char c = expression.charAt(index);
                 if (Character.isJavaIdentifierPart(c)) ;
                     // these chars also permitted
-                else if (".:".indexOf(c)>=0) ;
-                    // other things e.g. whitespace, parentheses, etc, skip
+                else if (c==':') ;
+                else if (c=='.' && expression.substring(0, index).endsWith("function")) ;  // function.xxx used for some static DslAccessible functions
+
+                    // other things e.g. whitespace, parentheses, etc, beak on
                 else break;
                 index++;
             } while (true);
@@ -98,7 +102,12 @@ public class DslParser {
             // collect arguments
             int parenStart = index;
             List<Object> args = new MutableList<>();
-            if (expression.charAt(index)=='[' && expression.charAt(index +1)=='"') { index ++;} // for ["x"] syntax needs to be increased to extract the name of the property correctly
+            if (expression.charAt(index)=='[') {
+                if (!fn.isEmpty()) {
+                    return new PropertyAccess(fn);
+                }
+                if (expression.charAt(index +1)=='"') { index ++;} // for ["x"] syntax needs to be increased to extract the name of the property correctly
+            }
             index ++;
             do {
                 skipWhitespace();
@@ -120,7 +129,9 @@ public class DslParser {
 
             if (fn.isEmpty()) {
                 Object arg = args.get(0);
-                if (arg instanceof FunctionWithArgs) {
+                if (arg instanceof PropertyAccess) {
+                    result.add(arg);
+                } else if (arg instanceof FunctionWithArgs) {
                     FunctionWithArgs holder = (FunctionWithArgs) arg;
                     if(holder.getArgs() == null || holder.getArgs().isEmpty()) {
                         result.add(new PropertyAccess(holder.getFunction()));
@@ -135,37 +146,43 @@ public class DslParser {
             }
 
             index++;
-            skipWhitespace();
-            if (index >= expression.length())
-                return result;
-            char c = expression.charAt(index);
-            if (c=='.') {
-                // chained expression
-                int chainStart = index;
-                index++;
-                Object next = next();
-                if (next instanceof List) {
-                    result.addAll((Collection<? extends FunctionWithArgs>) next);
+            do {
+                skipWhitespace();
+                if (index >= expression.length())
                     return result;
+                char c = expression.charAt(index);
+                if (c == '.') {
+                    // chained expression
+                    int chainStart = index;
+                    index++;
+                    Object next = next();
+                    if (next instanceof List) {
+                        result.addAll((Collection<?>) next);
+                    } else if (next instanceof PropertyAccess) {
+                        result.add(next);
+                    } else {
+                        throw new IllegalStateException("Expected functions following position " + chainStart);
+                    }
+                } else if (c == '[') {
+                    int selectorsStart = index;
+                    Object next = next();
+                    if (next instanceof List) {
+                        result.addAll((Collection<? extends PropertyAccess>) next);
+                        skipWhitespace();
+                        if (index >= expression.length())
+                            return result;
+                    } else {
+                        throw new IllegalStateException("Expected property selectors following position " + selectorsStart);
+                    }
                 } else {
-                    throw new IllegalStateException("Expected functions following position "+chainStart);
-                }
-            } else if (c=='[') {
-                int selectorsStart = index;
-                Object next = next();
-                if (next instanceof List) {
-                    result.addAll((Collection<? extends PropertyAccess>) next);
+                    // following word not something handled at this level; assume parent will handle (or throw) - e.g. a , or extra )
                     return result;
-                } else {
-                    throw new IllegalStateException("Expected property selectors following position "+selectorsStart);
                 }
-            } else {
-                // following word not something handled at this level; assume parent will handle (or throw) - e.g. a , or extra )
-                return result;
-            }
+            } while (true);
         } else {
-            // it is just a word; return it with args as null;
-            return new FunctionWithArgs(fn, null);
+            // previously we returned a null-arg function; now we treat as explicit property access,
+            // and places that need it as a function with arguments from a map key convert it on to new FunctionWithArgs(selector, null)
+            return new PropertyAccess(fn);
         }
     }
 
