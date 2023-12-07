@@ -48,13 +48,15 @@ public class EntityInitializers {
     public static class AddTags implements EntityInitializer {
         public final List<Object> tags;
 
-        private AddTags() { tags = null; }
+        /** JSON/internal constructor; does not allow setting tags */
+        public AddTags() { tags = null; }
         public AddTags(Object... tags) {
             this.tags = ImmutableList.copyOf(tags);
         }
         
         @Override
         public void apply(EntityLocal entity) {
+            if (tags==null) throw new IllegalStateException("Initializer needs to be configured with the tags to add");
             for (Object tag: tags)
                 entity.tags().addTag(tag);
         }

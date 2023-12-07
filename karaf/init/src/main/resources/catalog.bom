@@ -283,6 +283,18 @@ brooklyn.catalog:
     item:
       type: org.apache.brooklyn.core.workflow.WorkflowPolicy
 
+  # other useful initializers (because we don't have an "add tags" workflow step)
+  - id: add-tags-initializer
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.entity.EntityInitializers$AddTags
+
+  # useful entities
+  - id: basic-entity
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicEntity
   - id: workflow-entity
     itemType: entity
     item:

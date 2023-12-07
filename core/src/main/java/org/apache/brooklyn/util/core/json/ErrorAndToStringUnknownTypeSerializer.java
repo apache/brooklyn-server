@@ -91,6 +91,9 @@ public class ErrorAndToStringUnknownTypeSerializer extends UnknownSerializer {
             jgen.writeFieldName("type");
             jgen.writeString(value.getClass().getCanonicalName());
 
+            jgen.writeFieldName("viaErrorSerializer");
+            jgen.writeString(ErrorAndToStringUnknownTypeSerializer.class.getName());
+
             jgen.writeFieldName("toString");
             jgen.writeString(value.toString());
 

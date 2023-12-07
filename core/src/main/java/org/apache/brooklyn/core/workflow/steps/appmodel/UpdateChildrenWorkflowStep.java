@@ -356,6 +356,7 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
                                 "condition", MutableMap.of("target", "${child.effector.on_update}")
                         )) ),
                 checkWorkflow -> outerWorkflowCustomers.apply(checkWorkflow,
+                        // TODO run _on_ each child
                         foreach -> {
                             foreach.setTarget(onUpdateTargets);
                             foreach.setTargetVarName("{child,item,index}");
