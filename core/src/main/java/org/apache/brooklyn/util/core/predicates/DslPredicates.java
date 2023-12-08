@@ -927,10 +927,10 @@ public class DslPredicates {
     @Beta
     public static class DslPredicateJsonDeserializer extends JsonSymbolDependentDeserializer {
         public static final Set<Class> DSL_REGISTERED_CLASSES = ImmutableSet.<Class>of(
-                java.util.function.Predicate.class, Predicate.class,
+                java.util.function.Predicate.class, com.google.common.base.Predicate.class,
                 DslPredicate.class, DslEntityPredicate.class);
         public static final Set<Class> DSL_RESTRICTED_CLASSES = ImmutableSet.<Class>of(
-                java.util.function.Predicate.class, Predicate.class);
+                java.util.function.Predicate.class, com.google.common.base.Predicate.class);
 
         public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) throws JsonMappingException {
             return super.createContextual(ctxt, property);

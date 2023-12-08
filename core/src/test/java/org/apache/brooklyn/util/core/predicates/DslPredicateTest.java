@@ -52,8 +52,7 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
 
     @Test
     public void testSimpleEqualsAsPredicate() {
-        Predicate p = TypeCoercions.coerce(MutableMap.of(
-                "equals", "x"), Predicate.class);
+        Predicate p = TypeCoercions.coerce(MutableMap.of("equals", "x"), Predicate.class);
         Asserts.assertTrue(p.test("x"));
         Asserts.assertFalse(p.test("y"));
     }
@@ -61,6 +60,13 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testImplicitEqualsAsDslPredicate() {
         Predicate p = TypeCoercions.coerce("x", DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test("x"));
+        Asserts.assertFalse(p.test("y"));
+    }
+
+    @Test
+    public void testImplicitEqualsAsGuavaPredicate() {
+        Predicate p = TypeCoercions.coerce(MutableMap.of("equals", "x"), com.google.common.base.Predicate.class);
         Asserts.assertTrue(p.test("x"));
         Asserts.assertFalse(p.test("y"));
     }
