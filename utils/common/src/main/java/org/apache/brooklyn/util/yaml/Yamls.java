@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.util.yaml;
 
-import com.google.common.base.Function;
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -28,11 +27,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -42,20 +43,18 @@ import org.apache.brooklyn.util.javalang.coerce.PrimitiveStringTypeCoercions;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.BaseConstructor;
 import org.yaml.snakeyaml.constructor.Constructor;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.error.Mark;
+import org.yaml.snakeyaml.inspector.TagInspector;
 import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.NodeId;
 import org.yaml.snakeyaml.nodes.NodeTuple;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.SequenceNode;
-
-import com.google.common.annotations.Beta;
-import com.google.common.collect.Iterables;
 import org.yaml.snakeyaml.nodes.Tag;
 
 public class Yamls {
@@ -63,27 +62,27 @@ public class Yamls {
     private static final Logger log = LoggerFactory.getLogger(Yamls.class);
 
     private static Yaml newYaml() {
-        BaseConstructor constructor;
+        LoaderOptions loaderOptions = new LoaderOptions();
+
         if (BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.isEnabled()) {
-            // allows instantiation of arbitrary Java types;
-            constructor = new Constructor() {
-
-            };
-        } else {
-            constructor = new SafeConstructor() {
-
-            };
+            loaderOptions.setTagInspector(new TagInspector() {
+                @Override
+                public boolean isGlobalTagAllowed(Tag tag) {
+                    return true;
+                }
+            });
         }
+
         return new Yaml(
                 BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.isEnabled()
-                        ? new ConstructorExcludingNonNumbers() // allows instantiation of arbitrary Java types
-                        : new SafeConstructorExcludingNonNumbers() // allows instantiation of limited set of types only
+                        ? new ConstructorExcludingNonNumbers(loaderOptions) // allows instantiation of arbitrary Java types
+                        : new SafeConstructorExcludingNonNumbers(loaderOptions) // allows instantiation of limited set of types only
         );
     }
 
     private static class ConstructorExcludingNonNumbers extends Constructor {
-        public ConstructorExcludingNonNumbers() {
-            super();
+        public ConstructorExcludingNonNumbers(LoaderOptions loaderOptions) {
+            super(loaderOptions);
             this.yamlConstructors.put(Tag.FLOAT, new ConstructYamlFloatExcludingNonNumbers());
         }
         class ConstructYamlFloatExcludingNonNumbers extends ConstructYamlFloat {
@@ -95,8 +94,8 @@ public class Yamls {
     }
 
     private static class SafeConstructorExcludingNonNumbers extends SafeConstructor {
-        public SafeConstructorExcludingNonNumbers() {
-            super();
+        public SafeConstructorExcludingNonNumbers(LoaderOptions loaderOptions) {
+            super(loaderOptions);
             this.yamlConstructors.put(Tag.FLOAT, new ConstructYamlFloatExcludingNonNumbers());
         }
         class ConstructYamlFloatExcludingNonNumbers extends ConstructYamlFloat {

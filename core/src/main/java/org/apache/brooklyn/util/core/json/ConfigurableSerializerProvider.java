@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.core.json;
 
 import java.io.IOException;
 
+import com.fasterxml.jackson.databind.cfg.CacheProvider;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -45,6 +46,12 @@ final class ConfigurableSerializerProvider extends DefaultSerializerProvider {
     @Override
     public DefaultSerializerProvider createInstance(SerializationConfig config, SerializerFactory jsf) {
         return new ConfigurableSerializerProvider(config, this, jsf);
+    }
+
+    @Override
+    public DefaultSerializerProvider withCaches(CacheProvider cacheProvider) {
+        // would need to support fluency in this class to support
+        throw new IllegalStateException("Caches not supported for this serializer provider");
     }
 
     public ConfigurableSerializerProvider(SerializationConfig config, ConfigurableSerializerProvider src, SerializerFactory jsf) {

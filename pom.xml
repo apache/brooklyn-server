@@ -130,7 +130,7 @@
         <jakarta.activation.version>1.2.2</jakarta.activation.version>
         <jakarta.mail.version>1.6.5</jakarta.mail.version> <!-- used by karaf -->
         <!-- double-check downstream projects before changing jackson version -->
-        <fasterxml.jackson.version>2.14.1</fasterxml.jackson.version>
+        <fasterxml.jackson.version>2.16.1</fasterxml.jackson.version>
         <cxf.version>3.4.10</cxf.version>
         <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version> <!-- To match apache-cxf-3.4.10-features.xml -->
         <httpcomponents.httpcore.version>4.4.15</httpcomponents.httpcore.version> <!-- To match cxf -->
@@ -140,8 +140,8 @@
         <groovy.version>2.4.21</groovy.version> <!-- 2.4 seems to be an LTS; later versions switch to using a pom not a jar for groovy all, then in 4 to using modules and hosted at apache rather than codehaus; note the groovy-eclipse-complier versions below -->
         <groovy-eclipse-compiler.version>2.9.1-01</groovy-eclipse-compiler.version>  <!-- see https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes -->
         <groovy-eclipse-batch.version>2.4.21-01</groovy-eclipse-batch.version>
-        <snakeyaml.version>1.33</snakeyaml.version> <!-- align with cxf, jackson-dataformat-yaml -->
-        <snakeyaml.jclouds.version>1.26</snakeyaml.jclouds.version> <!-- jclouds 2.4 imports this -->
+        <snakeyaml.version>2.2</snakeyaml.version> <!-- should match: cxf-parent, jackson-dataformat-yaml (both of which seem to update regularly) -->
+        <snakeyaml.jclouds.version>1.26</snakeyaml.jclouds.version> <!-- jclouds 2.4 imports this; used for exclusion; yaml in jclouds might be broken as we are long past this -->
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
         <swagger.version>1.6.2</swagger.version>
         <mx4j.version>3.0.1</mx4j.version>
