@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.yaml;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
@@ -36,6 +37,7 @@ import org.yaml.snakeyaml.constructor.ConstructorException;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.yaml.snakeyaml.error.MarkedYAMLException;
 
 public class YamlsTest {
 
@@ -196,8 +198,35 @@ public class YamlsTest {
                     "month: 12\n" +
                     "year: 2016");
             Asserts.shouldHaveFailedPreviously("Expected exception: " + ConstructorException.class.getCanonicalName());
-        } catch(ConstructorException e) {
-            Asserts.expectedFailureContains(e, "could not determine a constructor");
+        } catch (MarkedYAMLException e) {
+            Asserts.expectedFailureContains(e,
+                    // with 2.2:
+                     "Global tag is not allowed", "tag:yaml.org,2002:java.util.Date"
+                    // with 1.33: "could not determine a constructor"
+                    );
+        }
+    }
+
+    @Test
+    public void testUnsafeYaml() throws Exception {
+        assertFalse(BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.isEnabled(),
+                "Set property to false (or do not set at all): " + BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.getPropertyName());
+
+        try {
+            System.setProperty(BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.getPropertyName(), "true");
+            Asserts.assertTrue(BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.isEnabled());
+
+            Object d = Yamls.parseAll("!!java.util.Date\n" +
+                        "date: 25\n" +
+                        "month: 12\n" +
+                        "year: 2016").iterator().next();
+            Asserts.assertInstanceOf(d, Date.class);
+
+        } finally {
+            System.clearProperty(BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.getPropertyName());
+
+            assertFalse(BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.isEnabled(),
+                    "Set property to false (or do not set at all): " + BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.getPropertyName());
         }
     }
 
