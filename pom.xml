@@ -141,7 +141,7 @@
         <groovy-eclipse-compiler.version>2.9.1-01</groovy-eclipse-compiler.version>  <!-- see https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes -->
         <groovy-eclipse-batch.version>2.4.21-01</groovy-eclipse-batch.version>
         <snakeyaml.version>2.2</snakeyaml.version> <!-- should match: cxf-parent, jackson-dataformat-yaml; jackson is easy, but cxf have dropped support for java 8 -->
-        <snakeyaml.jclouds.version>1.26</snakeyaml.jclouds.version> <!-- jclouds 2.4 imports this; used for exclusion; yaml in jclouds might be broken as we are long past this -->
+        <snakeyaml.jclouds.version>1.26</snakeyaml.jclouds.version> <!-- jclouds-byon 2.4 imports this; used for exclusion; byon is excluded and that is the only jclouds library using it, so this is fine -->
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
         <swagger.version>1.6.2</swagger.version>
         <mx4j.version>3.0.1</mx4j.version>
