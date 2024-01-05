@@ -48,6 +48,7 @@
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle>  <!-- complementary to above, but split packages; excluded by karaf.features.xml as not needed, confuses things -->
         <bundle>mvn:jakarta.xml.bind/jakarta.xml.bind-api/${jakarta.xml.bind-api.version}</bundle>  <!-- preferred over servicemix jaxb (identical) -->
 
+        <!-- <bundle>mvn:org.slf4j/slf4j-api/${slf4j.version}</bundle> seems to give compile errors if we include this -->
         <bundle>mvn:org.slf4j/jul-to-slf4j/${slf4j.version}</bundle>
         <bundle>mvn:ch.qos.logback/logback-core/${logback.version}</bundle>
 
