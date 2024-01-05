@@ -23,6 +23,7 @@ import java.net.InetAddress;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +45,7 @@ import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 
+import io.fabric8.kubernetes.api.model.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -90,36 +91,6 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.fabric8.kubernetes.api.model.Container;
-import io.fabric8.kubernetes.api.model.ContainerBuilder;
-import io.fabric8.kubernetes.api.model.ContainerPort;
-import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
-import io.fabric8.kubernetes.api.model.EndpointAddress;
-import io.fabric8.kubernetes.api.model.EndpointSubset;
-import io.fabric8.kubernetes.api.model.Endpoints;
-import io.fabric8.kubernetes.api.model.EnvVar;
-import io.fabric8.kubernetes.api.model.EnvVarBuilder;
-import io.fabric8.kubernetes.api.model.HasMetadata;
-import io.fabric8.kubernetes.api.model.LabelSelector;
-import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
-import io.fabric8.kubernetes.api.model.Namespace;
-import io.fabric8.kubernetes.api.model.NamespaceBuilder;
-import io.fabric8.kubernetes.api.model.PersistentVolume;
-import io.fabric8.kubernetes.api.model.PersistentVolumeBuilder;
-import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.api.model.PodList;
-import io.fabric8.kubernetes.api.model.PodTemplateSpec;
-import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
-import io.fabric8.kubernetes.api.model.QuantityBuilder;
-import io.fabric8.kubernetes.api.model.ReplicationController;
-import io.fabric8.kubernetes.api.model.ResourceRequirements;
-import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
-import io.fabric8.kubernetes.api.model.Secret;
-import io.fabric8.kubernetes.api.model.SecretBuilder;
-import io.fabric8.kubernetes.api.model.Service;
-import io.fabric8.kubernetes.api.model.ServiceBuilder;
-import io.fabric8.kubernetes.api.model.ServicePort;
-import io.fabric8.kubernetes.api.model.ServicePortBuilder;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentStatus;
@@ -252,12 +223,12 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         final String resourceType = entity.sensors().get(KubernetesResource.RESOURCE_TYPE);
         final String resourceName = entity.sensors().get(KubernetesResource.RESOURCE_NAME);
 
-        if (!handleResourceDelete(resourceType, resourceName, namespace)) {
+        if (handleResourceDelete(resourceType, resourceName, namespace).isEmpty()) {
             LOG.warn("Resource {}: {} not deleted", resourceName, resourceType);
         }
     }
 
-    protected boolean handleResourceDelete(String resourceType, String resourceName, String namespace) {
+    protected List<StatusDetails> handleResourceDelete(String resourceType, String resourceName, String namespace) {
         try (KubernetesClient client = getClient()){
             switch (resourceType) {
                 case KubernetesResource.DEPLOYMENT:
@@ -280,7 +251,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         } catch (KubernetesClientException kce) {
             LOG.warn("Error deleting resource {}: {}", resourceName, kce);
         }
-        return false;
+        return Collections.emptyList();
     }
 
     protected void undeploy(final String namespace, final String deployment) {

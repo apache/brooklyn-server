@@ -19,8 +19,11 @@
 package org.apache.brooklyn.container.location.openshift;
 
 import java.net.InetAddress;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
+import io.fabric8.kubernetes.api.model.StatusDetails;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.container.entity.openshift.OpenShiftPod;
@@ -76,10 +79,9 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
     }
 
     @Override
-    protected boolean handleResourceDelete(String resourceType, String resourceName, String namespace) {
-        if (super.handleResourceDelete(resourceType, resourceName, namespace)) {
-            return true;
-        }
+    protected List<StatusDetails> handleResourceDelete(String resourceType, String resourceName, String namespace) {
+        List<StatusDetails> result = super.handleResourceDelete(resourceType, resourceName, namespace);
+        if (!result.isEmpty()) return result;
 
         try {
             switch (resourceType) {
@@ -95,7 +97,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
         } catch (KubernetesClientException kce) {
             LOG.warn("Error deleting resource {}: {}", resourceName, kce);
         }
-        return false;
+        return Collections.emptyList();
     }
 
     @Override

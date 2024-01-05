@@ -105,8 +105,14 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
         }
         Duration actionTimeout = conf.get(KubernetesLocationConfig.ACTION_TIMEOUT);
         if (actionTimeout.isPositive()) {
-            configBuilder.withRollingTimeout(actionTimeout.toMilliseconds());
+            // removed in 6.x; not sure what the replacement is
+            // configBuilder.withRollingTimeout(actionTimeout.toMilliseconds());
+
+            // never used (considered as replacement for above); takes integers so probably something different
+            // configBuilder.withUploadRequestTimeout(actionTimeout.toMilliseconds());
+
             configBuilder.withScaleTimeout(actionTimeout.toMilliseconds());
+
         } else {
             throw new IllegalArgumentException("Kubernetes action timeout should be a positive duration: " + actionTimeout.toString());
         }
