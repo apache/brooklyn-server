@@ -216,6 +216,7 @@ public abstract class AbstractBlueprintTest {
         if (isRebindEnabled()) {
             Application newApp = rebind();
             check.accept(newApp);
+            return newApp;
         }
 
         return app;
