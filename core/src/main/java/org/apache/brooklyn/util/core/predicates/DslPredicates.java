@@ -61,6 +61,7 @@ import org.apache.brooklyn.util.guava.SerializablePredicate;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.javalang.coerce.TryCoercer;
+import org.apache.brooklyn.util.math.NumberMath;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.WildcardGlobs;
@@ -161,13 +162,17 @@ public class DslPredicates {
                 if (ma.equals(((Class<?>) mb).getName()) || ma.equals(((Class<?>) mb).getSimpleName())) return Maybe.of(true);
 
             } else if ((isJson(ma) && !isJson(mb)) || (ma instanceof String && Boxing.isPrimitiveOrBoxedClass(mb.getClass()))) {
-                Maybe<? extends Object> mma = TypeCoercions.tryCoerce(ma, mb.getClass());
+                Class<?> clazz = mb instanceof Number ? Number.class : mb.getClass();
+                Maybe<? extends Object> mma = TypeCoercions.tryCoerce(ma, clazz);
                 if (mma.isPresent()) {
-                    // repeat equality check
-                    if (Objects.equals(mma.get(), mb) || Objects.equals(mb, mma.get())) return Maybe.of(true);
+//                    // repeat equality check
+                    return Maybe.of(coercedEqual(mma.get(), mb));
                 }
                 return Maybe.absent("coercion not supported in equality check, to "+mb.getClass());
+            } else if (a instanceof Number && b instanceof Number) {
+                return Maybe.of(new NumberMath((Number) a).withinTolerance((Number) b));
             }
+
             return Maybe.absent("coercion not permitted for equality check with these argument types");
         };
         return maybeCoercedEquals.apply(a, b)

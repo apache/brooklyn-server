@@ -25,6 +25,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.predicates.DslPredicates.DslPredicate;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.testng.annotations.Test;
@@ -222,12 +223,48 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
 
     @Test
     public void testGreaterThanOrEquals() {
-        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
-                "greater-than-or-equal-to", "5"), DslPredicates.DslPredicate.class);
-        Asserts.assertFalse(p.test("4"));
-        Asserts.assertFalse(p.test("-0.2"));
-        Asserts.assertTrue(p.test("10"));
-        Asserts.assertTrue(p.test("5"));
+        Consumer<Object> check = (v) -> {
+            DslPredicate p = TypeCoercions.coerce(MutableMap.of("greater-than-or-equal-to", v), DslPredicate.class);
+            // numbers always compare as numbers
+            Asserts.assertTrue(p.test(5));
+            Asserts.assertTrue(p.test(5.0));
+            Asserts.assertTrue(p.test(5.1));
+            Asserts.assertFalse(p.test(4.9));
+
+            // strings compare with numbers as numbers, with other strings using NaturalOrder --
+            // so signed or unsigned digit sequences are compared numerically, but decimal parts not
+            Asserts.assertFalse(p.test("4"));
+            Asserts.assertFalse(p.test("-0.2"));
+            Asserts.assertTrue(p.test("10"));
+            Asserts.assertTrue(p.test("09"));
+            Asserts.assertFalse(p.test("04"));
+            Asserts.assertEquals(p.test("5"), !"5.0".equals(v));
+            Asserts.assertEquals(p.test("5.0"), true);
+        };
+        check.accept("5");
+        check.accept("5.0");
+        check.accept(5);
+        check.accept(5.0d);
+    }
+
+    @Test
+    public void testEqualsNumber() {
+        Consumer<Object> check = (v) -> {
+            DslPredicate p = TypeCoercions.coerce(MutableMap.of("equals", v), DslPredicate.class);
+            Asserts.assertFalse(p.test("4"));
+            Asserts.assertFalse(p.test("-0.2"));
+            Asserts.assertFalse(p.test("10"));
+            Asserts.assertEquals(p.test("5"), !"5.0".equals(v));
+            Asserts.assertEquals(p.test("5.0"), !"5".equals(v));
+            Asserts.assertTrue(p.test(5));
+            Asserts.assertTrue(p.test(5.0));
+            Asserts.assertFalse(p.test(5.1));
+            Asserts.assertFalse(p.test(4.9));
+        };
+        check.accept(5);
+        check.accept(5.0d);
+        check.accept("5");
+        check.accept("5.0");
     }
 
     @Test

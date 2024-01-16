@@ -56,7 +56,7 @@ public class NumberMath<T extends Number> {
     public Optional<BigInteger> asBigIntegerWithinTolerance() { return asBigIntegerWithinTolerance(number); }
 
     public <T extends Number> T asTypeForced(Class<T> desiredType) {
-        return asTypeFirstMatching(number, desiredType, y -> withinTolerance(number, y));
+        return asTypeFirstMatching(number, desiredType, y -> withinTolerance(y));
     }
     public <T extends Number> Optional<T> asTypeWithinTolerance(Class<T> desiredType, Number tolerance) {
         return Optional.ofNullable(asTypeFirstMatching(number, desiredType, y -> withinTolerance(number, y, tolerance)));
@@ -84,7 +84,7 @@ public class NumberMath<T extends Number> {
 
     public Optional<BigInteger> asBigIntegerWithinTolerance(Number number) {
         BigInteger candidate = asBigIntegerForced(number);
-        if (withinTolerance(number, candidate)) return Optional.of(candidate);
+        if (withinTolerance(candidate)) return Optional.of(candidate);
         return Optional.empty();
     }
 
@@ -112,8 +112,8 @@ public class NumberMath<T extends Number> {
         return null;
     }
 
-    public boolean withinTolerance(Number a, Number b) {
-        return withinTolerance(a, b, tolerance);
+    public boolean withinTolerance(Number b) {
+        return withinTolerance(number, b, tolerance);
     }
     public static boolean withinTolerance(Number a, Number b, Number tolerance) {
         return asBigDecimal(a).subtract(asBigDecimal(b)).abs().compareTo(asBigDecimal(tolerance)) <= 0;
