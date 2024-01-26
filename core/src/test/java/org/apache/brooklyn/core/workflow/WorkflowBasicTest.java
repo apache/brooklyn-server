@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -78,7 +79,11 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     @SuppressWarnings("deprecation")
     public static RegisteredType addRegisteredTypeBean(ManagementContext mgmt, String symName, Class<?> clazz) {
         return BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, symName, VERSION,
-                new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, clazz.getName()));
+                new BasicTypeImplementationPlan(
+                        BeanWithTypePlanTransformer.FORMAT, "type: "+
+                        // above is better than below because it can access private constructors
+//                        JavaClassNameTypePlanTransformer.FORMAT,
+                            clazz.getName()));
     }
 
     public static RegisteredType addRegisteredTypeSpec(ManagementContext mgmt, String symName, Class<?> clazz, Class<? extends BrooklynObject> superClazz) {
