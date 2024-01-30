@@ -16,7 +16,7 @@
 # under the License.
 #
 brooklyn.catalog:
-  version: "1.1.0-SNAPSHOT" # BROOKLYN_VERSION
+  version: "1.1.0" # BROOKLYN_VERSION
 
   items:
   # provides aliases for the most common items
