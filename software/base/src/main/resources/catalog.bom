@@ -16,7 +16,7 @@
 # under the License.
 
 brooklyn.catalog:
-    version: "1.1.0-SNAPSHOT" # BROOKLYN_VERSION
+    version: "1.2.0-SNAPSHOT" # BROOKLYN_VERSION
     itemType: entity
     items:
       # other items added by catalog-brooklyn-software-base.bom provided by dist feature
