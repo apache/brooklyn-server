@@ -23,6 +23,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.workflow.steps.flow.FailWorkflowStep.WorkflowFailException;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -242,6 +243,9 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
             } catch (Exception e2) {
                 if (Exceptions.getCausalChain(e2).stream().anyMatch(e3 -> e3== error)) {
                     // is, or wraps, original error, don't need to log
+                } else if (e2 instanceof WorkflowFailException) {
+                    log.debug("Workflow fail in step '"+stepTaskThrowingError.getDisplayName()+"'; new error -- "+Exceptions.collapseText(e2)+" -- replacing original error: "+Exceptions.collapseText(error));
+                    log.trace("Full trace of original error was: " + error, error);
                 } else {
                     logWarnOnExceptionOrDebugIfKnown(entity, e2, "Error in step '" + stepTaskThrowingError.getDisplayName() + "' error handler for -- " + Exceptions.collapseText(error) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
                     log.debug("Full trace of original error was: " + error, error);
@@ -257,9 +261,13 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
 
         // don't consider replaying automatically here; only done at workflow level
 
-        logWarnOnExceptionOrDebugIfKnown(entity, error,
+        // previously logged as warning, but author has done everything right so we shouldn't warn, just debug
+//        logWarnOnExceptionOrDebugIfKnown(entity, error,
+        log.debug(
                 currentStepInstance.getWorkflowExectionContext().getName() + ": " +
                 "Error in step '" + stepTaskThrowingError.getDisplayName() + "'; " + problemHere + "rethrowing: " + Exceptions.collapseText(error));
+        log.trace("Trace for error being rethrown", error);
+
         throw Exceptions.propagate(error);
     }
 

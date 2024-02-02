@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -648,18 +650,32 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
     @Test
     public void testSimpleErrorHandlerOnWorkflowFailing() throws IOException {
-        lastInvocation = runSteps(MutableList.of("invoke-effector does-not-exist"),
-                null,
-                ConfigBag.newInstance().configure(
-                        WorkflowEffector.ON_ERROR, MutableList.of("set-sensor had_error = yes", "fail rethrow message rethrown")) );
-        Asserts.assertFailsWith(() -> lastInvocation.getUnchecked(), e -> {
-            Asserts.expectedFailureContains(e, "rethrown");
-            Asserts.assertThat(Exceptions.getCausalChain(e), ee -> ee.stream().filter(e2 -> e2.toString().contains("does-not-exist")).findAny().isPresent());
-            return true;
-        });
-        Asserts.assertEquals(app.sensors().get(Sensors.newSensor(Object.class, "had_error")), "yes");
-        findSingleLastWorkflow();
-        Asserts.assertEquals(lastWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.ERROR);
+        try (ClassLogWatcher logWatcher = new ClassLogWatcher(getClass().getPackage().getName()) {
+            @Override
+            protected void append(ILoggingEvent iLoggingEvent) {
+                if (iLoggingEvent.getLevel().isGreaterOrEqual(Level.INFO)) super.append(iLoggingEvent);
+            }
+        }) {
+            lastInvocation = runSteps(MutableList.of("invoke-effector does-not-exist"),
+                    null,
+                    ConfigBag.newInstance().configure(
+                            WorkflowEffector.ON_ERROR, MutableList.of("set-sensor had_error = yes", "fail rethrow message rethrown")));
+            Asserts.assertFailsWith(() -> lastInvocation.getUnchecked(), e -> {
+                Asserts.expectedFailureContains(e, "rethrown");
+                Asserts.assertThat(Exceptions.getCausalChain(e), ee -> ee.stream().filter(e2 -> e2.toString().contains("does-not-exist")).findAny().isPresent());
+                return true;
+            });
+
+            List<String> msgs = logWatcher.getMessages();
+            if (!msgs.isEmpty()) {
+                log.info("Error handler output:\n" + msgs.stream().collect(Collectors.joining("\n")));
+                Asserts.fail("No info/warn log messages expected if workflow has error handler, even if it runs an explicit fail rethrow step");
+            }
+
+            Asserts.assertEquals(app.sensors().get(Sensors.newSensor(Object.class, "had_error")), "yes");
+            findSingleLastWorkflow();
+            Asserts.assertEquals(lastWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.ERROR);
+        }
     }
 
     @Test
@@ -705,7 +721,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     }
 
     @Test
-    public void testErrorHandlerRethrows() throws IOException {
+    public void testErrorHandlerRethrowsIfConditionNotMatched() throws IOException {
         lastInvocation = runSteps(MutableList.of(
                         MutableMap.of("step", "fail message expected exception",
                                 "output", "should have failed",
