@@ -90,7 +90,7 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
 
     public static <U, T extends ProcessTaskFactory<U>> ProcessTaskFactory<Map<?,?>> customizeProcessTaskFactory(WorkflowStepInstanceExecutionContext context, T tf) {
         DslPredicates.DslPredicate<Integer> exitcode = context.getInput(EXIT_CODE);
-        if (exitcode!=null) tf.allowingNonZeroExitCode();
+        tf.allowingNonZeroExitCode(); // we check it ourselves below; setting this eliminates a warning log message from the subsystem
         Map<String, Object> env = context.getInput(ENV);
         if (env!=null) tf.environmentVariables(new ShellEnvironmentSerializer(context.getWorkflowExectionContext().getManagementContext()).serialize(env));
         Integer maxLength = context.getInput(OUTPUT_MAX_SIZE);
