@@ -437,6 +437,9 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         assertLetGives.apply("\"\\\"${person}\\\" is  person \"", "\"${person}\" is  person ");
         Asserts.assertFails(() -> invoke.accept("\"\\\"${person}\\\" is  \"person \""));
         assertLetGives.apply("\"\\\"${person}\" is  \"person \"", "\"${person} is  person ");
+
+        // if there are spaces inside the interpolated expression, don't use the quote strategy
+        assertLetGives.apply("${ person } is \"${person}\"", "Anna is \"Anna\"");
     }
 
     @Test

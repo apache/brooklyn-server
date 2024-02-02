@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow.steps.variables;
 
 import com.google.common.reflect.TypeToken;
+import freemarker.core.ParseException;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -238,11 +239,13 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 if (wordsByQuote==null || wordsByQuote.size()>1) {
-                    // try again with the whole thing as tokens, if multiple words, or couldn't string tokenize
-                    try {
-                        return process(MutableList.of(input));
-                    } catch (Exception e2) {
-                        log.debug("Failed to process expression as tokens or as string; preferring error from former, but error from latter was: "+e2);
+                    if (Exceptions.getCausalChain(e).stream().anyMatch(cause -> cause instanceof ParseException)) {
+                        // try again with the whole thing as tokens, if it is an interpolated string with spaces inside it
+                        try {
+                            return process(MutableList.of(input));
+                        } catch (Exception e2) {
+                            log.debug("Failed to process expression as tokens or as string; preferring error from former, but error from latter was: " + e2);
+                        }
                     }
                 }
                 throw Exceptions.propagate(e);
