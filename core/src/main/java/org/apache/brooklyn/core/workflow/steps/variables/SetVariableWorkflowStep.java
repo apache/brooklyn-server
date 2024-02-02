@@ -223,17 +223,30 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         Object process(String input) {
             if (Strings.isBlank(input)) return input;
 
-            // first deal with internal quotes
-            QuotedStringTokenizer qst = qst(input);
-            List<String> wordsByQuote;
-            if (qst.isQuoted(input)) {
-                // special treatment if whole line is quoted
-                wordsByQuote = MutableList.of(input);
-            } else {
-                wordsByQuote = qst.remainderAsList();
+            List<String> wordsByQuote = null;
+            try {
+                // first deal with internal quotes
+                QuotedStringTokenizer qst = qst(input);
+                if (qst.isQuoted(input)) {
+                    // special treatment if whole line is quoted
+                    wordsByQuote = MutableList.of(input);
+                } else {
+                    wordsByQuote = qst.remainderAsList();
+                }
+                // then look for operators etc
+                return process(wordsByQuote);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                if (wordsByQuote==null || wordsByQuote.size()>1) {
+                    // try again with the whole thing as tokens, if multiple words, or couldn't string tokenize
+                    try {
+                        return process(MutableList.of(input));
+                    } catch (Exception e2) {
+                        log.debug("Failed to process expression as tokens or as string; preferring error from former, but error from latter was: "+e2);
+                    }
+                }
+                throw Exceptions.propagate(e);
             }
-            // then look for operators etc
-            return process(wordsByQuote);
         }
 
         QuotedStringTokenizer qst(String input) {
