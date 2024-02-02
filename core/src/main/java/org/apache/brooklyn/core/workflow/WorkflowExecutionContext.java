@@ -1210,7 +1210,12 @@ public class WorkflowExecutionContext {
 
             } else if (onError != null && (!(onError instanceof Collection) || !((Collection)onError).isEmpty())) {
                 try {
-                    log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", running error handler");
+                    if (currentStepInstance.getError()==null) {
+                        log.warn("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", running error handler but likely this should be corrected in code -- " + Exceptions.collapseText(e));
+                        log.debug("Trace of error:", e);
+                    } else {
+                        log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", running error handler");
+                    }
                     Task<WorkflowErrorHandling.WorkflowErrorHandlingResult> workflowErrorHandlerTask = WorkflowErrorHandling.createWorkflowErrorHandlerTask(WorkflowExecutionContext.this, task, e);
                     errorHandlerTaskId = workflowErrorHandlerTask.getId();
                     WorkflowErrorHandling.WorkflowErrorHandlingResult result = DynamicTasks.queue(workflowErrorHandlerTask).getUnchecked();

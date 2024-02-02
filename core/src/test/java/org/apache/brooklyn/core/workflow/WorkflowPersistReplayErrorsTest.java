@@ -47,6 +47,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -649,7 +650,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     }
 
     @Test
-    public void testSimpleErrorHandlerOnWorkflowFailing() throws IOException {
+    public void testSimpleErrorHandlerOnWorkflowFailingWorksAndDoesntLogWarning() throws IOException {
         try (ClassLogWatcher logWatcher = new ClassLogWatcher(getClass().getPackage().getName()) {
             @Override
             protected void append(ILoggingEvent iLoggingEvent) {
@@ -671,6 +672,37 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                 log.info("Error handler output:\n" + msgs.stream().collect(Collectors.joining("\n")));
                 Asserts.fail("No info/warn log messages expected if workflow has error handler, even if it runs an explicit fail rethrow step");
             }
+
+            Asserts.assertEquals(app.sensors().get(Sensors.newSensor(Object.class, "had_error")), "yes");
+            findSingleLastWorkflow();
+            Asserts.assertEquals(lastWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.ERROR);
+        }
+    }
+
+    @Test
+    public void testSimpleErrorHandlerOnWorkflowTriggeredByConditionAssertWorksAndDoesLog() throws IOException {
+        try (ClassLogWatcher logWatcher = new ClassLogWatcher(getClass().getPackage().getName()) {
+            @Override
+            protected void append(ILoggingEvent iLoggingEvent) {
+                if (iLoggingEvent.getLevel().isGreaterOrEqual(Level.INFO)) super.append(iLoggingEvent);
+            }
+        }) {
+            lastInvocation = runSteps(MutableList.of(MutableMap.of("condition",
+                            MutableMap.of("assert", MutableMap.of("config", "missing_will_cause_to_throw")),
+                            "step", "return true")),
+                    null,
+                    ConfigBag.newInstance().configure(
+                            WorkflowEffector.ON_ERROR, MutableList.of("set-sensor had_error = yes", "fail rethrow message rethrown")));
+            Asserts.assertFailsWith(() -> lastInvocation.getUnchecked(), e -> {
+                Asserts.expectedFailureContains(e, "rethrown");
+                Asserts.assertThat(Exceptions.getCausalChain(e), ee -> ee.stream().filter(e2 -> e2.toString().contains("missing_will_cause_to_throw")).findAny().isPresent());
+                return true;
+            });
+
+            List<String> msgs = logWatcher.getMessages();
+            log.info("Error handler output:\n"+msgs.stream().collect(Collectors.joining("\n")));
+            Asserts.assertSize(msgs, 1);
+            Asserts.assertNotNull(msgs.stream().filter(s -> s.toLowerCase().matches(".*assertion.* failed.* config.*missing_will_cause_to_throw.*")).findAny().orElse(null));
 
             Asserts.assertEquals(app.sensors().get(Sensors.newSensor(Object.class, "had_error")), "yes");
             findSingleLastWorkflow();
