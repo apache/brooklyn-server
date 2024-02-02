@@ -93,6 +93,7 @@ public class DslPredicates {
 
         // could use json shorthand instead, but this is simpler
         TypeCoercions.registerAdapter(String.class, DslPredicate.class, DslPredicates::implicitlyEqualTo);
+        TypeCoercions.registerAdapter(Boolean.class, DslPredicate.class, DslPredicates::always);
 
 //        TypeCoercions.registerAdapter(DeferredSupplier.class, DslPredicate.class, DslPredicates::implicitlyEqualTo);
 //        TypeCoercions.registerAdapter(WorkflowExpressionResolution.WrappedUnresolvedExpression.class, DslPredicate.class, DslPredicates::implicitlyEqualTo);
@@ -501,6 +502,11 @@ public class DslPredicates {
                 Object test = unwrapped(implicitTestSpec);
                 if (test instanceof DslPredicate) {
                     return nestedPredicateCheck((DslPredicate) test, result);
+                }
+
+                if (test instanceof Boolean) {
+                    // if a boolean is supplied as an implicit, return it; it was probably a condition
+                    return (Boolean) test;
                 }
 
                 if ((!(test instanceof BrooklynObject) && value instanceof BrooklynObject) ||
@@ -1055,6 +1061,10 @@ public class DslPredicates {
         DslEntityPredicateDefault result = new DslEntityPredicateDefault();
         result.when = WhenPresencePredicate.ALWAYS;
         return result;
+    }
+
+    public static DslPredicate always(boolean x) {
+        return x ? alwaysTrue() : alwaysFalse();
     }
 
     public static DslPredicate equalTo(Object x) {

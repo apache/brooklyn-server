@@ -26,12 +26,15 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.DslPredicates.DslPredicate;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.javalang.AtomicReferences;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -607,6 +610,44 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         DslPredicates.DslPredicate p2 = TypeCoercions.coerce(MutableMap.of("index", 1, "equals", "a", "assert", MutableMap.of("when", "present", "size", 1)), DslPredicates.DslPredicate.class);
         check.accept(p2);
         Asserts.assertFailsWith(() -> { p2.test(MutableList.of("x", "zz")); }, e -> Asserts.expectedFailureContainsIgnoreCase(e, "assert", "value", "zz"));
+    }
+
+    @Test
+    public void testCoercionAndSuppliers() {
+        DslPredicates.DslPredicate p;
+
+        p = TypeCoercions.coerce("yessir", DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test("yessir"));
+        Asserts.assertFalse(p.test("no sir"));
+
+        p = TypeCoercions.coerce( (DeferredSupplier) ()->"yessir", DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test("yessir"));
+        Asserts.assertFalse(p.test("no sir"));
+
+        AtomicReference fickle = new AtomicReference("yessir");
+        p = TypeCoercions.coerce( (DeferredSupplier) ()->fickle.get(), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test("yessir"));
+        Asserts.assertFalse(p.test("no sir"));
+        fickle.set("no sir");
+        Asserts.assertFalse(p.test("yessir"));
+        Asserts.assertTrue(p.test("no sir"));
+
+        // now boolean, especially atomic boolean
+        Asserts.assertTrue(TypeCoercions.coerce(true, DslPredicates.DslPredicate.class).test("anything"));
+        Asserts.assertFalse(TypeCoercions.coerce(false, DslPredicates.DslPredicate.class).test("anything"));
+
+        fickle.set(true);
+        Asserts.assertTrue(p.test(true));
+        Asserts.assertTrue(p.test("anything"));
+        Asserts.assertTrue(p.test(false));
+
+        fickle.set(false);
+        Asserts.assertFalse(p.test(true));
+        Asserts.assertFalse(p.test("anything"));
+        Asserts.assertFalse(p.test(false));
+
+        p = TypeCoercions.coerce( (DeferredSupplier) ()->false, DslPredicates.DslPredicate.class);
+        Asserts.assertFalse(p.test("anything"));
     }
 
 }
