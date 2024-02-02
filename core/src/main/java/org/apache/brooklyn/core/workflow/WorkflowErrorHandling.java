@@ -37,6 +37,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 
 import static org.apache.brooklyn.core.workflow.WorkflowExecutionContext.*;
 
@@ -241,15 +242,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
                 }
 
             } catch (Exception e2) {
-                if (Exceptions.getCausalChain(e2).stream().anyMatch(e3 -> e3== error)) {
-                    // is, or wraps, original error, don't need to log
-                } else if (e2 instanceof WorkflowFailException) {
-                    log.debug("Workflow fail in step '"+stepTaskThrowingError.getDisplayName()+"'; new error -- "+Exceptions.collapseText(e2)+" -- replacing original error: "+Exceptions.collapseText(error));
-                    log.trace("Full trace of original error was: " + error, error);
-                } else {
-                    logWarnOnExceptionOrDebugIfKnown(entity, e2, "Error in step '" + stepTaskThrowingError.getDisplayName() + "' error handler for -- " + Exceptions.collapseText(error) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
-                    log.debug("Full trace of original error was: " + error, error);
-                }
+                logExceptionWhileHandlingException(() -> "in step '"+stepTaskThrowingError.getDisplayName()+"'", entity, e2, error);
                 throw Exceptions.propagate(e2);
             } finally {
                 if (errorStepIfNested==null) currentStepInstance.getWorkflowExectionContext().lastErrorHandlerOutput = null;
@@ -271,10 +264,38 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
         throw Exceptions.propagate(error);
     }
 
-    public static void logWarnOnExceptionOrDebugIfKnown(Entity entity, Exception e, String msg) {
-        if (Exceptions.getFirstThrowableOfType(e, DanglingWorkflowException.class)!=null) { log.debug(msg); return; }
-        if (Entities.isUnmanagingOrNoLongerManaged(entity)) { log.debug(msg); return; }
-        log.warn(msg);
+    public static void logExceptionWhileHandlingException(Supplier<String> src, Entity entity, Exception newError, Throwable oldError) {
+        if (Exceptions.getCausalChain(newError).stream().anyMatch(e3 -> e3== oldError)) {
+            // is, or wraps, original error, don't need to log
+
+//                    } else if (Exceptions.isCausedByInterruptInAnyThread(e) && Exceptions.isCausedByInterruptInAnyThread(e2)) {
+//                         // now either handled prior to this, or rethrown by the interruption
+//                         // if both are interrupted we can drop the trace, and return original;
+//                        log.debug("Error where error handler was interrupted, after main thread was also interrupted: " + e2);
+//                        log.trace("Full trace of original error was: " + e, e);
+
+        } else if (newError instanceof WorkflowFailException) {
+            log.debug("Workflow fail " + src.get() + "; throwing failure object -- "+Exceptions.collapseText(newError)+" -- and dropping original error: "+Exceptions.collapseText(oldError));
+            log.trace("Full trace of original error was: " + oldError, oldError);
+        } else {
+            logWarnOnExceptionOrDebugIfKnown(entity, newError, "Error "+src.get()+"; error handler for -- " + Exceptions.collapseText(oldError) + " -- threw another error (rethrowing): " + Exceptions.collapseText(newError), oldError);
+        }
+    }
+
+    public static void logWarnOnExceptionOrDebugIfKnown(Entity entity, Throwable e, String msg) {
+        logWarnOnExceptionOrDebugIfKnown(entity, e, msg, null);
+    }
+    public static void logWarnOnExceptionOrDebugIfKnown(Entity entity, Throwable e, String msg, Throwable optionalErrorForStackTrace) {
+        boolean logDebug = false;
+        logDebug |= (Exceptions.getFirstThrowableOfType(e, DanglingWorkflowException.class)!=null);
+        logDebug |= (Entities.isUnmanagingOrNoLongerManaged(entity));
+        if (logDebug) {
+            log.debug(msg);
+            if (optionalErrorForStackTrace!=null) log.trace("Trace of error:", optionalErrorForStackTrace);
+        } else {
+            log.warn(msg);
+            if (optionalErrorForStackTrace != null) log.debug("Trace of error:", optionalErrorForStackTrace);
+        }
     }
 
 }

@@ -42,6 +42,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.steps.flow.FailWorkflowStep.WorkflowFailException;
 import org.apache.brooklyn.core.workflow.store.WorkflowRetentionAndExpiration;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.core.workflow.utils.WorkflowRetentionParser;
@@ -1236,20 +1237,8 @@ public class WorkflowExecutionContext {
                     } // else errorHandled remains false and will fail below
 
                 } catch (Exception e2) {
-                    Throwable e0 = e;
-                    if (Exceptions.getCausalChain(e2).stream().anyMatch(e3 -> e3==e0)) {
-                        // wraps/rethrows original, don't need to log, but do return the new one
-                        e = e2;
-//                    } else if (Exceptions.isCausedByInterruptInAnyThread(e) && Exceptions.isCausedByInterruptInAnyThread(e2)) {
-//                         // now handled above
-//                         // if both are interrupted we can drop the trace, and return original;
-//                        log.debug("Error where error handler was interrupted, after main thread was also interrupted: " + e2);
-//                        log.trace("Full trace of original error was: " + e, e);
-                    } else {
-                        log.warn("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
-                        log.debug("Full trace of original error was: " + e, e);
-                        e = e2;
-                    }
+                    WorkflowErrorHandling.logExceptionWhileHandlingException(() -> "in '" + getName() + "' around step " + workflowStepReference(currentStepIndex), entity, e2, e);
+                    e = e2;
                 }
 
             } else {
@@ -1568,10 +1557,6 @@ public class WorkflowExecutionContext {
 
         private void handleErrorAtStep(WorkflowStepDefinition step, Task<?> stepTaskThrowingError, BiConsumer<Object, Object> onFinish, Exception error) {
             WorkflowErrorHandling.handleErrorAtStep(getEntity(), step, currentStepInstance, stepTaskThrowingError, onFinish, error, null);
-        }
-
-        private void logWarnOnExceptionOrDebugIfKnown(Exception e, String msg) {
-            WorkflowErrorHandling.logWarnOnExceptionOrDebugIfKnown(getEntity(), e, msg);
         }
 
         private void moveToNextStep(String prefix, boolean inferredNext) {
