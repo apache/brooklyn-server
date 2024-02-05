@@ -140,7 +140,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
                     // otherwise normal, it does not match a variable name, so treat it as the value
                 }
                 if (isDisallowedUndecoratedVariable)
-                    throw new IllegalArgumentException("Legacy transform syntax `transform var_name | ...` disallowed (" + vv_auto + "); use '${"+vv_auto+"'}' if you don't want to update it or insert the keyword 'variable' if you do");
+                    throw new IllegalArgumentException("Legacy transform syntax `transform var_name | ...` disallowed (" + vv_auto + "); use '${"+vv_auto+"}' if you don't want to update it or insert the keyword 'variable' if you do");
             }
 
             if (isVariable) {

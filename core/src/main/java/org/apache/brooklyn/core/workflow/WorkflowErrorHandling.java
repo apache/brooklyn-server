@@ -265,7 +265,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
     }
 
     public static void logExceptionWhileHandlingException(Supplier<String> src, Entity entity, Exception newError, Throwable oldError) {
-        if (Exceptions.getCausalChain(newError).stream().anyMatch(e3 -> e3== oldError)) {
+        if (Exceptions.getCausalChain(newError).stream().anyMatch(e3 -> e3==oldError)) {
             // is, or wraps, original error, don't need to log
 
 //                    } else if (Exceptions.isCausedByInterruptInAnyThread(e) && Exceptions.isCausedByInterruptInAnyThread(e2)) {
@@ -274,7 +274,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
 //                        log.debug("Error where error handler was interrupted, after main thread was also interrupted: " + e2);
 //                        log.trace("Full trace of original error was: " + e, e);
 
-        } else if (newError instanceof WorkflowFailException) {
+        } else if (Exceptions.getCausalChain(newError).stream().anyMatch(e3 -> e3 instanceof WorkflowFailException)) {
             log.debug("Workflow fail " + src.get() + "; throwing failure object -- "+Exceptions.collapseText(newError)+" -- and dropping original error: "+Exceptions.collapseText(oldError));
             log.trace("Full trace of original error was: " + oldError, oldError);
         } else {

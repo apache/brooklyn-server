@@ -239,8 +239,8 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 if (wordsByQuote==null || wordsByQuote.size()>1) {
-                    if (Exceptions.getCausalChain(e).stream().anyMatch(cause -> cause instanceof ParseException)) {
-                        // try again with the whole thing as tokens, if it is an interpolated string with spaces inside it
+                    if (Exceptions.getCausalChain(e).stream().anyMatch(cause -> cause instanceof ParseException || cause instanceof IllegalArgumentException)) {
+                        // try again with the whole thing as tokens, if it is an interpolated string with spaces inside it or mismatched quotes
                         try {
                             return process(MutableList.of(input));
                         } catch (Exception e2) {
