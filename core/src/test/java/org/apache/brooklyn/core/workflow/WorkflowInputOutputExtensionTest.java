@@ -430,7 +430,11 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         assertLetGives.apply("\"${person}\" is  '${person}'", "${person} is  ${person}");
         assertLetGives.apply("\"${person}\" is '\"${person}\"'", "${person} is \"${person}\"");
         assertLetGives.apply("\"${person}\" is 'person'", "${person} is person");
-        Asserts.assertFails(() -> invoke.accept("\"${person}\" is  ''person '"));
+
+        //Asserts.assertFails(() -> invoke.accept("\"${person}\" is  ''person '"));
+        // now this is allowed as it will attempt to parse it as one big string if words do not parse
+        assertLetGives.apply("\"${person}\" is ''person '", "\"Anna\" is ''person '");
+
         assertLetGives.apply("\"${person} is  person \"", "${person} is  person ");
         Asserts.assertFails(() -> invoke.accept("\"\"${person}\" is  person \""));
         assertLetGives.apply("\"'${person}' is  person \"", "'${person}' is  person ");
