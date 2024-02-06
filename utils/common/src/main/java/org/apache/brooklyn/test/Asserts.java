@@ -32,6 +32,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicates;
@@ -1336,6 +1337,12 @@ public class Asserts {
             rethrowPreferredException(e, ee);
         }
         return true;
+    }
+    public static Predicate<Throwable> expectedFailureContains(String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
+        return e -> expectedFailureContains(e, phrase1ToContain, optionalOtherPhrasesToContain);
+    }
+    public static Predicate<Throwable> expectedFailureContainsIgnoreCase(String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
+        return e -> expectedFailureContainsIgnoreCase(e, phrase1ToContain, optionalOtherPhrasesToContain);
     }
 
     /** As {@link #expectedFailureContains(Throwable, String, String...)} but case insensitive */
