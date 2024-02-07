@@ -18,14 +18,16 @@
  */
 package org.apache.brooklyn.core.workflow.steps.appmodel;
 
+import java.util.List;
+
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.core.workflow.utils.WorkflowSettingItemsUtils;
+import org.apache.commons.lang3.tuple.Pair;
 
 public class SetConfigWorkflowStep extends WorkflowStepDefinition {
 
@@ -43,17 +45,19 @@ public class SetConfigWorkflowStep extends WorkflowStepDefinition {
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         EntityValueToSet config = context.getInput(CONFIG);
         if (config ==null) throw new IllegalArgumentException("Config key name is required");
-        String configName = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, config.name, String.class);
-        if (Strings.isBlank(configName)) throw new IllegalArgumentException("Config key name is required");
+
+        Pair<String, List<Object>> nameAndIndices = WorkflowSettingItemsUtils.resolveNameAndBracketedIndices(context, config.name, false);
+        if (nameAndIndices==null) throw new IllegalArgumentException("Config key name is required");
+
         // see note on type in SetSensorWorkflowStep
         TypeToken<?> type = context.lookupType(config.type, () -> TypeToken.of(Object.class));
         Object resolvedValue = context.getInput(VALUE.getName(), type);
-        Entity entity = config.entity;
-        if (entity==null) entity = context.getEntity();
-        Object oldValue = entity.config().set((ConfigKey<Object>) ConfigKeys.newConfigKey(type, configName), resolvedValue);
+        Entity entity = config.entity!=null ? config.entity : context.getEntity();
 
-        context.noteOtherMetadata("Value set", resolvedValue);
-        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
+        Pair<Object, Object> oldValues = WorkflowSettingItemsUtils.setAtIndex(nameAndIndices, true, (_oldValue) -> resolvedValue,
+                name -> entity.config().get((ConfigKey<Object>) ConfigKeys.newConfigKey(type, name)),
+                (name, value) -> entity.config().set((ConfigKey<Object>) ConfigKeys.newConfigKey(type, name), value));
+        WorkflowSettingItemsUtils.noteValueSetNestedMetadata(context, nameAndIndices, resolvedValue, oldValues);
 
         return context.getPreviousStepOutput();
     }

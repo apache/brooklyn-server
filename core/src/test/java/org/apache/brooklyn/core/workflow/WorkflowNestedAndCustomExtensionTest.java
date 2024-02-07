@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.workflow.steps.appmodel.SetSensorWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowRetentionAndExpiration;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
@@ -424,7 +425,7 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                 "    - let count = ${entity.parent.sensor.count}",
                 "    - let inc = ${count} + 1",
                 "    - step: set-sensor count = ${inc}",
-                "      require: ${count}",
+                "      "+ SetSensorWorkflowStep.REQUIRE.getName()+": ${count}",
                 "      sensor:",
                 "        entity: ${entity.parent}",
                 "      on-error:",

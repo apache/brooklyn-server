@@ -27,6 +27,7 @@ import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.utils.WorkflowSettingItemsUtils;
 import org.apache.brooklyn.util.collections.*;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
@@ -38,6 +39,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Timestamp;
 import org.apache.commons.lang3.tuple.MutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,52 +106,23 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
         Object resolvedValue = new ConfigurableInterpolationEvaluation(context, type, unresolvedValue, context.getInputOrDefault(INTERPOLATION_MODE), context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();
 
-        Object oldValue = setWorkflowScratchVariableDotSeparated(context, name, resolvedValue);
-        // these are easily inferred from workflow vars
-//        context.noteOtherMetadata("Value set", resolvedValue);
-//        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
+        setWorkflowScratchVariableDotSeparated(context, name, resolvedValue,
+                // metadata is easily inferred from workflow vars, and they can use a lot of persistence space, so skip
+                false);
         return context.getPreviousStepOutput();
     }
 
-    static Object setWorkflowScratchVariableDotSeparated(WorkflowStepInstanceExecutionContext context, String name, Object resolvedValue) {
-        Object oldValue;
-        if (name.contains(".")) {
-            String[] names = name.split("\\.");
-            String names0 = names[0];
-            if ("output".equals(names0)) throw new IllegalArgumentException("Cannot set subfield in output");  // catch common error
-            Object h = context.getWorkflowExectionContext().getWorkflowScratchVariables().get(names0);
-            if (!(h instanceof Map)) throw new IllegalArgumentException("Cannot set " + name + " because " + names0 + " is " + (h == null ? "unset" : "not a map"));
-            for (int i = 1; i < names.length - 1; i++) {
-                Object hi = ((Map<?, ?>) h).get(names[i]);
-                if (hi == null) {
-                    hi = MutableMap.of();
-                    ((Map) h).put(names[i], hi);
-                } else if (!(hi instanceof Map))
-                    throw new IllegalArgumentException("Cannot set " + name + " because " + names[i] + " is not a map");
-                h = hi;
-            }
-            oldValue = ((Map) h).put(names[names.length - 1], resolvedValue);
-        } else if (name.contains("[")) {
-            String[] names = name.split("((?<=\\[|\\])|(?=\\[|\\]))");
-            if (names.length != 4 || !"[".equals(names[1]) || !"]".equals(names[3])) {
-                throw new IllegalArgumentException("Invalid list index specifier " + name);
-            }
-            String listName = names[0];
-            int listIndex = Integer.parseInt(names[2]);
-            Object o = context.getWorkflowExectionContext().getWorkflowScratchVariables().get(listName);
-            if (!(o instanceof List))
-                throw new IllegalArgumentException("Cannot set " + name + " because " + listName + " is " + (o == null ? "unset" : "not a list"));
+    static Pair<Object,Object> setWorkflowScratchVariableDotSeparated(WorkflowStepInstanceExecutionContext context, String nameFull, Object resolvedValue, boolean noteMetadata) {
+        Pair<String, List<Object>> np = WorkflowSettingItemsUtils.extractNameAndDotOrBracketedIndices(nameFull);
 
-            List l = MutableList.copyOf(((List)o));
-            if (listIndex < 0 || listIndex >= l.size()) {
-                throw new IllegalArgumentException("Invalid list index " + listIndex);
-            }
-            oldValue = l.set(listIndex, resolvedValue);
-            context.getWorkflowExectionContext().updateWorkflowScratchVariable(listName, l);
-        } else {
-            oldValue = context.getWorkflowExectionContext().updateWorkflowScratchVariable(name, resolvedValue);
+        Pair<Object, Object> result = WorkflowSettingItemsUtils.setAtIndex(np, true, (_prevValue) -> resolvedValue,
+                (k) -> context.getWorkflowExectionContext().getWorkflowScratchVariables().get(k),
+                (k, v) -> context.getWorkflowExectionContext().updateWorkflowScratchVariable(k, v));
+        if (noteMetadata) {
+            // not usually done, see call sites of this method
+            WorkflowSettingItemsUtils.noteValueSetNestedMetadata(context, np, resolvedValue, result);
         }
-        return oldValue;
+        return result;
     }
 
     private enum LetMergeMode { NONE, SHALLOW, DEEP }

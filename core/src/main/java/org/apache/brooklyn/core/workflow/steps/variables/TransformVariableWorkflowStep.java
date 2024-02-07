@@ -18,6 +18,16 @@
  */
 package org.apache.brooklyn.core.workflow.steps.variables;
 
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -41,16 +51,6 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.core.workflow.WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END;
 import static org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep.setWorkflowScratchVariableDotSeparated;
@@ -218,12 +218,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         if (setVariableAtEnd) {
             if (varName==null) throw new IllegalStateException("Variable name not specified when setting variable"); // shouldn't happen
 
-            setWorkflowScratchVariableDotSeparated(context, varName, v);
-            // easily inferred from workflow vars, now that updates are stored separately
-//            Object oldValue =
-//              <above> setWorkflowScratchVariableDotSeparated(context, varName, v);
-//            context.noteOtherMetadata("Value set", v);
-//            if (oldValue != null) context.noteOtherMetadata("Previous value", oldValue);
+            setWorkflowScratchVariableDotSeparated(context, varName, v, false);
 
             if (context.getOutput()!=null) throw new IllegalStateException("Transform that produces output results cannot be used when setting a variable");
             if (STEP_TARGET_NAME_FOR_END.equals(context.next)) throw new IllegalStateException("Return transform cannot be used when setting a variable");
