@@ -86,7 +86,7 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
     public void populateFromShorthand(String expression) {
         Map<String, Object> match = null;
         for (int i=0; i<SHORTHAND_OPTIONS.length && match==null; i++)
-            match = populateFromShorthandTemplate(SHORTHAND_OPTIONS[i], expression, false, true, false);
+            match = populateFromShorthandTemplate(SHORTHAND_OPTIONS[i], expression, false, false);
 
         if (match==null && Strings.isNonBlank(expression)) {
             throw new IllegalArgumentException("Invalid shorthand expression for transform: '" + expression + "'");

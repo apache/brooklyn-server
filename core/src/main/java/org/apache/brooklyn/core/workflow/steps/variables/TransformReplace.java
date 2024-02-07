@@ -19,10 +19,8 @@
 package org.apache.brooklyn.core.workflow.steps.variables;
 
 import org.apache.brooklyn.core.workflow.ShorthandProcessor;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.util.guava.Maybe;
 
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -40,7 +38,6 @@ public class TransformReplace extends WorkflowTransformDefault {
     protected void initCheckingDefinition() {
         Maybe<Map<String, Object>> maybeResult = new ShorthandProcessor(SHORTHAND)
                 .withFinalMatchRaw(false)
-                .withFailOnMismatch(true)
                 .process(transformDef);
 
         if (maybeResult.isPresent()) {

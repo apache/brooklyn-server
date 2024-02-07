@@ -18,22 +18,14 @@
  */
 package org.apache.brooklyn.core.workflow.steps.variables;
 
-import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-import com.google.common.base.Splitter;
 import org.apache.brooklyn.core.workflow.ShorthandProcessor;
-import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.Boxing;
-import org.apache.brooklyn.util.text.Strings;
-import org.apache.commons.lang3.StringUtils;
 
 public class TransformSplit extends WorkflowTransformDefault {
 
@@ -47,7 +39,6 @@ public class TransformSplit extends WorkflowTransformDefault {
     protected void initCheckingDefinition() {
         Maybe<Map<String, Object>> maybeResult = new ShorthandProcessor(SHORTHAND)
                 .withFinalMatchRaw(false)
-                .withFailOnMismatch(true)
                 .process(transformDef);
 
         if (maybeResult.isPresent()) {

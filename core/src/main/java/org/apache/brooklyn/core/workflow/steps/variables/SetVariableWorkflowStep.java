@@ -74,7 +74,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     public void populateFromShorthand(String expression) {
-        Map<String, Object> newInput = populateFromShorthandTemplate(SHORTHAND, expression, true, true, true);
+        Map<String, Object> newInput = populateFromShorthandTemplate(SHORTHAND, expression, true, true);
         if (newInput.get(VALUE.getName())!=null && input.get(INTERPOLATION_MODE.getName())==null) {
             setInput(INTERPOLATION_MODE, InterpolationMode.WORDS);
         }
