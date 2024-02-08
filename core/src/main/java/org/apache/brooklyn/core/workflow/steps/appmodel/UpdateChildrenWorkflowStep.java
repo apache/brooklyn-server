@@ -241,7 +241,11 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
             stepState.parent = parentId!=null ? WorkflowStepResolution.findEntity(context, parentId).get() : context.getEntity();
 
             stepState.identifier_expression = TypeCoercions.coerce(context.getInputRaw(IDENTIFIER_EXRPESSION.getName()), String.class);
-            stepState.items = context.getInput(ITEMS);
+            try {
+                stepState.items = context.getInput(ITEMS);
+            } catch (Exception e) {
+                throw new IllegalStateException("Cannot resolve items as a list", e);
+            }
             if (stepState.items==null) throw new IllegalStateException("Items cannot be null");
             setStepState(context, stepState);
         } else {

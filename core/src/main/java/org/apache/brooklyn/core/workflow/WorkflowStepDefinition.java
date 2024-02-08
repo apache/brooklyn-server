@@ -23,7 +23,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
-import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
@@ -159,11 +158,11 @@ public abstract class WorkflowStepDefinition {
     abstract public void populateFromShorthand(String value);
 
     protected void populateFromShorthandTemplate(String template, String value) {
-        populateFromShorthandTemplate(template, value, false, true, true);
+        populateFromShorthandTemplate(template, value, false, true);
     }
 
-    protected Map<String, Object> populateFromShorthandTemplate(String template, String value, boolean finalMatchRaw, boolean failOnMismatch, boolean failOnError) {
-        Maybe<Map<String, Object>> result = new ShorthandProcessor(template).withFinalMatchRaw(finalMatchRaw).withFailOnMismatch(failOnMismatch).process(value);
+    protected Map<String, Object> populateFromShorthandTemplate(String template, String value, boolean finalMatchRaw, boolean failOnError) {
+        Maybe<Map<String, Object>> result = new ShorthandProcessor(template).withFinalMatchRaw(finalMatchRaw).process(value);
         if (result.isAbsent()) {
             if (failOnError) throw new IllegalArgumentException("Invalid shorthand expression: '" + value + "'", Maybe.Absent.getException(result));
             return null;

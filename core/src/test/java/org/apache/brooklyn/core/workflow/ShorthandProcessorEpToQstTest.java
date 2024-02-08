@@ -18,17 +18,15 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import java.util.Map;
+import java.util.function.Consumer;
+
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
-import org.apache.brooklyn.core.workflow.steps.variables.TransformVariableWorkflowStep;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-
-public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
+public class ShorthandProcessorEpToQstTest extends BrooklynMgmtUnitTestSupport {
 
     void assertShorthandOfGives(String template, String input, Map<String,Object> expected) {
         Asserts.assertEquals(new ShorthandProcessor(template).process(input).get(), expected);
@@ -72,8 +70,20 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
         // if you want quotes, you have to wrap them in quotes
         assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is is quoted\\\"\"", MutableMap.of("x", "this is b", "y", "\"c is is quoted\""));
         // and only quotes at word end are considered, per below
-        assertShorthandOfGivesError("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \"is  quoted\"\\\"\"", MutableMap.of("x", "this is b", "y", "\"c is \"is  quoted\"\""));
-        assertShorthandOfGivesError("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \"is  quoted\"\\\"\"  too", MutableMap.of("x", "this is b", "y", "\"\\\"c is \"is  quoted\"\\\"\"  too"));
+
+        // but unlike pure QST we recognize double quotes like everyone else now, so the following behaviour is changed
+        if (ShorthandProcessorEpToQst.TRY_HARDER_FOR_QST_COMPATIBILITY) {
+            assertShorthandOfGivesError("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \"is  quoted\"\\\"\"",
+                    MutableMap.of("x", "this is b", "y",
+//                            "\"c is \"is  quoted\"\""
+                            "\"\\\"c is \"is  quoted\"\\\"\""
+                    ));
+            assertShorthandOfGivesError("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \"is  quoted\"\\\"\"  too",
+                    MutableMap.of("x", "this is b", "y", "\"\\\"c is \"is  quoted\"\\\"\"  too"));
+        }
+        // and this is new
+        assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \\\"is  quoted\"", MutableMap.of("x", "this is b", "y", "\"c is \"is  quoted"));
+        assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \\\"is  quoted\"  too", MutableMap.of("x", "this is b", "y", "\"\\\"c is \\\"is  quoted\"  too"));
 
         // preserve spaces in a word
         assertShorthandOfGives("${x}", "\"  sp a  ces \"", MutableMap.of("x", "  sp a  ces "));
@@ -86,8 +96,12 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
         // a close quote must come at a word end to be considered
         // so this gives an error
         assertShorthandFailsWith("${x}", "\"c is  \"is", e -> Asserts.expectedFailureContainsIgnoreCase(e, "mismatched", "quot"));
-        // and this is treated as one quoted string
-        assertShorthandOfGivesError("${x}", "\"\\\"c  is \"is  quoted\"\\\"\"", MutableMap.of("x", "\"c  is \"is  quoted\"\""));
+
+        // and this WAS treated as one quoted string
+        assertShorthandOfGivesError("${x}", "\"\\\"c  is \"is  quoted\"\\\"\"",
+//                MutableMap.of("x", "\"c  is \"is  quoted\"\""));
+                // but now two better, as two quoted strings
+                MutableMap.of("x", "\"\\\"c  is \"is  quoted\"\\\"\""));
     }
 
     @Test
@@ -160,6 +174,22 @@ the logic will take the one which matches the optional word1 but as minimally as
     public void testShorthandWithNestedOptional() {
         assertShorthandOfGives("[ [ ${a} ] ${b} [ \"=\" ${c...} ] ]", "b = c", MutableMap.of("b", "b", "c", "c"));
         assertShorthandOfGives("[ [ ${a} ] ${b} [ \"=\" ${c...} ] ]", "a b = c", MutableMap.of("a", "a", "b", "b", "c", "c"));
+    }
+
+    @Test
+    public void testTokensVsWords() {
+        assertShorthandOfGives("[ [ ${type} ] ${var} [ \"=\" ${val...} ] ]",
+                "int foo['bar'] = baz", MutableMap.of("type", "int", "var", "foo['bar']", "val", "baz"));
+
+        // THIS IS STILL NOT DONE BECAUSE ${var} matches a "word";
+        // to support that, we need to delay setting a variable when followed by an optional literal until we are processing that literal;
+        // like "multi-match" mode but "single match" which calls back to the getUpToLiteral once the literal is known.
+        // with valueUpdater that shouldn't be too hard.
+//        assertShorthandOfGives("[ [ ${type} ] ${var} [ \"=\" ${val...} ] ]",
+//                "int foo['bar']=baz", MutableMap.of("type", "int",
+//                        "var", "foo['bar']", "val", "baz"
+//                        "var", "foo['bar']=baz"
+//                ));
     }
 
 }

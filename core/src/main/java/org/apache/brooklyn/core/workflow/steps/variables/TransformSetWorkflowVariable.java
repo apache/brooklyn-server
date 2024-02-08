@@ -39,7 +39,7 @@ public class TransformSetWorkflowVariable extends WorkflowTransformDefault {
     @Override
     public Object apply(Object v) {
         String nameToSet = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, name, String.class);
-        SetVariableWorkflowStep.setWorkflowScratchVariableDotSeparated(stepContext, nameToSet, v);
+        SetVariableWorkflowStep.setWorkflowScratchVariableDotSeparated(stepContext, nameToSet, v, false);
         return v;
     }
 

@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.core.workflow.steps.appmodel;
 
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
@@ -25,19 +29,12 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.utils.WorkflowSettingItemsUtils;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.text.Strings;
-
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import org.apache.commons.lang3.tuple.Pair;
 
 public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
 
@@ -54,27 +51,26 @@ public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         EntityValueToSet sensor = context.getInput(SENSOR);
         if (sensor==null) throw new IllegalArgumentException("Sensor name is required");
-        String sensorNameFull = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, sensor.name, String.class);
-        if (Strings.isBlank(sensorNameFull)) throw new IllegalArgumentException("Sensor name is required");
 
-        List<Object> sensorNameIndexes = MutableList.of();
-        String sensorNameBase = SetSensorWorkflowStep.extractSensorNameBaseAndPopulateIndices(sensorNameFull, sensorNameIndexes);
+        Pair<String, List<Object>> sensorNameAndIndices = WorkflowSettingItemsUtils.resolveNameAndBracketedIndices(context, sensor.name, false);
+        if (sensorNameAndIndices==null) throw new IllegalArgumentException("Sensor name is required");
 
         TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
         Entity entity = sensor.entity;
         if (entity==null) entity = context.getEntity();
 
-        if (sensorNameIndexes.isEmpty()) {
-            ((EntityInternal) entity).sensors().remove(Sensors.newSensor(Object.class, sensorNameFull));
+        // TODO use WorkflowSettingItemsUtils
+        if (sensorNameAndIndices.getRight().isEmpty()) {
+            ((EntityInternal) entity).sensors().remove(Sensors.newSensor(Object.class, sensorNameAndIndices.getLeft()));
         } else {
-            ((EntityInternal) entity).sensors().modify(Sensors.newSensor(Object.class, sensorNameBase), old -> {
+            ((EntityInternal) entity).sensors().modify(Sensors.newSensor(Object.class, sensorNameAndIndices.getLeft()), old -> {
 
                 boolean setLast = false;
 
-                Object newTarget = SetSensorWorkflowStep.makeMutable(old, sensorNameIndexes);
+                Object newTarget = WorkflowSettingItemsUtils.makeMutableOrUnchangedDefaultingToMap(old);
                 Object target = newTarget;
 
-                MutableList<Object> indexes = MutableList.copyOf(sensorNameIndexes);
+                MutableList<Object> indexes = MutableList.copyOf(sensorNameAndIndices.getRight());
                 while (!indexes.isEmpty()) {
                     Object i = indexes.remove(0);
                     boolean isLast = indexes.isEmpty();
@@ -93,7 +89,7 @@ public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
                         } else {
                             nextTarget = ((Map) target).get(i);
                             if (nextTarget==null) break;
-                            ((Map) target).put(i, SetSensorWorkflowStep.makeMutable(nextTarget, indexes));
+                            ((Map) target).put(i, WorkflowSettingItemsUtils.makeMutableOrUnchangedDefaultingToMap(nextTarget));
                         }
 
                     } else if (target instanceof Iterable && i instanceof Integer) {
@@ -121,7 +117,7 @@ public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
                             break;
                         } else {
                             Object t0 = Iterables.get((Iterable) target, ii);
-                            nextTarget = SetSensorWorkflowStep.makeMutable(t0, indexes);
+                            nextTarget = WorkflowSettingItemsUtils.makeMutableOrUnchangedDefaultingToMap(t0);
                             if (t0!=nextTarget) {
                                 if (!(target instanceof List)) throw new IllegalStateException("Cannot set numerical position index in a non-list collection (and was not otherwise known as mutable; e.g. use MutableSet): "+target);
                                 ((List) target).set(ii, nextTarget);

@@ -238,6 +238,12 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         };
     }
 
+    public <T2> Maybe<T2> asType(Class<T2> requiredClass) {
+        if (isAbsent()) return Maybe.castAbsent(this);
+        if (requiredClass.isInstance(get())) return Maybe.<T2>cast((Maybe)this);
+        return Maybe.absent(() -> new IllegalArgumentException("Value is not of required type "+requiredClass));
+    }
+
     public static class MaybeGuavaOptional<T> extends Maybe<T> {
         private static final long serialVersionUID = -823731500051341455L;
         private final Optional<T> value;
