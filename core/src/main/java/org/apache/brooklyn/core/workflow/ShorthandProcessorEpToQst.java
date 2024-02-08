@@ -83,7 +83,8 @@ public class ShorthandProcessorEpToQst {
         return new ShorthandProcessorQstAttempt(this, input).call();
     }
 
-    /** whether the last match should preserve quotes and spaces; default false */
+    /** optionally skip the automatic unwrapping of a single quoted last word lining up with the last word of a template;
+     * by default, we unwrap in that one special case, to facilitate eg return "something fancy" */
     public ShorthandProcessorEpToQst withFinalMatchRaw(boolean finalMatchRaw) {
         this.finalMatchRaw = finalMatchRaw;
         return this;
@@ -131,7 +132,6 @@ public class ShorthandProcessorEpToQst {
             inputRemaining = Strings.trimStart(inputRemaining);
             if (Strings.isNonBlank(inputRemaining)) {
                 if (valueUpdater!=null) {
-                    //QuotedStringTokenizer qstInput = qst(inputRemaining);
                     valueUpdater.accept(getRemainderPossiblyRaw(inputRemaining));
                 } else {
                     // shouldn't come here
@@ -340,19 +340,13 @@ public class ShorthandProcessorEpToQst {
             return mp.get();
         }
         private Maybe<String> getRemainderPossiblyRawEp(String inputRemaining) {
-            if (options.finalMatchRaw) {
-                return Maybe.of(inputRemaining);
-            }
-            Maybe<List<ParseNodeOrValue>> mp = ShorthandProcessorExprParser.tokenizer().parseEverything(inputRemaining);
-            return mp.map(pnl -> {
-                final boolean UNQUOTE_INDIVIDUAL_WORDS = false;  // legacy behaviour
-
-                if (pnl.size()==1 || UNQUOTE_INDIVIDUAL_WORDS) {
-                    return ExpressionParser.getAllUnquoted(pnl);
-                } else {
-                    return ExpressionParser.getUnescapedButNotUnquoted(pnl);
+            if (!options.finalMatchRaw) {
+                Maybe<List<ParseNodeOrValue>> mp = ShorthandProcessorExprParser.tokenizer().parseEverything(inputRemaining);
+                if (mp.isPresent() && mp.get().size()==1 && ExpressionParser.isQuotedExpressionNode(mp.get().get(0))) {
+                    return Maybe.of(ExpressionParser.getUnquoted( mp.get().get(0) ));
                 }
-            });
+            }
+            return Maybe.of(inputRemaining);
         }
 
         private String getNextInputTokenUpToPossibleExpectedLiteralQst(QuotedStringTokenizer qstInput, String nextLiteral) {

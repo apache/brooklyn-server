@@ -37,7 +37,8 @@ public class ShorthandProcessor {
         return delegate.process(input);
     }
 
-    /** whether the last match should preserve quotes and spaces; default false */
+    /** optionally skip the automatic unwrapping of a single quoted last word lining up with the last word of a template;
+     * by default, we unwrap in that one special case, to facilitate eg return "something fancy" */
     public ShorthandProcessor withFinalMatchRaw(boolean finalMatchRaw) {
         delegate.withFinalMatchRaw(finalMatchRaw);
         return this;

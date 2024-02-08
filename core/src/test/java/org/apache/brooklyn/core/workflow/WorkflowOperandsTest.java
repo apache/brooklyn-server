@@ -25,6 +25,7 @@ import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.commons.lang3.tuple.Pair;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -34,16 +35,9 @@ public class WorkflowOperandsTest extends BrooklynMgmtUnitTestSupport {
     private BasicApplication app;
 
     Object runSteps(List<?> steps) {
-        WorkflowBasicTest.addWorkflowStepTypes(mgmt);
-
-        BasicApplication app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-        this.app = app;
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.STEPS, (List) steps)
-        );
-        eff.apply((EntityLocal)app);
-        return app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).getUnchecked();
+        Pair<BasicApplication, Object> result = WorkflowBasicTest.runStepsInNewApp(mgmt(), steps);
+        this.app = result.getLeft();
+        return result.getRight();
     }
 
     public Object evaluate(String expression, String type) {

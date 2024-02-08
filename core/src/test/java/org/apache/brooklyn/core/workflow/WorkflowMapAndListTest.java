@@ -25,6 +25,7 @@ import java.util.Map;
 import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
@@ -36,6 +37,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -47,16 +49,9 @@ public class WorkflowMapAndListTest extends BrooklynMgmtUnitTestSupport {
     private BasicApplication app;
 
     Object runSteps(List<?> steps) {
-        WorkflowBasicTest.addWorkflowStepTypes(mgmt);
-
-        BasicApplication app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-        this.app = app;
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.STEPS, (List) steps)
-        );
-        eff.apply((EntityLocal)app);
-        return app.invoke(app.getEntityType().getEffectorByName ("myWorkflow").get(), null).getUnchecked();
+        Pair<BasicApplication, Object> result = WorkflowBasicTest.runStepsInNewApp(mgmt(), steps);
+        this.app = result.getLeft();
+        return result.getRight();
     }
 
     @Test

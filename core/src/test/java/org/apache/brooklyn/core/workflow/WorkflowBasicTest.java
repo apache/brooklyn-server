@@ -18,6 +18,12 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
@@ -45,13 +51,38 @@ import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.steps.*;
-import org.apache.brooklyn.core.workflow.steps.appmodel.*;
+import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.AddEntityWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.AddPolicyWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.ApplyInitializerWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.ClearConfigWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.ClearSensorWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.DeleteEntityWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.DeletePolicyWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.DeployApplicationWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.InvokeEffectorWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.ReparentEntityWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.SetConfigWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.SetEntityNameWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.SetSensorWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.UpdateChildrenWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.external.HttpWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.external.ShellWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.external.SshWorkflowStep;
-import org.apache.brooklyn.core.workflow.steps.flow.*;
-import org.apache.brooklyn.core.workflow.steps.variables.*;
+import org.apache.brooklyn.core.workflow.steps.flow.FailWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.ForeachWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.GotoWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.NoOpWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.RetryWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.ReturnWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.SleepWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.SwitchWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.variables.ClearVariableWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.variables.LoadWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.variables.TransformVariableWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.variables.WaitWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
@@ -63,13 +94,8 @@ import org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.commons.lang3.tuple.Pair;
 import org.testng.annotations.Test;
-
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 
 public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
@@ -170,6 +196,23 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         } catch (JsonProcessingException e) {
             throw Exceptions.propagate(e);
         }
+    }
+
+    static Pair<BasicApplication,Object> runStepsInNewApp(ManagementContext mgmt, List<?> steps) {
+        WorkflowBasicTest.addWorkflowStepTypes(mgmt);
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        Task<?> invocation = runSteps(app, steps);
+        return Pair.of(app, invocation.getUnchecked());
+    }
+
+    static Task<?> runSteps(BasicApplication app, List<?> steps) {
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.STEPS, (List) steps)
+        );
+        eff.apply((EntityLocal) app);
+        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+        return invocation;
     }
 
     @Test
@@ -376,16 +419,9 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         loadTypes();
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
 
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.STEPS, MutableList.of(
-                        WorkflowTestStep.of( setup::accept ),
-                        "set-sensor " + (type!=null ? type+" " : "") + "x = " + expression
-                ))
-        );
-        eff.apply((EntityLocal)app);
-
-        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+        Task<?> invocation = runSteps(app, MutableList.of(
+                WorkflowTestStep.of(setup::accept),
+                "set-sensor " + (type != null ? type + " " : "") + "x = " + expression));
         invocation.getUnchecked();
         Dumper.dumpInfo(invocation);
 
