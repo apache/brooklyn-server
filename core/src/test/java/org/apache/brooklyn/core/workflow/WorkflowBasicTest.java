@@ -533,5 +533,19 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                 w1.getTask(false).get().getUnchecked(),
                 42);
     }
+
+    @Test
+    public void testWorkflowStepWithCustomName() {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        WorkflowExecutionContext w1 = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "- name: step on entity ${entity.id}",
+                "  step: return ${entity.id}"
+        ), null);
+        Asserts.assertEquals(
+                w1.getTask(false).get().getUnchecked(),
+                app.getId());
+        Asserts.assertEquals(w1.getStepsResolved().get(0).getName(), "step on entity "+app.getId());
+    }
     
 }

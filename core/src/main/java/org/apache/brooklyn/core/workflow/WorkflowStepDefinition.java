@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution.WorkflowExpressionStage;
 import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -60,6 +61,7 @@ public abstract class WorkflowStepDefinition {
 
     //    name:  a name to display in the UI; if omitted it is constructed from the step ID and step type
     protected String name;
+    protected String nameUnresolved;  // raw name, if we resolve it
 
     public String getName() {
         return name;
@@ -222,6 +224,7 @@ public abstract class WorkflowStepDefinition {
                                 continuationInstructions.customBehavior.run();
                             }
                             // if continuing, all the info needed is now in the step state on the context and should be used by the method below
+                            updateName(context);
                             return doTaskBody(context);
                         };
                     };
@@ -233,6 +236,19 @@ public abstract class WorkflowStepDefinition {
                 }).build();
         context.taskId = t.getId();
         return t;
+    }
+
+    protected void updateName(WorkflowStepInstanceExecutionContext context) {
+        if (Strings.isNonBlank(getName())) {
+            try {
+                if (this.nameUnresolved==null) this.nameUnresolved = getName();
+                this.name = context.resolve(WorkflowExpressionStage.STEP_PRE_INPUT, this.nameUnresolved, String.class);
+                context.name = this.name;
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                // otherwise ignore
+            }
+        }
     }
 
     protected abstract Object doTaskBody(WorkflowStepInstanceExecutionContext context);
