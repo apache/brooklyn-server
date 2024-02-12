@@ -77,6 +77,7 @@ import org.apache.brooklyn.core.workflow.steps.flow.NoOpWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.RetryWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.ReturnWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.SleepWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.SubWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.SwitchWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.variables.ClearVariableWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.variables.LoadWorkflowStep;
@@ -155,6 +156,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
         addRegisteredTypeBean(mgmt, "retry", RetryWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "workflow", CustomWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "subworkflow", SubWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "foreach", ForeachWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "ssh", SshWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "shell", ShellWorkflowStep.class);

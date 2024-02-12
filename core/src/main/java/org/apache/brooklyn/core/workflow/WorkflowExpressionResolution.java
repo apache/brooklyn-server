@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.workflow;
 
 import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
+import freemarker.core.InvalidReferenceException;
 import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
 import freemarker.template.TemplateModelException;
@@ -216,8 +217,6 @@ public class WorkflowExpressionResolution {
                         // the main exception, handled here, is if we are setting an input
                         candidate = null;
                         errors.add(t);
-                    } else {
-                        throw Exceptions.propagate(t);
                     }
                 }
                 if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
@@ -495,7 +494,7 @@ public class WorkflowExpressionResolution {
             entry = WorkflowVariableResolutionStackEntry.setting(context, stage, variable);
             if (!RESOLVE_STACK.push(entry)) {
                 entry = null;
-                throw new WorkflowVariableRecursiveReference("Recursive reference setting "+variable+": "+RESOLVE_STACK.getAll(false).stream().map(p -> p.object!=null ? p.object.toString() : p.settingVariable).collect(Collectors.joining("->")));
+                throw new WorkflowVariableRecursiveReference("Recursive or missing reference setting "+variable+": "+RESOLVE_STACK.getAll(false).stream().map(p -> p.object!=null ? p.object.toString() : p.settingVariable).collect(Collectors.joining("->")));
             }
 
             return callable.get();

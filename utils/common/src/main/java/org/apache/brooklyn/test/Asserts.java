@@ -1239,6 +1239,18 @@ public class Asserts {
             }
         }
     }
+
+    public static void assertStringDoesNotContainIgnoreCase(String input, String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
+        if (input==null) fail("Input is null.");
+        if (phrase1ToNotContain!=null) {
+            assertThat(input, Predicates.not(StringPredicates.containsLiteralIgnoreCase(phrase1ToNotContain)));
+        }
+        for (String otherPhrase: optionalOtherPhrasesToNotContain) {
+            if (otherPhrase!=null) {
+                assertThat(input, Predicates.not(StringPredicates.containsLiteralIgnoreCase(otherPhrase)));
+            }
+        }
+    }
     
     public static void assertStringMatchesRegex(String input, String regex1ToMatch, String ...optionalOtherRegexesToMatch) {
         if (input==null) fail("Input is null.");
@@ -1369,7 +1381,22 @@ public class Asserts {
         }
         return true;
     }
-    
+    public static boolean expectedFailureDoesNotContainIgnoreCase(Throwable e, String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
+        if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
+        try {
+            assertStringDoesNotContainIgnoreCase(Exceptions.collapseText(e), phrase1ToNotContain, optionalOtherPhrasesToNotContain);
+        } catch (AssertionError ee) {
+            rethrowPreferredException(e, ee);
+        }
+        return true;
+    }
+    public static Predicate<Throwable> expectedFailureDoesNotContain( String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
+        return e -> expectedFailureDoesNotContain(e, phrase1ToNotContain, optionalOtherPhrasesToNotContain);
+    }
+    public static Predicate<Throwable> expectedFailureDoesNotContainIgnoreCase(String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
+        return e -> expectedFailureDoesNotContainIgnoreCase(e, phrase1ToNotContain, optionalOtherPhrasesToNotContain);
+    }
+
     /** Implements the return behavior for {@link #expectedFailureOfType(Throwable, Class, Class...)} and others,
      * to log interesting earlier errors but to suppress those which are internal or redundant. */
     private static void rethrowPreferredException(Throwable earlierPreferredIfFatalElseLogged, Throwable laterPreferredOtherwise) throws AssertionError {

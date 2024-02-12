@@ -55,8 +55,8 @@ public class ForeachWorkflowStep extends CustomWorkflowStep {
         throw new IllegalArgumentException("Target of foreach must be a list or an expression that resolves to a list, not "+targetR);
     }
 
-    protected boolean isPermittedToSetSteps(String typeBestGuess) {
-        return typeBestGuess==null || SHORTHAND_TYPE_NAME_DEFAULT.equals(typeBestGuess) || ForeachWorkflowStep.class.getName().equals(typeBestGuess);
+    protected boolean isInternalClassNotExtendedAndUserAllowedToSetMostThings(String typeBestGuess) {
+        return !isRegisteredTypeExtensionToClass(ForeachWorkflowStep.class, SHORTHAND_TYPE_NAME_DEFAULT, typeBestGuess);
     }
 
     protected void initializeSubWorkflowForTarget(WorkflowStepInstanceExecutionContext context, Object target, WorkflowExecutionContext nestedWorkflowContext) {

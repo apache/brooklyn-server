@@ -69,6 +69,15 @@ public class WorkflowStepInstanceExecutionContext {
     @JsonIgnore  // persist as sensor but not via REST in case it has secrets resolved
     Map<String,Object> inputResolved = MutableMap.of();
 
+    @JsonIgnore
+    public Map<String, Object> getAllInput() {
+        return input;
+    }
+    @JsonIgnore
+    public Map<String, Object> getAllInputResolved() {
+        return inputResolved;
+    }
+
     transient WorkflowExecutionContext context;
     // replay instructions or a string explicit next step identifier
     public Object next;

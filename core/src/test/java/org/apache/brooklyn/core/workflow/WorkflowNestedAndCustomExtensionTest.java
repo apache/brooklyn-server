@@ -18,6 +18,12 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -60,13 +66,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CancellationException;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<TestApplication> {
 
@@ -174,8 +173,15 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
 
         Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging(MutableList.of(
                         MutableMap.of("type", "log-hi",
-                                "steps", MutableList.of("return not allowed to override")))),
-                e -> Asserts.expectedFailureContainsIgnoreCase(e, "steps"));
+                                "steps", MutableList.of("return should have failed because not allowed to override")))),
+                Asserts.expectedFailureContainsIgnoreCase("error", "in definition", "step 1", "steps=", "should have failed"));
+
+        Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging(MutableList.of(
+                        "log-hi")),
+                Asserts.expectedFailureContainsIgnoreCase("evaluated to null or missing", "name").and(
+                        Asserts.expectedFailureDoesNotContainIgnoreCase("recursive")
+                )
+        );
     }
 
     @Test

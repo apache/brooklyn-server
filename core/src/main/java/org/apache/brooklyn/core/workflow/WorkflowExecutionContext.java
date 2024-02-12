@@ -148,6 +148,24 @@ public class WorkflowExecutionContext {
     @JsonIgnore  // persist as sensor but not via REST in case it has secrets resolved
     Map<String,Object> inputResolved = MutableMap.of();
 
+    public boolean hasInput(ConfigKey<?> key) {
+        return hasInput(key.getName());
+    }
+    public boolean hasInput(String key) {
+        return input.containsKey(key);
+    }
+    @JsonIgnore
+    public Map<String, Object> getAllInput() {
+        return input;
+    }
+    @JsonIgnore
+    public Map<String, Object> getAllInputResolved() {
+        return inputResolved;
+    }
+    public void noteInputResolved(String k, Object v) {
+        inputResolved.put(k, v);
+    }
+
     Object outputDefinition;
     /** final output of the workflow, set at end */
     Object output;
@@ -657,7 +675,7 @@ public class WorkflowExecutionContext {
         if (vm.isPresent()) {
             if (WorkflowStepInstanceExecutionContext.REMEMBER_RESOLVED_INPUT) {
                 // this will keep spending time resolving, but will resolve the resolved value
-                inputResolved.put(key, vm.get());
+                noteInputResolved(key, vm.get());
             }
         }
         return vm;

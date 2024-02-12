@@ -184,6 +184,11 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.flow.ForeachWorkflowStep
+  - id: subworkflow
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.flow.SubWorkflowStep
   - id: retry
     format: java-type-name
     itemType: bean
