@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow.steps.appmodel;
 
 import java.util.List;
+import java.util.Objects;
 
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
@@ -26,14 +27,17 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.core.workflow.utils.WorkflowSettingItemsUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class SetConfigWorkflowStep extends WorkflowStepDefinition {
 
-    public static final String SHORTHAND = "[ ${config.type} ] ${config.name} [ \"=\" ${value...} ]";
+    public static final String SHORTHAND = "[ ${config.type} ] ${config.name} [ \" on \" ${config.entity} ] [ \"=\" ${value...} ]";
 
     public static final ConfigKey<EntityValueToSet> CONFIG = ConfigKeys.newConfigKey(EntityValueToSet.class, "config");
+    public static final ConfigKey<Object> ENTITY = ConfigKeys.newConfigKey(Object.class, "entity");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 
     @Override
@@ -52,7 +56,11 @@ public class SetConfigWorkflowStep extends WorkflowStepDefinition {
         // see note on type in SetSensorWorkflowStep
         TypeToken<?> type = context.lookupType(config.type, () -> TypeToken.of(Object.class));
         Object resolvedValue = context.getInput(VALUE.getName(), type);
-        Entity entity = config.entity!=null ? config.entity : context.getEntity();
+        Object entityO1 = context.getInput(ENTITY);
+        if (entityO1!=null && config.entity!=null && !Objects.equals(entityO1, config.entity))
+            throw new IllegalArgumentException("Cannot specify different entities in 'entity' and 'config.entity' when setting config");
+        Object entityO2 = ObjectUtils.firstNonNull(config.entity, entityO1, context.getEntity());
+        final Entity entity = WorkflowStepResolution.findEntity(context, entityO2).get();
 
         Pair<Object, Object> oldValues = WorkflowSettingItemsUtils.setAtIndex(nameAndIndices, true, (_oldValue) -> resolvedValue,
                 name -> entity.config().get((ConfigKey<Object>) ConfigKeys.newConfigKey(type, name)),

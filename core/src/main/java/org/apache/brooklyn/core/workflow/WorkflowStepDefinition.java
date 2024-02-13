@@ -164,14 +164,19 @@ public abstract class WorkflowStepDefinition {
     }
 
     protected Map<String, Object> populateFromShorthandTemplate(String template, String value, boolean finalMatchRaw, boolean failOnError) {
-        Maybe<Map<String, Object>> result = new ShorthandProcessor(template).withFinalMatchRaw(finalMatchRaw).process(value);
-        if (result.isAbsent()) {
-            if (failOnError) throw new IllegalArgumentException("Invalid shorthand expression: '" + value + "'", Maybe.Absent.getException(result));
-            return null;
-        }
+        Map<String, Object> result = getFromShorthandTemplate(template, value, finalMatchRaw, failOnError);
+        if (result == null) return null;
+        input.putAll((Map<? extends String, ?>) CollectionMerger.builder().build().merge(input, result));
+        return result;
+    }
 
-        input.putAll((Map<? extends String, ?>) CollectionMerger.builder().build().merge(input, result.get()));
-        return result.get();
+    protected Map<String, Object> getFromShorthandTemplate(String template, String value, boolean finalMatchRaw, boolean failOnError) {
+        Maybe<Map<String, Object>> result = new ShorthandProcessor(template).withFinalMatchRaw(finalMatchRaw).process(value);
+        return result.or(() -> {
+            if (failOnError)
+                throw new IllegalArgumentException("Invalid shorthand expression: '" + value + "'", Maybe.Absent.getException(result));
+            return null;
+        });
     }
 
     final Task<?> newTask(WorkflowStepInstanceExecutionContext context) {

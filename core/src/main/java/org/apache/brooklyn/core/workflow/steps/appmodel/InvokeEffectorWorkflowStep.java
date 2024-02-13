@@ -18,8 +18,12 @@
  */
 package org.apache.brooklyn.core.workflow.steps.appmodel;
 
+import java.util.List;
+import java.util.Map;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
@@ -29,38 +33,134 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.effector.Effectors;
-import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.EntityPredicates;
-import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowReplayUtils;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.core.workflow.steps.flow.SwitchWorkflowStep;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
+import org.apache.brooklyn.core.workflow.utils.ExpressionParser;
+import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl;
+import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl.CharactersCollectingParseMode;
+import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl.CommonParseMode;
+import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl.ParseNode;
+import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl.ParseNodeOrValue;
+import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl.ParseValue;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.List;
-import java.util.Map;
+import static org.apache.brooklyn.core.workflow.utils.WorkflowSettingItemsUtils.makeMutableCopy;
 
 public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implements WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow {
 
     private static final Logger LOG = LoggerFactory.getLogger(InvokeEffectorWorkflowStep.class);
 
-    public static final String SHORTHAND = "${effector}";
+    public static final String SHORTHAND = "${effector} [ \" on \" ${entity} ] [ \" with \" ${args...} ]";
 
     public static final ConfigKey<Object> ENTITY = ConfigKeys.newConfigKey(Object.class, "entity");
     public static final ConfigKey<String> EFFECTOR = ConfigKeys.newStringConfigKey("effector");
     public static final ConfigKey<Map<String,Object>> ARGS = new MapConfigKey.Builder<>(Object.class, "args").build();
 
     @Override
-    public void populateFromShorthand(String expression) {
-        populateFromShorthandTemplate(SHORTHAND, expression);
+    public void populateFromShorthand(String value) {
+        populateFromShorthandTemplate(SHORTHAND, value, true, true);
+    }
+    @Override
+    protected Map<String, Object> getFromShorthandTemplate(String template, String value, boolean finalMatchRaw, boolean failOnError) {
+        Map<String, Object> result = super.getFromShorthandTemplate(template, value, finalMatchRaw, failOnError);
+        if (result!=null && result.containsKey(ARGS.getName())) {
+            result = makeMutableCopy(result).get();
+            Object args = result.remove(ARGS.getName());
+            Map<String,Object> argsM = MutableMap.of();
+            if (args instanceof Map) result.put(ARGS.getName(), args);
+            else if (args instanceof String) {
+                result.put(ARGS.getName(), parseKeyEqualsValueExpressionStringList((String) args));
+            } else {
+                throw new IllegalArgumentException("args provided to invoke-effector must be a map or a comma-separated sequence of key = value pairs");
+            }
+        }
+        return result;
+    }
+
+    public static Map<String,String> parseKeyEqualsValueExpressionStringList(String args) {
+        ExpressionParserImpl ep = ExpressionParser.newDefaultAllowingUnquotedLiteralValues()
+                .includeGroupingBracketsAtUsualPlaces()
+                .includeAllowedTopLevelTransition(ExpressionParser.WHITESPACE)
+                .includeAllowedTopLevelTransition(new CharactersCollectingParseMode("equals", '='))
+                .includeAllowedTopLevelTransition(new CharactersCollectingParseMode("colon", ':'))
+                .includeAllowedTopLevelTransition(new CharactersCollectingParseMode("comma", ','));
+        ParseNode pr = ep.parse(args).get();
+        Map<String,String> result = MutableMap.of();
+
+        List<String> key = MutableList.of();
+        List<String> value = MutableList.of();
+        List<String> ws = MutableList.of();
+
+        Runnable save = () -> {
+            String old = result.put(Strings.join(key, ""), Strings.join(value, ""));
+            if (old!=null) throw new IllegalArgumentException("Duplicate argument: "+Strings.join(key, ""));
+        };
+        List<String> current = key;
+        for (ParseNodeOrValue c: pr.getContents()) {
+            Maybe<String> add = null;
+            Boolean advance = null;
+
+            if (c.isParseNodeMode(ExpressionParser.WHITESPACE) ) {
+                ws.add(c.getSource());
+                continue;
+            }
+
+            if (c.isParseNodeMode(ExpressionParser.COMMON_BRACKETS) || c.isParseNodeMode(ExpressionParser.INTERPOLATED)) {
+                if (current==key) throw new IllegalArgumentException("Cannot use "+c.getParseNodeMode()+" in argument name");
+                add = Maybe.of(c.getSource());
+            } else if (ExpressionParser.isQuotedExpressionNode(c) || c.isParseNodeMode(ParseValue.MODE) || c.isParseNodeMode(ExpressionParser.BACKSLASH_ESCAPE)) {
+                add = Maybe.of(ExpressionParser.getUnquoted(c));
+            } else if (c.isParseNodeMode("equals", "colon")) {
+                if (current==value) throw new IllegalArgumentException("Cannot use "+c.getParseNodeMode()+" after argument value");
+                add = Maybe.absent();
+                advance = true;
+            } else if (c.isParseNodeMode("comma")) {
+                if (current==key) throw new IllegalArgumentException("Cannot use "+c.getParseNodeMode()+" in argument key");
+                add = Maybe.absent();
+                advance = true;
+            }
+
+            if (add==null) throw new IllegalArgumentException("Unexpected expression for argument: "+c.getSource());
+            if (add.isPresent()) {
+                if (!current.isEmpty()) {
+                    if (current==key) throw new IllegalArgumentException("Multiple words not permitted for argument name");
+                    current.addAll(ws);
+                }
+                current.add(add.get());
+            }
+            ws.clear();
+            if (Boolean.TRUE.equals(advance)) {
+                if (current==key) {
+                    if (current.isEmpty()) throw new IllegalArgumentException("Missing argument name");
+                    current = value;
+                } else {
+                    if (current.isEmpty()) throw new IllegalArgumentException("Missing argument value");
+                    current = key;
+                    save.run();
+                    key.clear();
+                    value.clear();
+                }
+            }
+        }
+
+        if (current==key) {
+            if (!current.isEmpty()) throw new IllegalArgumentException("Missing argument value");
+        } else if (current==value) {
+            if (current.isEmpty()) throw new IllegalArgumentException("Missing argument value");
+            save.run();
+        }
+        return result;
     }
 
     @Override
@@ -107,28 +207,10 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        Object te = context.getInput(ENTITY);
-        if (te==null) te = context.getEntity();
-        if (te instanceof String) {
-            String desiredComponentId = (String) te;
-            List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(), true,
-                    Predicates.and(EntityPredicates.configEqualTo(BrooklynConfigKeys.PLAN_ID, desiredComponentId), x->true)::apply);
-            if (firstGroupOfMatches.isEmpty()) {
-                firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(), true,
-                        Predicates.and(EntityPredicates.idEqualTo(desiredComponentId), x->true)::apply);
-            }
-            if (!firstGroupOfMatches.isEmpty()) {
-                te = firstGroupOfMatches.get(0);
-            } else {
-                throw new IllegalStateException("Cannot find entity with ID '"+desiredComponentId+"'");
-            }
-        }
-        if (!(te instanceof Entity)) {
-            throw new IllegalStateException("Unsupported object for entity '"+te+"' ("+te.getClass()+")");
-        }
+        Entity entity = WorkflowStepResolution.findEntity(context, ObjectUtils.firstNonNull(context.getInput(ENTITY), context.getEntity()) ).get();
 
-        Effector<Object> effector = (Effector) ((Entity) te).getEntityType().getEffectorByName(context.getInput(EFFECTOR)).get();
-        TaskAdaptable<Object> invocation = Effectors.invocationPossiblySubWorkflow((Entity) te, effector, context.getInput(ARGS), context.getWorkflowExectionContext(), workflowTag -> {
+        Effector<Object> effector = (Effector) entity.getEntityType().getEffectorByName(context.getInput(EFFECTOR)).get();
+        TaskAdaptable<Object> invocation = Effectors.invocationPossiblySubWorkflow(entity, effector, context.getInput(ARGS), context.getWorkflowExectionContext(), workflowTag -> {
             WorkflowReplayUtils.setNewSubWorkflows(context, MutableList.of(workflowTag), workflowTag.getWorkflowId());
             // unlike nested case, no need to persist as single child workflow will persist themselves imminently, and if not no great shakes to recompute
         });

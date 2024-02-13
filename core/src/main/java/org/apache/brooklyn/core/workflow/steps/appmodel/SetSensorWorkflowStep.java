@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow.steps.appmodel;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -33,10 +34,12 @@ import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.core.workflow.utils.WorkflowSettingItemsUtils;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.predicates.DslPredicates.DslEntityPredicateDefault;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,9 +50,10 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
 
     static final boolean ALWAYS_USE_SENSOR_MODIFY = true;
 
-    public static final String SHORTHAND = "[ ${sensor.type} ] ${sensor.name} [ \"=\" ${value...} ]";
+    public static final String SHORTHAND = "[ ${sensor.type} ] ${sensor.name} [ \" on \" ${sensor.entity} ] [ \"=\" ${value...} ]";
 
     public static final ConfigKey<EntityValueToSet> SENSOR = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
+    public static final ConfigKey<Object> ENTITY = ConfigKeys.newConfigKey(Object.class, "entity");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
     public static final ConfigKey<DslPredicates.DslPredicate> REQUIRE = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "require",
             "Require a condition in order to set the value; if the condition is not satisfied, the sensor is not set");
@@ -86,7 +90,11 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
         if (sensorNameAndIndices==null) throw new IllegalArgumentException("Sensor name is required");
 
         final TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
-        final Entity entity = sensor.entity!=null ? sensor.entity : context.getEntity();
+        Object entityO1 = context.getInput(ENTITY);
+        if (entityO1!=null && sensor.entity!=null && !Objects.equals(entityO1, sensor.entity))
+            throw new IllegalArgumentException("Cannot specify different entities in 'entity' and 'sensor.entity' when setting sensor");
+        Object entityO2 = ObjectUtils.firstNonNull(sensor.entity, entityO1, context.getEntity());
+        final Entity entity = WorkflowStepResolution.findEntity(context, entityO2).get();
 
         Supplier<Object> resolveOnceValueSupplier = Suppliers.memoize(() -> {
 //        // might need to be careful if defined type is different or more generic than type specified here;

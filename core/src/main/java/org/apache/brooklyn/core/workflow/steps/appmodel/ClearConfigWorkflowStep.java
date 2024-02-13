@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.workflow.steps.appmodel;
 
+import java.util.Objects;
+
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
@@ -26,13 +28,16 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.lang3.ObjectUtils;
 
 public class ClearConfigWorkflowStep extends WorkflowStepDefinition {
 
-    public static final ConfigKey<EntityValueToSet> CONFIG = ConfigKeys.newConfigKey(EntityValueToSet.class, "config");
+    public static final String SHORTHAND = "[ ${config.type} ] ${config.name} [ \" on \" ${config.entity} ]";
 
-    public static final String SHORTHAND = "[ ${config.type} ] ${config.name}";
+    public static final ConfigKey<EntityValueToSet> CONFIG = ConfigKeys.newConfigKey(EntityValueToSet.class, "config");
+    public static final ConfigKey<Object> ENTITY = ConfigKeys.newConfigKey(Object.class, "entity");
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -46,8 +51,13 @@ public class ClearConfigWorkflowStep extends WorkflowStepDefinition {
         String configName = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, config.name, String.class);
         if (Strings.isBlank(configName)) throw new IllegalArgumentException("Config key name is required");
         TypeToken<?> type = context.lookupType(config.type, () -> TypeToken.of(Object.class));
-        Entity entity = config.entity;
-        if (entity==null) entity = context.getEntity();
+
+        Object entityO1 = context.getInput(ENTITY);
+        if (entityO1!=null && config.entity!=null && !Objects.equals(entityO1, config.entity))
+            throw new IllegalArgumentException("Cannot specify different entities in 'entity' and 'config.entity' when clearing config");
+        Object entityO2 = ObjectUtils.firstNonNull(config.entity, entityO1, context.getEntity());
+        final Entity entity = WorkflowStepResolution.findEntity(context, entityO2).get();
+
         ((EntityInternal)entity).config().removeKey(ConfigKeys.newConfigKey(Object.class, configName));
         return context.getPreviousStepOutput();
     }

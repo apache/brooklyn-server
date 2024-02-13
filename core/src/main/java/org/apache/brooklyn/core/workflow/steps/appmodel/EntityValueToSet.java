@@ -35,7 +35,7 @@ public class EntityValueToSet extends TypedValueToSet {
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public Entity entity;
+    public Object entity;
 
     public static EntityValueToSet fromString(String name) {
         return new EntityValueToSet(name);

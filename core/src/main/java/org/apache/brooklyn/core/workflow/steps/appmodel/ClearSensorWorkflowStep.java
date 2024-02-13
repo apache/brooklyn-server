@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.workflow.steps.appmodel;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
@@ -31,16 +32,19 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.core.workflow.utils.WorkflowSettingItemsUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
 
-    public static final String SHORTHAND = "[ ${sensor.type} ] ${sensor.name}";
+    public static final String SHORTHAND = "[ ${sensor.type} ] ${sensor.name} [ \" on \" ${sensor.entity} ]";
 
     public static final ConfigKey<EntityValueToSet> SENSOR = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
+    public static final ConfigKey<Object> ENTITY = ConfigKeys.newConfigKey(Object.class, "entity");
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -56,8 +60,11 @@ public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
         if (sensorNameAndIndices==null) throw new IllegalArgumentException("Sensor name is required");
 
         TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
-        Entity entity = sensor.entity;
-        if (entity==null) entity = context.getEntity();
+        Object entityO1 = context.getInput(ENTITY);
+        if (entityO1!=null && sensor.entity!=null && !Objects.equals(entityO1, sensor.entity))
+            throw new IllegalArgumentException("Cannot specify different entities in 'entity' and 'sensor.entity' when clearing sensor");
+        Object entityO2 = ObjectUtils.firstNonNull(sensor.entity, entityO1, context.getEntity());
+        final Entity entity = WorkflowStepResolution.findEntity(context, entityO2).get();
 
         // TODO use WorkflowSettingItemsUtils
         if (sensorNameAndIndices.getRight().isEmpty()) {

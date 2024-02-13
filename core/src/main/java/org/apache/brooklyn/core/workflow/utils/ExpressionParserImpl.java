@@ -387,7 +387,7 @@ public class ExpressionParserImpl extends ExpressionParser {
     public ExpressionParserImpl includeGroupingBracketsAtUsualPlaces(ParseMode ...optionalExplicitBrackets) {
         List<ParseMode> brackets = optionalExplicitBrackets==null ? MutableList.of() :
                 Arrays.asList(optionalExplicitBrackets).stream().filter(b -> b!=null).collect(Collectors.toList());
-        if (brackets.isEmpty()) brackets = MutableList.of(SQUARE_BRACKET, CURLY_BRACES, PARENTHESES);
+        if (brackets.isEmpty()) brackets.addAll(COMMON_BRACKETS);
 
         brackets.forEach(b -> includeAllowedTopLevelTransition(b));
         allowedTransitions.putAll(INTERPOLATED, brackets);

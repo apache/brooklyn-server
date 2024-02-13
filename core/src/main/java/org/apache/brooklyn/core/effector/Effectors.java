@@ -18,6 +18,18 @@
  */
 package org.apache.brooklyn.core.effector;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
+import javax.annotation.Nullable;
+
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -40,14 +52,11 @@ import org.apache.brooklyn.core.workflow.WorkflowEffector;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
-import java.util.*;
-import java.util.function.Consumer;
 
 public class Effectors {
 
@@ -174,7 +183,7 @@ public class Effectors {
             if (eff2 != eff) {
                 if (eff2 instanceof EffectorWithBody) {
                     log.debug("Replacing invocation of {} on {} with {} which is the impl defined at that entity", new Object[] { eff, entity, eff2 });
-                    return ((EffectorWithBody<T>)eff2).getBody().newTask(entity, eff2, ConfigBag.newInstance().putAll(parameters));
+                    return ((EffectorWithBody<T>)eff2).getBody().newTask(entity, eff2, getConfigBagWithParametersCoerced(eff2, parameters, false));
                 } else {
                     log.warn("Effector {} defined on {} has no body; invoking caller-supplied {} instead", new Object[] { eff2, entity, eff });
                 }
@@ -185,14 +194,40 @@ public class Effectors {
         
         if (eff instanceof EffectorWithBody) {
             if (eff instanceof WorkflowEffector.WorkflowEffectorAndBody) {
-                return (TaskAdaptable<T>) ((WorkflowEffector.WorkflowEffectorAndBody) eff).getBody().newSubWorkflowTask(entity, eff, ConfigBag.newInstance().putAll(parameters), parent, parentWorkflowInitializer);
+                return (TaskAdaptable<T>) ((WorkflowEffector.WorkflowEffectorAndBody) eff).getBody().newSubWorkflowTask(entity, eff, getConfigBagWithParametersCoerced(eff, parameters, false), parent, parentWorkflowInitializer);
             } else {
-                return ((EffectorWithBody<T>) eff).getBody().newTask(entity, eff, ConfigBag.newInstance().putAll(parameters));
+                return ((EffectorWithBody<T>) eff).getBody().newTask(entity, eff, getConfigBagWithParametersCoerced(eff, parameters, false));
             }
         }
         
         throw new UnsupportedOperationException("No implementation registered for effector "+eff+" on "+entity);
-    }    
+    }
+
+    public static ConfigBag getConfigBagWithParametersCoerced(Effector<?> eff, @Nullable Map<?,?> map, boolean requireParameter) {
+        ConfigBag bag = ConfigBag.newInstance();
+        if (map!=null) {
+            map.forEach( (ko,v) -> {
+                String k;
+                if (ko instanceof String) k = (String) ko;
+                else if (ko instanceof ConfigKey) k = ((ConfigKey)ko).getName();
+                else throw new IllegalArgumentException("Invalid parameter '"+ko+"' for effector "+eff.getName()+"; should be a string or config key");
+                Optional<ParameterType<?>> p = eff.getParameters().stream().filter(pi -> k.equals(pi.getName())).findFirst();
+                if (!p.isPresent()) {
+                    if (!requireParameter) {
+                        // many invocations pass ad hoc parameters
+                        bag.putStringKey(k, v);
+                    } else {
+                        // might be nice to stop doing that, but even some workflow eg update children on_update takes parameters it doesn't declare
+                        throw new IllegalArgumentException("No such parameter '" + k + "' for effector " + eff.getName());
+                    }
+                } else {
+                    Object v2 = TypeCoercions.tryCoerce(v, p.get().getParameterType()).orThrow("Invalid parameter value for '" + k + "' for effector " + eff.getName() + "; cannot convert to " + p.get().getParameterType());
+                    bag.putStringKey(k, v2);
+                }
+            });
+        }
+        return bag;
+    }
 
     public static <V> ParameterType<V> asParameterType(ConfigKey<V> key) {
         return key.hasDefaultValue()

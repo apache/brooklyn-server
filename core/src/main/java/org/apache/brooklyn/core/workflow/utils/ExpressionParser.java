@@ -58,6 +58,8 @@ public abstract class ExpressionParser {
     public static final ParseMode PARENTHESES = CommonParseMode.transitionNested("parenthesis", "(", ")");
     public static final ParseMode CURLY_BRACES = CommonParseMode.transitionNested("curly_brace", "{", "}");
 
+    public static final List<ParseMode> COMMON_BRACKETS = MutableList.of(SQUARE_BRACKET, PARENTHESES, CURLY_BRACES).asUnmodifiable();
+
 
     private static Multimap<ParseMode,ParseMode> getCommonInnerTransitions() {
         ListMultimap<ParseMode,ParseMode> m = Multimaps.newListMultimap(MutableMap.of(), MutableList::of);
