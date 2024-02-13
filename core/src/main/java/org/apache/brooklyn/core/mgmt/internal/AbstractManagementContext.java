@@ -19,6 +19,8 @@
 package org.apache.brooklyn.core.mgmt.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.common.base.Predicates;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
 
@@ -60,7 +62,9 @@ import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.drivers.BasicEntityDriverManager;
 import org.apache.brooklyn.core.entity.drivers.downloads.BasicDownloadsManager;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
@@ -82,6 +86,7 @@ import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -540,13 +545,44 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     public <T extends BrooklynObject> T lookup(String id, Class<T> type) {
         if (id==null) return null;
         Object result;
+
         result = getEntityManager().getEntity(id);
         if (result!=null && type.isInstance(result)) return (T)result;
         
         result = getLocationManager().getLocation(id);
         if (result!=null && type.isInstance(result)) return (T)result;
 
+        Entity contextEntity = BrooklynTaskTags.getContextEntity(Tasks.current());
+        if (type.isAssignableFrom(Entity.class) && contextEntity!=null) {
+            result = findEntity(contextEntity, id).orNull();
+            if (result!=null && type.isInstance(result)) return (T)result;
+        }
+
         return lookup((o) -> { return type.isInstance(o) && Objects.equal(id, o.getId()); });
+    }
+
+    public static Maybe<Entity> findEntity(Entity contextEntity, Object entityO) {
+        Entity entity=null;
+        String entityId;
+        if (entityO instanceof Entity) {
+            entity = (Entity) entityO;
+        } else if (entityO instanceof String || Boxing.isPrimitiveOrBoxedObject(entityO)) {
+            entityId = entityO.toString();
+
+            List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(contextEntity, true,
+                    Predicates.and(EntityPredicates.configEqualTo(BrooklynConfigKeys.PLAN_ID, entityId), x->true)::apply);
+            if (firstGroupOfMatches.isEmpty()) {
+                firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(contextEntity, true,
+                        Predicates.and(EntityPredicates.idEqualTo(entityId), x->true)::apply);
+            }
+            if (!firstGroupOfMatches.isEmpty()) {
+                entity = firstGroupOfMatches.get(0);
+            }
+
+            if (entity==null) return Maybe.absent("Cannot find entity with id '"+entityId+"'");
+
+        } else return Maybe.absent("Invalid expression for entity; must be a string or entity, not '"+entityO+"'");
+        return Maybe.of(entity);
     }
     
     @Override

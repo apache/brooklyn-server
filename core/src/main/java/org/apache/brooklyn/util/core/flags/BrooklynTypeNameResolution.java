@@ -22,6 +22,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
@@ -81,6 +82,9 @@ public class BrooklynTypeNameResolution {
             .put("timestamp", Timestamp.class)
             .put("instant", Instant.class)
             .put("port", PortRange.class)
+
+            .put("entity", Entity.class)
+
             .build();
 
     private static final Map<String,Class<?>> BUILT_IN_TYPE_CLASSES;
