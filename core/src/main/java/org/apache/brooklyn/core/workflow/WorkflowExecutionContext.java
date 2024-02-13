@@ -557,7 +557,8 @@ public class WorkflowExecutionContext {
                     }
                     log.debug("Request to replay resuming " + WorkflowExecutionContext.this + " at non-idempotent step; rolling back to " + replayableLastStep);
                     if (replayableLastStep == null) {
-                        throw new IllegalArgumentException("Cannot replay resuming as there are no replay points and last step " + currentStepIndex + " is not idempotent");
+                        throw new IllegalArgumentException("Cannot replay resuming as there are no replay points and last step " + currentStepIndex + " is not idempotent; " +
+                                "should that step or a previous one declare 'idempotent: true' or 'replayable: from here' ?");
                     }
                     return makeInstructionsForReplayingFromStep(replayableLastStep, reason, false);
                 }

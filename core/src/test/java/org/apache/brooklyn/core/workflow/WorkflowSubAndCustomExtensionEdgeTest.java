@@ -143,16 +143,29 @@ public class WorkflowSubAndCustomExtensionEdgeTest extends RebindTestFixture<Tes
 
     @Test
     public void testSubWorkflowStep() throws Exception {
+        MutableList<String> steps = MutableList.of(
+                "let v0 = ${v0}B",
+                "let v1 = ${v1}B",
+                "let v3 = V3B",
+                "return done");
         runWorkflow(MutableList.of(
                 "let v1 = V1",
                 "let v2 = V2",
-                MutableMap.of("step", "subworkflow",
-                    "steps", MutableList.of(
-                            "let v0 = ${v0}B",
-                            "let v1 = ${v1}B",
-                            "let v3 = V3B",
-                            "return done")),
+                MutableMap.of(
+                        "step", "subworkflow",
+                    "steps", steps),
                 "return ${v0}-${v1}-${v2}-${v3}-${output}"),
+                ConfigBag.newInstance().configure(WorkflowCommonConfig.INPUT, MutableMap.of("v0", "V0")) );
+        Asserts.assertEquals(lastInvocation.getUnchecked(), "V0B-V1B-V2-V3B-done");
+
+        // subworkflow is chosen implicitly if step is omitted
+        runWorkflow(MutableList.of(
+                        "let v1 = V1",
+                        "let v2 = V2",
+                        MutableMap.of(
+                                //"step", "subworkflow",
+                                "steps", steps),
+                        "return ${v0}-${v1}-${v2}-${v3}-${output}"),
                 ConfigBag.newInstance().configure(WorkflowCommonConfig.INPUT, MutableMap.of("v0", "V0")) );
         Asserts.assertEquals(lastInvocation.getUnchecked(), "V0B-V1B-V2-V3B-done");
     }

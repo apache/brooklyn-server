@@ -97,19 +97,21 @@ public class WorkflowStepResolution {
                 Object s = defM.remove("step");
                 if (s == null) s = defM.remove("shorthand");
                 if (s == null) s = defM.remove("s");
-                if (s == null) {
-                    if (defM.size()==1) {
-                        // assume the colon caused it accidentally to be a map
-                        s = Iterables.getOnlyElement(defM.keySet());
-                        if (s instanceof String && ((String)s).contains(" ")) {
-                            s = s + " : " + Iterables.getOnlyElement(defM.values());
-                        } else {
-                            s = null;
-                        }
+                if (s==null && defM.containsKey("steps")) {
+                    // if it has steps, but no step or s, assume it is a subworkflow
+                    s = "subworkflow";
+                }
+                if (s == null && defM.size()==1) {
+                    // assume the colon caused it accidentally to be a map
+                    s = Iterables.getOnlyElement(defM.keySet());
+                    if (s instanceof String && ((String)s).contains(" ")) {
+                        s = s + " : " + Iterables.getOnlyElement(defM.values());
+                    } else {
+                        s = null;
                     }
-                    if (s==null) {
-                        throw new IllegalArgumentException("Step definition must indicate a `type` or a `step` / `shorthand` / `s` (" + def + ")");
-                    }
+                }
+                if (s==null) {
+                    throw new IllegalArgumentException("Step definition must indicate a `type` or a `step` / `shorthand` / `s` (" + def + ")");
                 }
                 if (!(s instanceof String)) {
                     throw new IllegalArgumentException("step shorthand must be a string");
