@@ -70,6 +70,8 @@ public interface DynamicGroup extends AbstractGroup {
     /** Rescans <em>all</em> entities to determine whether they match the filter. */
     @Effector(description = "Rescans all entities to determine whether they match the configured filter.")
     void rescanEntities();
+    /** return true/false whether there are any changes detected */
+    boolean prescanEntities();
 
     /** Sets {@link #ENTITY_FILTER}, overriding (and rescanning all) if already set. */
     void setEntityFilter(Predicate<? super Entity> filter);

@@ -205,15 +205,23 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
 
     @Override
     public void rescanEntities() {
+        rescanEntitiesInternal(true);
+    }
+
+    public boolean prescanEntities() {
+        return rescanEntitiesInternal(false);
+    }
+
+    protected boolean rescanEntitiesInternal(boolean makeChanges) {
         synchronized (memberChangeMutex) {
             if (!isRunning() || !getManagementSupport().isDeployed()) {
                 if (log.isDebugEnabled()) log.debug("{} not scanning for children: stopped", this);
-                return;
+                return false;
             }
             if (getAncestorToScan() == null) {
                 BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(this, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.TRACE),
                     "{} not (yet) scanning for children: no application defined", this);
-                return;
+                return false;
             }
             boolean changed = false;
             Collection<Entity> currentMembers = getMembers();
@@ -225,17 +233,20 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
                 toRemove.remove(it);
                 if (!currentMembers.contains(it)) {
                     if (log.isDebugEnabled()) log.debug("{} rescan detected new item {}", this, it);
+                    if (!makeChanges) return true;
                     addMember(it);
                     changed = true;
                 }
             }
             for (Entity it : toRemove) {
                 if (log.isDebugEnabled()) log.debug("{} rescan detected vanished item {}", this, it);
+                if (!makeChanges) return true;
                 removeMember(it);
                 changed = true;
             }
             if (changed && log.isDebugEnabled())
                 log.debug("{} rescan complete, members now {}", this, getMembers());
+            return changed;
         }
     }
 

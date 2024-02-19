@@ -194,6 +194,9 @@ public class WorkflowConfigSensorEffectorTest extends RebindTestFixture<TestAppl
         Entity chilld = Iterables.getOnlyElement(app.getChildren());
         Asserts.assertEquals(lastInvocation.getUnchecked(), chilld);
 
+        runWorkflow(MutableList.of("let entity x = "+chilld.getId(), "return ${x}"));
+        Asserts.assertEquals(lastInvocation.getUnchecked(), chilld);
+
         runWorkflow(MutableList.of("let entity x = chilldx",
                         "let y = ${x} ?? missing",
                         "return ${y}"));
