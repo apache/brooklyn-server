@@ -33,6 +33,7 @@ import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.SubWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -88,6 +89,12 @@ public class WorkflowStepResolution {
         String shorthand = null;
 
         Map defM = null;
+
+        if (def instanceof List) {
+            // list treated as implicit subworkflow, eg step: [ "sleep 1" ] = step: { steps: [ "sleep 1" ] }
+            def = MutableMap.of(SubWorkflowStep.SHORTHAND_TYPE_NAME_DEFAULT, def);
+        }
+
         if (def instanceof String) {
             shorthand = (String) def;
             defM = MutableMap.of();
@@ -98,10 +105,12 @@ public class WorkflowStepResolution {
                 Object s = defM.remove("step");
                 if (s == null) s = defM.remove("shorthand");
                 if (s == null) s = defM.remove("s");
-                if (s==null && defM.containsKey("steps")) {
+
+                if (s==null && defM.containsKey(WorkflowCommonConfig.STEPS.getName())) {
                     // if it has steps, but no step or s, assume it is a subworkflow
-                    s = "subworkflow";
+                    s = SubWorkflowStep.SHORTHAND_TYPE_NAME_DEFAULT;
                 }
+
                 if (s == null && defM.size()==1) {
                     // assume the colon caused it accidentally to be a map
                     s = Iterables.getOnlyElement(defM.keySet());
@@ -111,8 +120,13 @@ public class WorkflowStepResolution {
                         s = null;
                     }
                 }
+
                 if (s==null) {
                     throw new IllegalArgumentException("Step definition must indicate a `type` or a `step` / `shorthand` / `s` (" + def + ")");
+                }
+                if (s instanceof Map && defM.size()==1) {
+                    // allow shorthand to contain a nested map if the shorthand is the only thing in the map, eg { step: { step: "xxx" } }
+                    return resolveStep(mgmt, s);
                 }
                 if (!(s instanceof String)) {
                     throw new IllegalArgumentException("step shorthand must be a string");

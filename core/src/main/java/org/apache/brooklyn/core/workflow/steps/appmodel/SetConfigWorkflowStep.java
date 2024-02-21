@@ -62,6 +62,8 @@ public class SetConfigWorkflowStep extends WorkflowStepDefinition {
         Object entityO2 = ObjectUtils.firstNonNull(config.entity, entityO1, context.getEntity());
         final Entity entity = WorkflowStepResolution.findEntity(context, entityO2).get();
 
+        if (!context.hasInput(VALUE)) throw new IllegalArgumentException("Value is required");
+
         Pair<Object, Object> oldValues = WorkflowSettingItemsUtils.setAtIndex(nameAndIndices, true, (_oldValue) -> resolvedValue,
                 name -> entity.config().get((ConfigKey<Object>) ConfigKeys.newConfigKey(type, name)),
                 (name, value) -> entity.config().set((ConfigKey<Object>) ConfigKeys.newConfigKey(type, name), value));

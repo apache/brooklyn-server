@@ -102,6 +102,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
         TypeToken<?> type = context.lookupType(variable.type, () -> null);
 
+        if (!context.hasInput(VALUE)) throw new IllegalArgumentException("Value is required");
         Object unresolvedValue = input.get(VALUE.getName());
 
         Object resolvedValue = new ConfigurableInterpolationEvaluation(context, type, unresolvedValue, context.getInputOrDefault(INTERPOLATION_MODE), context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();

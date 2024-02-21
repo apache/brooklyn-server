@@ -96,6 +96,8 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
         Object entityO2 = ObjectUtils.firstNonNull(sensor.entity, entityO1, context.getEntity());
         final Entity entity = WorkflowStepResolution.findEntity(context, entityO2).get();
 
+        if (!context.hasInput(VALUE)) throw new IllegalArgumentException("Value is required");
+
         Supplier<Object> resolveOnceValueSupplier = Suppliers.memoize(() -> {
 //        // might need to be careful if defined type is different or more generic than type specified here;
 //        // but that should be fine as XML persistence preserves types
