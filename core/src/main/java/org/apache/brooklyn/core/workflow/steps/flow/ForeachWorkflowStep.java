@@ -21,13 +21,14 @@ package org.apache.brooklyn.core.workflow.steps.flow;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 
 import java.util.Map;
 
 public class ForeachWorkflowStep extends CustomWorkflowStep {
 
-    public static final String SHORTHAND = "${target_var_name} [ \" in \" ${target...} ]";
+    public static final String SHORTHAND = "${target_var_name} [ \" in \" ${target...} [ \" do \" ${step...} ] ]";
 
     public static final String SHORTHAND_TYPE_NAME_DEFAULT = "foreach";
 
@@ -43,10 +44,16 @@ public class ForeachWorkflowStep extends CustomWorkflowStep {
     @Override
     public void populateFromShorthand(String value) {
         if (input==null) input = MutableMap.of();
-        populateFromShorthandTemplate(SHORTHAND, value);
+        populateFromShorthandTemplate(SHORTHAND, value, true, true);
 
         if (input.containsKey("target")) target = input.remove("target");
         target_var_name = input.remove("target_var_name");
+
+        if (input.containsKey("step")) {
+            Object step = input.remove("step");
+            if (this.steps!=null) throw new IllegalArgumentException("Cannot set step in shorthand as it is set elsewhere");
+            this.steps = MutableList.of(step);
+        }
     }
 
     protected Iterable checkTarget(Object targetR) {

@@ -910,11 +910,11 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
     }
 
     @Test
-    public void testForeachCondition() throws Exception {
+    public void testForeachConditionAndShorthandStep() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let list L = [ a, b, c ]",
-                MutableMap.of("step", "foreach item in ${L}",
-                        "steps", MutableList.of("return ${item}"),
+                MutableMap.of("step", "foreach item in ${L} do return ${item}",
+                        //"steps", MutableList.of("return ${item}"),
                         "condition", MutableMap.of("any", MutableList.of(
                                 "a",
                                 MutableMap.of("target", MutableList.of("x", "c"),
@@ -923,5 +923,15 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
 //                                                MutableMap.of("equals", "${item}")
                                 ))))));
         Asserts.assertEquals(output, MutableList.of("a", "c"));
+    }
+
+    @Test
+    public void testForeachStepsDuplication() throws Exception {
+        Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging(MutableList.of(
+                "let list L = [ a, b, c ]",
+                MutableMap.of("step", "foreach item in ${L} do return 1",
+                        "steps", MutableList.of("return 0")
+                                ))),
+            Asserts.expectedFailureContainsIgnoreCase("cannot set step", "shorthand", "elsewhere"));
     }
 }
