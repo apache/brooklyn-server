@@ -227,7 +227,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertInstanceOf(s, NoOpWorkflowStep.class);
 
         // util
-        s = WorkflowStepResolution.resolveStep(mgmt, input);
+        s = new WorkflowStepResolution(mgmt, null, null).resolveStep(input);
         Asserts.assertInstanceOf(s, NoOpWorkflowStep.class);
 
         String output1 = BrooklynObjectsJsonMapper.newDslToStringSerializingMapper(mgmt).writeValueAsString(s);
@@ -243,7 +243,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         String input = "sleep 1s";
 
         // jackson doesn't handle shorthand; our custom method does that
-        WorkflowStepDefinition s = WorkflowStepResolution.resolveStep(mgmt, input);
+        WorkflowStepDefinition s = new WorkflowStepResolution(mgmt, null, null).resolveStep(input);
         Asserts.assertInstanceOf(s, SleepWorkflowStep.class);
         Asserts.assertEquals( Duration.of(s.getInput().get(SleepWorkflowStep.DURATION.getName())), Duration.ONE_SECOND);
 

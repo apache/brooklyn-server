@@ -205,6 +205,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
     }
 
     @Test(dependsOnMethods = { "testDeployApplication", "testLocatedLocation" })
+    // one intermittent failure observed 2024-02-22; possibly a local mvn jar update conflict but flagging in case something else
     public void testDeployApplicationFromInterface() throws Exception {
         ApplicationSpec spec = ApplicationSpec.builder()
                 .type(BasicApplication.class.getCanonicalName())

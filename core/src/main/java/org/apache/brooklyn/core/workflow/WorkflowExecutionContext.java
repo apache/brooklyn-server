@@ -326,7 +326,7 @@ public class WorkflowExecutionContext {
         w.timeout = paramsDefiningWorkflow.get(WorkflowCommonConfig.TIMEOUT);
         w.onError = paramsDefiningWorkflow.get(WorkflowCommonConfig.ON_ERROR);
         // fail fast if error steps not resolveable
-        WorkflowStepResolution.resolveSubSteps(w.getManagementContext(), "error handling", WorkflowErrorHandling.wrappedInListIfNecessaryOrNullIfEmpty(w.onError));
+        new WorkflowStepResolution(w).resolveSubSteps("error handling", WorkflowErrorHandling.wrappedInListIfNecessaryOrNullIfEmpty(w.onError));
 
         // some fields need to be resolved at setting time, in the context of the workflow
         w.setCondition(paramsDefiningWorkflow.getStringKey(WorkflowCommonConfig.CONDITION.getName()));
@@ -937,7 +937,7 @@ public class WorkflowExecutionContext {
     @JsonIgnore
     List<WorkflowStepDefinition> getStepsResolved() {
         if (stepsResolved ==null) {
-            stepsResolved = MutableList.copyOf(WorkflowStepResolution.resolveSteps(getManagementContext(), WorkflowExecutionContext.this.stepsDefinition, outputDefinition));
+            stepsResolved = MutableList.copyOf(new WorkflowStepResolution(this).resolveSteps(WorkflowExecutionContext.this.stepsDefinition, outputDefinition));
         }
         return stepsResolved;
     }

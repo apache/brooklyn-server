@@ -111,7 +111,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
 
     public WorkflowErrorHandling(Object errorOptionsO, WorkflowExecutionContext context, Integer stepIndexIfStepErrorHandler, Task<?> failedTask, Throwable error) {
         List<Object> errorOptions = wrappedInListIfNecessaryOrNullIfEmpty(errorOptionsO);
-        this.errorOptions = WorkflowStepResolution.resolveSubSteps(context.getManagementContext(), "error handling", errorOptions);
+        this.errorOptions = new WorkflowStepResolution(context).resolveSubSteps("error handling", errorOptions);
         this.context = context;
         this.stepIndexIfStepErrorHandler = stepIndexIfStepErrorHandler;
         this.failedTask = failedTask;

@@ -18,31 +18,29 @@
  */
 package org.apache.brooklyn.core.workflow;
 
-import com.google.common.base.Predicates;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
-import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAdjuncts.EntityAdjunctProxyable;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
-import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.SubWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.Boxing;
-
-import java.util.List;
-import java.util.Map;
 
 public class WorkflowStepResolution {
 
@@ -50,6 +48,51 @@ public class WorkflowStepResolution {
         return resolveSteps(mgmt, steps, null);
     }
     public static List<WorkflowStepDefinition> resolveSteps(ManagementContext mgmt, List<Object> steps, Object outputDefinition) {
+        return new WorkflowStepResolution(mgmt, null, null).resolveSteps(steps, outputDefinition);
+    }
+    public static List<WorkflowStepDefinition> resolveSubSteps(ManagementContext mgmt, String scope, List<Object> subSteps) {
+        return new WorkflowStepResolution(mgmt, null, null).resolveSubSteps(scope, subSteps);
+    }
+
+    private final ManagementContext _mgmt;
+    private final BrooklynObject _broolynObject;
+    private final WorkflowExecutionContext _workflow;
+
+    public WorkflowStepResolution(WorkflowExecutionContext context) {
+        this(null, null, context);
+    }
+    public WorkflowStepResolution(BrooklynObject bo) {
+        this(null, bo, null);
+    }
+    public WorkflowStepResolution(ManagementContext mgmt, BrooklynObject bo, WorkflowExecutionContext workflow) {
+        this._mgmt = mgmt;
+        this._broolynObject = bo;
+        this._workflow = workflow;
+    }
+
+    public ManagementContext mgmt() {
+        if (_mgmt!=null) return _mgmt;
+        if (_workflow!=null) return _workflow.getManagementContext();
+        BrooklynObject bo = brooklynObject();
+        if (bo instanceof BrooklynObjectInternal) return ((BrooklynObjectInternal)bo).getManagementContext();
+        if (bo instanceof EntityAdjunctProxyable) return ((EntityAdjunctProxyable)bo).getManagementContext();
+        return null;
+    }
+
+    public BrooklynObject brooklynObject() {
+        if (_broolynObject!=null) return _broolynObject;
+        if (_workflow!=null) return _workflow.getEntityOrAdjunctWhereRunning();
+        return null;
+    }
+
+    public Entity entity() {
+        BrooklynObject bo = brooklynObject();
+        if (bo==null || (bo instanceof Entity)) return (Entity) bo;
+        if (bo instanceof EntityAdjunctProxyable) return ((EntityAdjunctProxyable)bo).getEntity();
+        return null;
+    }
+
+    public List<WorkflowStepDefinition> resolveSteps(List<Object> steps, Object outputDefinition) {
         List<WorkflowStepDefinition> result = MutableList.of();
         if (steps==null || steps.isEmpty()) {
             if (outputDefinition==null) throw new IllegalStateException("No steps defined in workflow and no output set");
@@ -58,34 +101,42 @@ public class WorkflowStepResolution {
         }
         for (int i=0; i<steps.size(); i++) {
             try {
-                result.add(resolveStep(mgmt, steps.get(i)));
+                result.add(resolveStep(steps.get(i)));
             } catch (Exception e) {
                 throw Exceptions.propagateAnnotated("Error in definition of step "+(i+1)+" ("+steps.get(i)+")", e);
             }
         }
-        WorkflowExecutionContext.validateSteps(mgmt, result, true);
+        WorkflowExecutionContext.validateSteps(mgmt(), result, true);
         return result;
     }
 
-    public static List<WorkflowStepDefinition> resolveSubSteps(ManagementContext mgmt, String scope, List<Object> subSteps) {
+    public List<WorkflowStepDefinition> resolveSubSteps(String scope, List<Object> subSteps) {
         List<WorkflowStepDefinition> result = MutableList.of();
         if (subSteps!=null) {
+            // it's useful to allow subworkflows
+            // XXX also useful to compress if a long-winded syntax was used
+//            if (subSteps.size()==1) {
+//                WorkflowStepDefinition subStepResolved = resolveStep(mgmt, Iterables.getOnlyElement(subSteps));
+//                if (subStepResolved instanceof SubWorkflowStep && ((SubWorkflowStep)subStepResolved).isSimpleListOfStepsOnly()) {
+//                    return resolveSubSteps(mgmt, scope, ((SubWorkflowStep)subStepResolved).peekSteps());
+//                }
+//            }
             subSteps.forEach(subStep -> {
-                WorkflowStepDefinition subStepResolved = resolveStep(mgmt, subStep);
+                WorkflowStepDefinition subStepResolved = resolveStep(subStep);
                 if (subStepResolved.getId() != null)
                     throw new IllegalArgumentException("Sub steps for "+scope+" are not permitted to have IDs: " + subStep);
-                if (subStepResolved instanceof CustomWorkflowStep && ((CustomWorkflowStep)subStepResolved).peekSteps()!=null)
-                    throw new IllegalArgumentException("Sub steps for "+scope+" are not permitted to run sub-workflows: " + subStep);
+//                if (subStepResolved instanceof CustomWorkflowStep && ((CustomWorkflowStep)subStepResolved).peekSteps()!=null)
+//                    throw new IllegalArgumentException("Sub steps for "+scope+" are not permitted to run sub-workflows: " + subStep);
                 result.add(subStepResolved);
             });
         }
         return result;
     }
 
-    static WorkflowStepDefinition resolveStep(ManagementContext mgmt, Object def) {
+    public WorkflowStepDefinition resolveStep(Object def) {
         if (def instanceof WorkflowStepDefinition) return (WorkflowStepDefinition) def;
 
-        BrooklynClassLoadingContext loader = RegisteredTypes.getCurrentClassLoadingContextOrManagement(mgmt);
+        BrooklynClassLoadingContext loader = RegisteredTypes.getClassLoadingContextMaybe(brooklynObject()).or(() -> RegisteredTypes.getCurrentClassLoadingContextOrManagement(mgmt()));
         String shorthand = null;
 
         Map defM = null;
@@ -126,7 +177,7 @@ public class WorkflowStepResolution {
                 }
                 if (s instanceof Map && defM.size()==1) {
                     // allow shorthand to contain a nested map if the shorthand is the only thing in the map, eg { step: { step: "xxx" } }
-                    return resolveStep(mgmt, s);
+                    return resolveStep(s);
                 }
                 if (!(s instanceof String)) {
                     throw new IllegalArgumentException("step shorthand must be a string");
@@ -153,10 +204,20 @@ public class WorkflowStepResolution {
 
         try {
             Object def0 = defM !=null ? defM : def;
-            def = BeanWithTypeUtils.convert(mgmt, def0, TypeToken.of(WorkflowStepDefinition.class), true, loader, true);
+
+            // if it's unable to convert a complex type via the above, the original type will be returned; the above doesn't fail.
+            // this is checked below so it's not a serious error, but the reason for it might be obscured.
+            Callable<Object> converter = () -> BeanWithTypeUtils.convert(mgmt(), def0, TypeToken.of(WorkflowStepDefinition.class), true, loader, true);
+            Entity entity = entity();
+            if (entity==null) {
+                def = converter.call();
+            } else {
+                // run in a task context if we can, to facilitate conversion and type lookup
+                def = Entities.submit(entity, Tasks.create("convert steps", converter)).getUnchecked();
+            }
 
             if (def instanceof WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization) {
-                def = ((WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization)def).applySpecialDefinition(mgmt, def0, typeBestGuess, (WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization) def);
+                def = ((WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization)def).applySpecialDefinition(mgmt(), def0, typeBestGuess, (WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization) def);
             }
         } catch (Exception e) {
             throw Exceptions.propagateAnnotated("Unable to resolve step '"+def+"'", e);
@@ -177,10 +238,10 @@ public class WorkflowStepResolution {
 
             List<Object> onError = WorkflowErrorHandling.wrappedInListIfNecessaryOrNullIfEmpty(defW.getOnError());
             if (onError!=null && !onError.isEmpty()) {
-                defW.onError = resolveSubSteps(mgmt, "error handling", onError);
+                defW.onError = resolveSubSteps("error handling", onError);
             }
 
-            defW.validateStep(mgmt, null);
+            defW.validateStep(mgmt(), null);
 
             return defW;
         } else {
@@ -197,7 +258,7 @@ public class WorkflowStepResolution {
         if (!hasCondition && entityOrAdjunctWhereRunningIfKnown!=null) {
             // ideally try to resolve the steps at entity init time; except if a condition is required we skip that so you can have steps that only resolve late,
             // and if entity isn't available then we don't need that either
-            WorkflowStepResolution.resolveSteps( ((BrooklynObjectInternal)entityOrAdjunctWhereRunningIfKnown).getManagementContext(), steps, params.containsKey(WorkflowCommonConfig.OUTPUT.getName()) ? "has_output" : null);
+            new WorkflowStepResolution(entityOrAdjunctWhereRunningIfKnown).resolveSteps(steps, params.containsKey(WorkflowCommonConfig.OUTPUT.getName()) ? "has_output" : null);
         }
     }
 

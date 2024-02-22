@@ -180,8 +180,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         super.validateStep(mgmt, workflow);
 
         if (steps instanceof List) {
-            if (((List)steps).isEmpty()) throw new IllegalArgumentException("Workflow `steps` must be supplied for a custom or nested workflow");
-            WorkflowStepResolution.resolveSteps(mgmt, (List<Object>) steps, null);
+            if (steps.isEmpty()) throw new IllegalArgumentException("Workflow `steps` must be supplied for a custom or nested workflow");
+            new WorkflowStepResolution(mgmt, null, workflow).resolveSteps(steps, null);
         } else if (steps!=null) throw new IllegalArgumentException("Workflow `steps` must be a list");
         else if (target!=null) throw new IllegalArgumentException("Workflow cannot take a `target` without `steps`");
     }

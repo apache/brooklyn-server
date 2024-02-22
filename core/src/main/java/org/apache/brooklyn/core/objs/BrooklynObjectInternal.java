@@ -36,6 +36,11 @@ import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
 
+/**
+ * Super-interface for entity and adjunct actual instances.
+ * Note that delegates, esp for adjuncts, do not necessarily implement this.
+ * Consider using {@link org.apache.brooklyn.core.entity.EntityAdjuncts.EntityAdjunctProxyable} for adjuncts.
+ */
 public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
     
     void setCatalogItemId(String id);

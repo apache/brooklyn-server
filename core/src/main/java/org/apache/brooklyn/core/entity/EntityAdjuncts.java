@@ -210,6 +210,7 @@ public class EntityAdjuncts {
     /** supported by nearly all EntityAdjuncts, but a few in the wild might that don't extend the standard AbstractEntityAdjunct might not implement this; see {@link #getEntity()} */
     public interface EntityAdjunctProxyable extends EntityAdjunct {
         Entity getEntity();
+        ManagementContext getManagementContext();
     }
 
 }

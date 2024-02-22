@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.google.common.base.MoreObjects;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.workflow.WorkflowCommonConfig;
@@ -64,6 +65,12 @@ public class SubWorkflowStep extends CustomWorkflowStep {
         FORBIDDEN_IN_SUBWORKFLOW_STEP_ALWAYS.stream().filter(k -> (Reflections.getFieldValueMaybe(this, k).isPresentAndNonNull())).forEach(forbiddenKey -> {
             throw new IllegalArgumentException("Not permitted for a subworkflow step to use '" + forbiddenKey + "'");
         });
+    }
+
+    public WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, WorkflowStepDefinitionWithSpecialDeserialization firstParse) {
+        // allow null guesses and other types to instantiate this
+        if (typeBestGuess==null || !(definition instanceof Map)) return this;
+        return super.applySpecialDefinition(mgmt, definition, typeBestGuess, firstParse);
     }
 
     @Override

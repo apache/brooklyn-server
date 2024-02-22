@@ -60,7 +60,7 @@ public class SwitchWorkflowStep extends WorkflowStepDefinition implements Workfl
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
         super.validateStep(mgmt, workflow);
         if (cases==null) throw new IllegalStateException("No cases defined for "+Strings.firstNonBlank(getName(), "switch"));
-        List<WorkflowStepDefinition> stepsResolved = WorkflowStepResolution.resolveSubSteps(mgmt, Strings.firstNonBlank(getName(), "switch"), cases);
+        List<WorkflowStepDefinition> stepsResolved = new WorkflowStepResolution(mgmt, null, workflow).resolveSubSteps(Strings.firstNonBlank(getName(), "switch"), cases);
         if (stepsResolved.size()>1) {
             for (int i = 0; i < stepsResolved.size()-1; i++) {
                 if (stepsResolved.get(i).getConditionRaw() == null) {
@@ -96,7 +96,7 @@ public class SwitchWorkflowStep extends WorkflowStepDefinition implements Workfl
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
 
-        List<WorkflowStepDefinition> stepsResolved = WorkflowStepResolution.resolveSubSteps(context.getManagementContext(), getName(), cases);
+        List<WorkflowStepDefinition> stepsResolved = new WorkflowStepResolution(context.getWorkflowExectionContext()).resolveSubSteps(getName(), cases);
         Object valueResolved = context.getInput(VALUE);
 
         for (int i = 0; i<stepsResolved.size(); i++) {
