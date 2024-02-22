@@ -135,33 +135,33 @@ public class WorkflowTransformTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(transform("value 'silly world' | replace regex l. k"), "siky world");
         Asserts.assertEquals(transform("value 'silly world' | replace all regex l. k"), "siky work");
         // with slash
-        Asserts.assertEquals(transform("value 'abc/def/ghi' | replace regex 'c/d' XXX"), "abXXXef/ghi");
+        Asserts.assertEquals(transform("value 'abc/def/ghi' | replace regex 'c/d' 000"), "ab000ef/ghi");
         // with space
-        Asserts.assertEquals(transform("value 'abc def ghi' | replace regex 'c d' XXX"), "abXXXef ghi");
+        Asserts.assertEquals(transform("value 'abc def ghi' | replace regex 'c d' 000"), "ab000ef ghi");
 
         // greedy
-        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace regex 'c.*d' XXX"), "abXXX");
-        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace all regex 'c.*d' XXX"), "abXXX");
+        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace regex 'c.*d' 000"), "ab000");
+        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace all regex 'c.*d' 000"), "ab000");
         // non-greedy qualifier
-        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace regex 'c.*?d' XXX"), "abXXXef ghi c2d");
-        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace all regex 'c.*?d' XXX"), "abXXXef ghi XXX");
+        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace regex 'c.*?d' 000"), "ab000ef ghi c2d");
+        Asserts.assertEquals(transform("value 'abc def ghi c2d' | replace all regex 'c.*?d' 000"), "ab000ef ghi 000");
 
         Asserts.assertEquals(transform("value 'abc def ghi' | replace regex 'c d' ''"), "abef ghi");
     }
 
     @Test
     public void testTransformLiteral() {
-        Asserts.assertEquals(transform("value 'abc def ghi' | replace literal c.*d XXX"), "abc def ghi");
-        Asserts.assertEquals(transform("value 'abc.*def ghi c.*d' | replace literal c.*d XXX"), "abXXXef ghi c.*d");
-        Asserts.assertEquals(transform("value 'abc.*def ghi c.*d' | replace all literal c.*d XXX"), "abXXXef ghi XXX");
+        Asserts.assertEquals(transform("value 'abc def ghi' | replace literal c.*d 000"), "abc def ghi");
+        Asserts.assertEquals(transform("value 'abc.*def ghi c.*d' | replace literal c.*d 000"), "ab000ef ghi c.*d");
+        Asserts.assertEquals(transform("value 'abc.*def ghi c.*d' | replace all literal c.*d 000"), "ab000ef ghi 000");
     }
 
     @Test
     public void testTransformGlob() {
-        Asserts.assertEquals(transform("value 'abc def ghi' | replace glob c*e XXX"), "abXXXf ghi");
+        Asserts.assertEquals(transform("value 'abc def ghi' | replace glob c*e 000"), "ab000f ghi");
         // glob is greedy, unless all is specified where it is not
-        Asserts.assertEquals(transform("value 'abc def ghi c2e' | replace glob c*e XXX"), "abXXX");
-        Asserts.assertEquals(transform("value 'abc def ghi c2e' | replace all glob c*e XXX"), "abXXXf ghi XXX");
+        Asserts.assertEquals(transform("value 'abc def ghi c2e' | replace glob c*e 000"), "ab000");
+        Asserts.assertEquals(transform("value 'abc def ghi c2e' | replace all glob c*e 000"), "ab000f ghi 000");
     }
 
     @Test

@@ -149,7 +149,7 @@ public class ResourceUtilsTest {
 
     @Test(expectedExceptions={NoSuchElementException.class})
     public void testClassLoaderDirNotFound() throws Exception {
-        String d = utils.getClassLoaderDir("/somewhere/not/found/XXX.xxx");
+        String d = utils.getClassLoaderDir("/somewhere/not/found/ignored.x");
         // above should fail
         log.warn("Uh oh found imaginary resource in: "+d);
     }

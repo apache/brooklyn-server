@@ -56,7 +56,7 @@ public class SubWorkflowStep extends CustomWorkflowStep {
 
     protected void checkCallerSuppliedDefinition(String typeBestGuess, Map m) {
         if (!isInternalClassNotExtendedAndUserAllowedToSetMostThings(typeBestGuess)) {
-            throw new IllegalArgumentException("Not permitted to define a custom subworkflow step");
+            throw new IllegalArgumentException("Not permitted to define a custom subworkflow step with this supertype");
         }
         // these can't be set by user or registered type for subworkflow
         FORBIDDEN_IN_SUBWORKFLOW_STEP_ALWAYS.stream().filter(m::containsKey).forEach(forbiddenKey -> {
@@ -75,6 +75,7 @@ public class SubWorkflowStep extends CustomWorkflowStep {
 
     @Override
     protected Map initializeReducingVariables(WorkflowStepInstanceExecutionContext context, Map<String, Object> reducing) {
+        context.isLocalSubworkflow = true;
         return super.initializeReducingVariables(context, context.getWorkflowExectionContext().getWorkflowScratchVariables());
     }
 

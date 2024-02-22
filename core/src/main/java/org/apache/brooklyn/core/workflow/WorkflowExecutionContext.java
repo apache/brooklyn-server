@@ -709,7 +709,7 @@ public class WorkflowExecutionContext {
     }
 
     /** as {@link #resolve(WorkflowExpressionResolution.WorkflowExpressionStage, Object, TypeToken)},
-     * but returning DSL/supplier for values (so the indication of their dynamic nature is preserved, even if the value returned by it is resolved;
+     * but returning DSL/supplier for dynamic values (so the indication of their dynamic nature is preserved, even if the value returned by it is resolved;
      * this is needed e.g. for conditions which treat dynamic expressions differently to explicit values) */
     public <T> T resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type, WorkflowExpressionResolution.WrappingMode wrappingMode) {
         return new WorkflowExpressionResolution(this, stage, false, wrappingMode).resolveWithTemplates(expression, type);
@@ -1597,8 +1597,19 @@ public class WorkflowExecutionContext {
                     log.debug(prefix + "no further steps: Workflow completed");
                 }
             } else if (specialNext instanceof String) {
+                boolean isInLocalSubworkflow = getParent()!=null && getParent().currentStepInstance!=null && Boolean.TRUE.equals(getParent().currentStepInstance.isLocalSubworkflow);
+                if (isInLocalSubworkflow && Boolean.TRUE.equals(currentStepInstance.nextIsReturn)) {
+                    // parent of local subworkflow should return also
+                    getParent().currentStepInstance.next = specialNext;
+                }
+
                 String explicitNext = (String)specialNext;
                 Maybe<Pair<Integer, Boolean>> nextResolved = getIndexOfStepId(explicitNext);
+                if (nextResolved.isAbsent() && isInLocalSubworkflow) {
+                    // if in subworkflow, you can goto something in the outer workflow, if not found here
+                    getParent().currentStepInstance.next = specialNext;
+                    nextResolved = getIndexOfStepId(STEP_TARGET_NAME_FOR_END);
+                }
                 if (nextResolved.isAbsent()) {
                     log.warn(prefix +  (inferredNext ? "inferred" : "explicit") + " next step '"+explicitNext+"' not found (failing)");
                     // throw

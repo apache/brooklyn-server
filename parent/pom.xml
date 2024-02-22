@@ -116,7 +116,7 @@
                     <artifactId>maven-jar-plugin</artifactId>
                     <!-- version 2.4+ seems to break eclipse integration as per https://github.com/tesla/m2eclipse-extras/issues/10
                          but cannot find issue on GitHub any more - 404 error -->
-                    <!-- XXX if this version is changed, update the MavenArtifactTest -->
+                    <!-- if this version is changed, update the MavenArtifactTest -->
                     <version>2.6</version>
                 </plugin>
                 <plugin>

@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.SubWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -113,20 +114,14 @@ public class WorkflowStepResolution {
     public List<WorkflowStepDefinition> resolveSubSteps(String scope, List<Object> subSteps) {
         List<WorkflowStepDefinition> result = MutableList.of();
         if (subSteps!=null) {
-            // it's useful to allow subworkflows
-            // XXX also useful to compress if a long-winded syntax was used
-//            if (subSteps.size()==1) {
-//                WorkflowStepDefinition subStepResolved = resolveStep(mgmt, Iterables.getOnlyElement(subSteps));
-//                if (subStepResolved instanceof SubWorkflowStep && ((SubWorkflowStep)subStepResolved).isSimpleListOfStepsOnly()) {
-//                    return resolveSubSteps(mgmt, scope, ((SubWorkflowStep)subStepResolved).peekSteps());
-//                }
-//            }
             subSteps.forEach(subStep -> {
                 WorkflowStepDefinition subStepResolved = resolveStep(subStep);
                 if (subStepResolved.getId() != null)
                     throw new IllegalArgumentException("Sub steps for "+scope+" are not permitted to have IDs: " + subStep);
-//                if (subStepResolved instanceof CustomWorkflowStep && ((CustomWorkflowStep)subStepResolved).peekSteps()!=null)
-//                    throw new IllegalArgumentException("Sub steps for "+scope+" are not permitted to run sub-workflows: " + subStep);
+                // don't allow foreach and workflow with target, but do allow subworkflow and if
+                if (subStepResolved instanceof CustomWorkflowStep && !(subStepResolved instanceof SubWorkflowStep) &&
+                        ((CustomWorkflowStep)subStepResolved).peekSteps()!=null)
+                    throw new IllegalArgumentException("Sub steps for "+scope+" are not permitted to run custom or foreach sub-workflows: " + subStep);
                 result.add(subStepResolved);
             });
         }

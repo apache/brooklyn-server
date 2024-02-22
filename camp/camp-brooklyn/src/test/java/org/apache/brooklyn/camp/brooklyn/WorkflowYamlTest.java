@@ -689,7 +689,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     @Test
     public void testConditionBadSerialization() throws Exception {
         Asserts.assertFailsWith(() -> doTestCondition("- regex: .*oh no.*"),
-                e -> Asserts.expectedFailureContainsIgnoreCase(e, "unresolveable", "regex"));
+                Asserts.expectedFailureContainsIgnoreCase("unresolvable", "regex"));
     }
     @Test
     public void testBadExpressionAllowedInCondition() throws Exception {

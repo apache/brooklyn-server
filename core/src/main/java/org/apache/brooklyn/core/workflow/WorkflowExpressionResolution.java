@@ -18,9 +18,20 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import java.time.Instant;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
 import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
-import freemarker.core.InvalidReferenceException;
 import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
 import freemarker.template.TemplateModelException;
@@ -49,12 +60,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
-import java.util.*;
-import java.util.function.BiFunction;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-
 public class WorkflowExpressionResolution {
 
     public static ConfigKey<BiFunction<String,WorkflowExpressionResolution,Object>> WORKFLOW_CUSTOM_INTERPOLATION_FUNCTION = ConfigKeys.newConfigKey(new TypeToken<BiFunction<String,WorkflowExpressionResolution,Object>>() {}, "workflow.custom_interpolation_function");
@@ -82,14 +87,14 @@ public class WorkflowExpressionResolution {
     private final WrappingMode wrappingMode;
 
     public static class WrappingMode {
-        public final boolean wrapResolvedStrings;
+        public final boolean wrapResolvedValues;
         public final boolean deferThrowingError;
         public final boolean deferAndRetryErroneousExpressions;
         public final boolean deferBrooklynDsl;
         public final boolean deferInterpolation;
 
-        protected WrappingMode(boolean wrapResolvedStrings, boolean deferThrowingError, boolean deferAndRetryErroneousExpressions, boolean deferBrooklynDsl, boolean deferInterpolation) {
-            this.wrapResolvedStrings = wrapResolvedStrings;
+        protected WrappingMode(boolean wrapResolvedValues, boolean deferThrowingError, boolean deferAndRetryErroneousExpressions, boolean deferBrooklynDsl, boolean deferInterpolation) {
+            this.wrapResolvedValues = wrapResolvedValues;
             this.deferThrowingError = deferThrowingError;
             this.deferAndRetryErroneousExpressions = deferAndRetryErroneousExpressions;
             this.deferBrooklynDsl = deferBrooklynDsl;
@@ -375,14 +380,17 @@ public class WorkflowExpressionResolution {
         }
     }
 
-    AllowBrooklynDslMode defaultAllowBrooklynDsl = AllowBrooklynDslMode.ALL;
+    AllowBrooklynDslMode defaultAllowBrooklynDsl = null;
+    //AllowBrooklynDslMode.ALL;
 
     public void setDefaultAllowBrooklynDsl(AllowBrooklynDslMode defaultAllowBrooklynDsl) {
         this.defaultAllowBrooklynDsl = defaultAllowBrooklynDsl;
     }
 
     public AllowBrooklynDslMode getDefaultAllowBrooklynDsl() {
-        return defaultAllowBrooklynDsl;
+        if (defaultAllowBrooklynDsl!=null) return defaultAllowBrooklynDsl;
+        if (wrappingMode.deferBrooklynDsl) return AllowBrooklynDslMode.NONE;
+        return AllowBrooklynDslMode.ALL;
     }
 
     public <T> T resolveWithTemplates(Object expression, TypeToken<T> type) {
@@ -550,14 +558,36 @@ public class WorkflowExpressionResolution {
                 throw new WorkflowVariableRecursiveReference("Reference exceeded max depth 100: " + RESOLVE_STACK.getAll(false).stream().map(p -> "" + p.object).collect(Collectors.joining("->")));
             }
 
-            if (expression instanceof String) return processTemplateExpressionString((String) expression, allowBrooklynDsl);
-            if (expression instanceof Map) return processTemplateExpressionMap((Map) expression, allowBrooklynDsl);
-            if (expression instanceof Collection)
-                return processTemplateExpressionCollection((Collection) expression, allowBrooklynDsl);
-            if (expression == null || Boxing.isPrimitiveOrBoxedObject(expression)) return expression;
-            // otherwise resolve DSL
-            return allowBrooklynDsl.isAllowedHere() ? resolveDsl(expression) : expression;
+            Object result;
+            if (expression instanceof String) result = processTemplateExpressionString((String) expression, allowBrooklynDsl);
+            else if (expression instanceof Map) result = processTemplateExpressionMap((Map) expression, allowBrooklynDsl);
+            else if (expression instanceof Collection)
+                result = processTemplateExpressionCollection((Collection) expression, allowBrooklynDsl);
+            else if (expression == null || Boxing.isPrimitiveOrBoxedObject(expression)) result = expression;
+            else {
+                // otherwise resolve DSL
+                result = allowBrooklynDsl.isAllowedHere() ? resolveDsl(expression) : expression;
+                if (wrappingMode.wrapResolvedValues && !Objects.equals(result, expression) && !(result instanceof DeferredSupplier)) {
+                    result = WrappedResolvedExpression.ifNonDeferred(expression, result);
+                }
+            }
 
+            return result;
+
+        } catch (Exception e) {
+            Exception e2 = e;
+            if (wrappingMode.deferAndRetryErroneousExpressions) {
+                return WrappedUnresolvedExpression.ofExpression(expression, this, allowBrooklynDsl);
+            }
+            if (!allowWaiting && Exceptions.isCausedByInterruptInAnyThread(e)) {
+                e2 = new IllegalArgumentException("Expression value '"+expression+"' unavailable and not permitted to wait: "+ Exceptions.collapseText(e), e);
+            }
+            if (wrappingMode.deferThrowingError) {
+                // in wrapped value mode, errors don't throw until accessed, and when used in conditions they can be tested as absent
+                return WrappedResolvedExpression.ofError(expression, new ResolutionFailureTreatedAsAbsent.ResolutionFailureTreatedAsAbsentDefaultException(e2));
+            } else {
+                throw Exceptions.propagate(e2);
+            }
         } finally {
             if (entry != null) RESOLVE_STACK.pop(entry);
         }
@@ -602,41 +632,28 @@ public class WorkflowExpressionResolution {
     }
 
     public Object processTemplateExpressionString(String expression, AllowBrooklynDslMode allowBrooklynDsl) {
-        if (expression==null) return null;
-        if (expression.startsWith("$brooklyn:") && allowBrooklynDsl.isAllowedHere()) {
-            if (wrappingMode.deferBrooklynDsl) {
-                return WrappedUnresolvedExpression.ofExpression(expression, this, allowBrooklynDsl);
-            }
-            Object expressionTemplateResolved = processTemplateExpressionString(expression, AllowBrooklynDslMode.NONE);
-            // resolve interpolation before brooklyn DSL, so brooklyn DSL can be passed interpolated vars like workflow scratch;
-            // this means $brooklyn bits that return interpolated strings do not have their interpolation evaluated, which is probably sensible;
-            // and $brooklyn cannot be used inside an interpolated string, which is okay.
-            Object expressionTemplateAndDslResolved = resolveDsl(expressionTemplateResolved);
-            return expressionTemplateAndDslResolved;
-        }
-
         Object result;
-
-        boolean ourWait = interruptSetIfNeededToPreventWaiting();
+        boolean ourWait = false;
         try {
+            if (expression==null) return null;
+            if (expression.startsWith("$brooklyn:") && allowBrooklynDsl.isAllowedHere()) {
+                if (wrappingMode.deferBrooklynDsl) {
+                    return WrappedUnresolvedExpression.ofExpression(expression, this, allowBrooklynDsl);
+                }
+                Object expressionTemplateResolved = processTemplateExpressionString(expression, AllowBrooklynDslMode.NONE);
+                // resolve interpolation before brooklyn DSL, so brooklyn DSL can be passed interpolated vars like workflow scratch;
+                // this means $brooklyn bits that return interpolated strings do not have their interpolation evaluated, which is probably sensible;
+                // and $brooklyn cannot be used inside an interpolated string, which is okay.
+                Object expressionTemplateAndDslResolved = resolveDsl(expressionTemplateResolved);
+                return expressionTemplateAndDslResolved;
+            }
+
+            ourWait = interruptSetIfNeededToPreventWaiting();
             BiFunction<String, WorkflowExpressionResolution, Object> fn = context.getManagementContext().getScratchpad().get(WORKFLOW_CUSTOM_INTERPOLATION_FUNCTION);
             if (fn!=null) result = fn.apply(expression, this);
             else result = TemplateProcessor.processTemplateContentsForWorkflow("workflow", expression,
                     newWorkflowFreemarkerModel(), true, false, errorMode);
-        } catch (Exception e) {
-            Exception e2 = e;
-            if (wrappingMode.deferAndRetryErroneousExpressions) {
-                return WrappedUnresolvedExpression.ofExpression(expression, this, allowBrooklynDsl);
-            }
-            if (!allowWaiting && Exceptions.isCausedByInterruptInAnyThread(e)) {
-                e2 = new IllegalArgumentException("Expression value '"+expression+"' unavailable and not permitted to wait: "+ Exceptions.collapseText(e), e);
-            }
-            if (wrappingMode.deferThrowingError) {
-                // in wrapped value mode, errors don't throw until accessed, and when used in conditions they can be tested as absent
-                return WrappedResolvedExpression.ofError(expression, new ResolutionFailureTreatedAsAbsent.ResolutionFailureTreatedAsAbsentDefaultException(e2));
-            } else {
-                throw Exceptions.propagate(e2);
-            }
+
         } finally {
             if (ourWait) interruptClear();
         }
@@ -647,14 +664,14 @@ public class WorkflowExpressionResolution {
                 return WrappedUnresolvedExpression.ofExpression(expression, this, allowBrooklynDsl);
             }
             if (wrappingMode.deferBrooklynDsl) {
-                return new WrappedResolvedExpression<Object>(expression, result);
+                return new WrappedResolvedExpression<>(expression, result);
             }
             // we try, but don't guarantee, that DSL expressions aren't re-resolved, ie $brooklyn:literal("$brooklyn:literal(\"x\")") won't return x;
             // this block will return a supplier
             result = processDslComponents(result);
 
-            if (wrappingMode.wrapResolvedStrings) {
-                return new WrappedResolvedExpression<Object>(expression, result);
+            if (wrappingMode.wrapResolvedValues) {
+                return new WrappedResolvedExpression<>(expression, result);
             }
         }
 
@@ -702,18 +719,22 @@ public class WorkflowExpressionResolution {
     }
 
     public static class WrappedResolvedExpression<T> implements DeferredSupplier<T> {
-        String expression;
+        Object expression;
         T value;
         Throwable error;
         public WrappedResolvedExpression() {}
-        public WrappedResolvedExpression(String expression, T value) {
+        public WrappedResolvedExpression(Object expression, T value) {
             this.expression = expression;
             this.value = value;
         }
-        public static WrappedResolvedExpression ofError(String expression, Throwable error) {
+        public static WrappedResolvedExpression ofError(Object expression, Throwable error) {
             WrappedResolvedExpression result = new WrappedResolvedExpression(expression, null);
             result.error = error;
             return result;
+        }
+        public static <T> DeferredSupplier<T> ifNonDeferred(Object expression, T value) {
+            if (value instanceof DeferredSupplier) return (DeferredSupplier<T>) value;
+            return new WrappedResolvedExpression(expression, value);
         }
 
         @Override
@@ -723,7 +744,7 @@ public class WorkflowExpressionResolution {
             }
             return value;
         }
-        public String getExpression() {
+        public Object getExpression() {
             return expression;
         }
         public Throwable getError() {
@@ -734,16 +755,16 @@ public class WorkflowExpressionResolution {
     public static class WrappedUnresolvedExpression implements DeferredSupplier<Object> {
 
         @Deprecated @Beta // might re-introduce but for now needs to cache workflow context -- via resolver -- so discouraged
-        public static WrappedUnresolvedExpression ofExpression(String expression, WorkflowExpressionResolution resolver, AllowBrooklynDslMode dslMode) {
+        public static WrappedUnresolvedExpression ofExpression(Object expression, WorkflowExpressionResolution resolver, AllowBrooklynDslMode dslMode) {
             return new WrappedUnresolvedExpression(expression, resolver, dslMode);
         }
-        protected WrappedUnresolvedExpression(String expression, WorkflowExpressionResolution resolver, AllowBrooklynDslMode dslMode) {
+        protected WrappedUnresolvedExpression(Object expression, WorkflowExpressionResolution resolver, AllowBrooklynDslMode dslMode) {
             this.expression = expression;
             this.resolver = resolver;
             this.dslMode = dslMode;
         }
 
-        String expression;
+        Object expression;
         WorkflowExpressionResolution resolver;
         AllowBrooklynDslMode dslMode;
 

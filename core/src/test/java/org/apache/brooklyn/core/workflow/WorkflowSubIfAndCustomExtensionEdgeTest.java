@@ -20,8 +20,10 @@ package org.apache.brooklyn.core.workflow;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -45,9 +47,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
-public class WorkflowSubAndCustomExtensionEdgeTest extends RebindTestFixture<TestApplication> {
+public class WorkflowSubIfAndCustomExtensionEdgeTest extends RebindTestFixture<TestApplication> {
 
-    private static final Logger log = LoggerFactory.getLogger(WorkflowSubAndCustomExtensionEdgeTest.class);
+    private static final Logger log = LoggerFactory.getLogger(WorkflowSubIfAndCustomExtensionEdgeTest.class);
 
     @Override
     protected LocalManagementContext decorateOrigOrNewManagementContext(LocalManagementContext mgmt) {
@@ -74,16 +76,16 @@ public class WorkflowSubAndCustomExtensionEdgeTest extends RebindTestFixture<Tes
     TestApplication app;
     Task<?> lastInvocation;
 
-    Object runWorkflow(List<Object> steps) throws Exception {
+    Object runWorkflow(List<Object> steps) {
         return runWorkflow(steps, null);
     }
-    Object runWorkflow(List<Object> steps, ConfigBag extraEffectorConfig) throws Exception {
+    Object runWorkflow(List<Object> steps, ConfigBag extraEffectorConfig) {
         if (app==null) app = mgmt().getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
                 .configure(WorkflowEffector.STEPS, steps)
                 .putAll(extraEffectorConfig));
-        eff.apply((EntityLocal)app);
+        eff.apply(app);
 
         lastInvocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
         return lastInvocation.getUnchecked();
@@ -143,31 +145,76 @@ public class WorkflowSubAndCustomExtensionEdgeTest extends RebindTestFixture<Tes
 
     @Test
     public void testSubWorkflowStep() throws Exception {
-        MutableList<String> steps = MutableList.of(
-                "let v0 = ${v0}B",
-                "let v1 = ${v1}B",
-                "let v3 = V3B",
-                "return done");
-        runWorkflow(MutableList.of(
-                "let v1 = V1",
-                "let v2 = V2",
-                MutableMap.of(
-                        "step", "subworkflow",
-                    "steps", steps),
-                "return ${v0}-${v1}-${v2}-${v3}-${output}"),
-                ConfigBag.newInstance().configure(WorkflowCommonConfig.INPUT, MutableMap.of("v0", "V0")) );
-        Asserts.assertEquals(lastInvocation.getUnchecked(), "V0B-V1B-V2-V3B-done");
+        Function<Boolean,Object> test = (explicitSubworkflow) ->
+            runWorkflow(MutableList.of(
+                            "let v1 = V1",
+                            "let v2 = V2",
+                            MutableMap.<String,Object>of("steps", MutableList.of(
+                                            "let v0 = ${v0}B",
+                                            "let v1 = ${v1}B",
+                                            "let v3 = V3B"))
+                                    .add(explicitSubworkflow ? MutableMap.of("step", "subworkflow") : null),
+                            "return ${v0}-${v1}-${v2}-${v3}"),
+                    ConfigBag.newInstance().configure(WorkflowCommonConfig.INPUT, MutableMap.of("v0", "V0")) );
+        Asserts.assertEquals(test.apply(true), "V0B-V1B-V2-V3B");
 
         // subworkflow is chosen implicitly if step is omitted
+        Asserts.assertEquals(test.apply(false), "V0B-V1B-V2-V3B");
+
         runWorkflow(MutableList.of(
+                MutableMap.of("steps", MutableList.of(
                         "let v1 = V1",
-                        "let v2 = V2",
-                        MutableMap.of(
-                                //"step", "subworkflow",
-                                "steps", steps),
-                        "return ${v0}-${v1}-${v2}-${v3}-${output}"),
-                ConfigBag.newInstance().configure(WorkflowCommonConfig.INPUT, MutableMap.of("v0", "V0")) );
-        Asserts.assertEquals(lastInvocation.getUnchecked(), "V0B-V1B-V2-V3B-done");
+                        "goto marker",  // prefers inner id 'marker'
+                        "let v1 = NOT_V1_1",
+                        MutableMap.of("id", "marker", "step", "goto end"), // goes to end of this subworkflow
+                        "let v1 = NOT_V1_2")),
+                "let v2 = V2",
+                MutableMap.of("steps", MutableList.of(
+                        "let v3 = V3",
+                        "goto marker", // goes to outer id 'marker' because nothing local matching
+                        "let v3 = NOT_V3")),
+                MutableMap.of("id", "marker", "step", "let v4 = V4"),
+                MutableMap.of("steps", MutableList.of(
+                        "return ${v1}-${v2}-${v3}-${v4}")), // returns from outer workflow
+                "let v4 = NOT_V4"));
+        Asserts.assertEquals(lastInvocation.getUnchecked(), "V1-V2-V3-V4");
+    }
+
+    @Test
+    public void testIfWorkflowStep() throws Exception {
+        BiFunction<String,String,Object> run = (preface,cond) ->
+                runWorkflow(MutableList.<Object>of(preface==null ? "let x = hi" : preface,
+                    "let y = no",
+                    "if "+(cond==null ? "${x}" : cond)+" then let y = yes",
+                    "return ${y}"));
+
+        Asserts.assertEquals(run.apply(null, null), "yes");
+
+        Asserts.assertEquals(run.apply("let boolean x = true", null), "yes");
+        Asserts.assertEquals(run.apply("let boolean x = false", null), "no");
+
+        Asserts.assertEquals(run.apply(null, "${x} == hi"), "yes");
+        Asserts.assertEquals(run.apply(null, "${x} == ho"), "no");
+        Asserts.assertEquals(run.apply(null, "hi == ${x}"), "yes");
+        Asserts.assertEquals(run.apply(null, "${x} == ${x}"), "yes");
+        Asserts.assertEquals(run.apply("let boolean x = true", "${x} == true"), "yes");
+
+        // unresolvable things -- allowed iff no == block
+        Asserts.assertEquals(run.apply(null, "${unresolvable_without_equals}"), "no");
+        Asserts.assertFailsWith(() -> run.apply(null, "${x} == ${unresolvable_on_rhs}"),
+                Asserts.expectedFailureContainsIgnoreCase("unresolvable_on_rhs", "missing"));
+        Asserts.assertFailsWith(() -> run.apply(null, "${unresolvable_on_lhs} == ${x}"),
+                Asserts.expectedFailureContainsIgnoreCase("unresolvable_on_lhs", "missing"));
+
+        // flow - returns directly
+        Asserts.assertEquals(runWorkflow(MutableList.of("let boolean x = true",
+                "if ${x} then return yes",
+                "return no")), "yes");
+
+        Asserts.assertEquals(runWorkflow(MutableList.of("let integer x = 1",
+                MutableMap.of("id", "loop", "step", "let x = ${x} + 1"),
+                "if ${x} == 2 then goto loop",
+                "return ${x}")), 3);
     }
 
 }

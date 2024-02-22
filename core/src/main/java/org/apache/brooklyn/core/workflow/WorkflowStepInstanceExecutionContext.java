@@ -81,6 +81,8 @@ public class WorkflowStepInstanceExecutionContext {
     transient WorkflowExecutionContext context;
     // replay instructions or a string explicit next step identifier
     public Object next;
+    public Boolean nextIsReturn;
+    public Boolean isLocalSubworkflow;
 
     /** Return any error we are handling, if the step is in an error handler,
      * or an unhandled error if the step is not in an error handler,

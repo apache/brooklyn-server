@@ -182,8 +182,8 @@ public class BrooklynWebServerTest {
     @Test
     public void verifyHttpsCiphers() throws Exception {
         brooklynProperties.put(BrooklynWebConfig.HTTPS_REQUIRED, true);
-        brooklynProperties.put(BrooklynWebConfig.TRANSPORT_PROTOCOLS, "XXX");
-        brooklynProperties.put(BrooklynWebConfig.TRANSPORT_CIPHERS, "XXX");
+        brooklynProperties.put(BrooklynWebConfig.TRANSPORT_PROTOCOLS, "IGNORED");
+        brooklynProperties.put(BrooklynWebConfig.TRANSPORT_CIPHERS, "IGNORED");
         try {
             verifyHttpsFromConfig(brooklynProperties);
             fail("Expected to fail due to unsupported ciphers during connection negotiation");

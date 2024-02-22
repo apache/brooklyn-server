@@ -39,7 +39,10 @@ public class ReturnWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        if (next==null) context.next = STEP_TARGET_NAME_FOR_END;
+        if (next==null) {
+            context.next = STEP_TARGET_NAME_FOR_END;
+            context.nextIsReturn = true;
+        }
         return context.getInput(VALUE);
     }
 
