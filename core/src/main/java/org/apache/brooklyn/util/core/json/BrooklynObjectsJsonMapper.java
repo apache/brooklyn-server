@@ -15,25 +15,23 @@
  */
 package org.apache.brooklyn.util.core.json;
 
+import java.io.IOException;
+
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.StreamWriteConstraints;
+import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.datatype.jsr310.JSR310Module;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.CommonTypesSerialization;
 import org.apache.brooklyn.util.time.Duration;
-
-import com.fasterxml.jackson.core.Version;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.Date;
 
 public class BrooklynObjectsJsonMapper {
 
@@ -46,6 +44,10 @@ public class BrooklynObjectsJsonMapper {
         sp.setUnknownTypeSerializer(new ErrorAndToStringUnknownTypeSerializer());
 
         ObjectMapper mapper = new ObjectMapper();
+
+        // default of 1000 is much more than we need or want
+        mapper.getFactory().setStreamWriteConstraints(StreamWriteConstraints.builder().maxNestingDepth(100).build());
+
         mapper.setSerializerProvider(sp);
         mapper.setVisibility(new PossiblyStrictPreferringFieldsVisibilityChecker());
 
