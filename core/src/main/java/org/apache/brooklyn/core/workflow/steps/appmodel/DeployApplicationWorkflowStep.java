@@ -19,19 +19,16 @@
 package org.apache.brooklyn.core.workflow.steps.appmodel;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.base.Optional;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
-import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -39,8 +36,6 @@ import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
 
 public class DeployApplicationWorkflowStep extends WorkflowStepDefinition implements HasBlueprintWorkflowStep {
 
@@ -69,9 +64,9 @@ public class DeployApplicationWorkflowStep extends WorkflowStepDefinition implem
     }
 
     @Override
-    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
-        super.validateStep(mgmt, workflow);
-        validateStepBlueprint(mgmt, workflow);
+    public void validateStep(WorkflowStepResolution workflowStepResolution) {
+        super.validateStep(workflowStepResolution);
+        validateStepBlueprint(workflowStepResolution);
     }
 
     @Override

@@ -180,7 +180,10 @@ public class ObjectReferencingSerialization {
                         // but so long as this deserializer is preferred which it normally is, losing the alias reference is okay.
                         Maybe resultCoerced = ((Maybe) TypeCoercions.tryCoerce(result, TypeToken.of(expected)));
                         if (resultCoerced.isAbsent()) {
-                            // not uncommon when we are trying to deserialize in a few different ways, or if we are using a string deserializer because the json input is a string
+                            // not uncommon when we are trying to deserialize in a few different ways, or if we are using a string deserializer because the json input is a string;
+                            // however it can be useful, to explain why some things aren't coercing via BeanWithTypeUtils.convert.
+                            // caller can do 'tryCoerce' to explain.
+
 //                            if (LOG.isDebugEnabled()) LOG.debug("Reference to "+result+" when deserialization could not be coerced to expected type "+expected+"; proceeding but might cause errors");
                         }
                         return resultCoerced.or(result);

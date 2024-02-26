@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.workflow.steps.flow;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -35,7 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.function.Function;
 
@@ -57,10 +55,10 @@ public class SwitchWorkflowStep extends WorkflowStepDefinition implements Workfl
     List<Object> cases;
 
     @Override
-    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
-        super.validateStep(mgmt, workflow);
+    public void validateStep(WorkflowStepResolution workflowStepResolution) {
+        super.validateStep(workflowStepResolution);
         if (cases==null) throw new IllegalStateException("No cases defined for "+Strings.firstNonBlank(getName(), "switch"));
-        List<WorkflowStepDefinition> stepsResolved = new WorkflowStepResolution(mgmt, null, workflow).resolveSubSteps(Strings.firstNonBlank(getName(), "switch"), cases);
+        List<WorkflowStepDefinition> stepsResolved = workflowStepResolution.resolveSubSteps(Strings.firstNonBlank(getName(), "switch"), cases);
         if (stepsResolved.size()>1) {
             for (int i = 0; i < stepsResolved.size()-1; i++) {
                 if (stepsResolved.get(i).getConditionRaw() == null) {

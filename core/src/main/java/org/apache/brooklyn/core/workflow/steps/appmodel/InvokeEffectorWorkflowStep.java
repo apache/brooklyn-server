@@ -21,13 +21,11 @@ package org.apache.brooklyn.core.workflow.steps.appmodel;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -41,7 +39,6 @@ import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.core.workflow.utils.ExpressionParser;
 import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl;
 import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl.CharactersCollectingParseMode;
-import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl.CommonParseMode;
 import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl.ParseNode;
 import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl.ParseNodeOrValue;
 import org.apache.brooklyn.core.workflow.utils.ExpressionParserImpl.ParseValue;
@@ -164,8 +161,8 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
     }
 
     @Override
-    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
-        super.validateStep(mgmt, workflow);
+    public void validateStep(WorkflowStepResolution workflowStepResolution) {
+        super.validateStep(workflowStepResolution);
 
         if (!getInput().containsKey(EFFECTOR.getName())) throw new IllegalArgumentException("Missing required input: "+EFFECTOR.getName());
     }

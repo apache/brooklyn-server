@@ -19,20 +19,16 @@
 package org.apache.brooklyn.core.workflow.steps.appmodel;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
 
 public class DeletePolicyWorkflowStep extends WorkflowStepDefinition {
 
@@ -49,8 +45,8 @@ public class DeletePolicyWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
-        super.validateStep(mgmt, workflow);
+    public void validateStep(WorkflowStepResolution workflowStepResolution) {
+        super.validateStep(workflowStepResolution);
 
         if (!getInput().containsKey(POLICY.getName())) throw new IllegalArgumentException("Missing required argument: "+POLICY.getName());
     }

@@ -39,6 +39,7 @@ import org.apache.brooklyn.core.workflow.steps.flow.SubWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -107,7 +108,7 @@ public class WorkflowStepResolution {
                 throw Exceptions.propagateAnnotated("Error in definition of step "+(i+1)+" ("+steps.get(i)+")", e);
             }
         }
-        WorkflowExecutionContext.validateSteps(mgmt(), result, true);
+        WorkflowExecutionContext.validateSteps(this, result, true);
         return result;
     }
 
@@ -127,6 +128,8 @@ public class WorkflowStepResolution {
         }
         return result;
     }
+
+    static boolean inCoercionErrorBlock = false;
 
     public WorkflowStepDefinition resolveStep(Object def) {
         if (def instanceof WorkflowStepDefinition) return (WorkflowStepDefinition) def;
@@ -200,9 +203,26 @@ public class WorkflowStepResolution {
         try {
             Object def0 = defM !=null ? defM : def;
 
-            // if it's unable to convert a complex type via the above, the original type will be returned; the above doesn't fail.
-            // this is checked below so it's not a serious error, but the reason for it might be obscured.
-            Callable<Object> converter = () -> BeanWithTypeUtils.convert(mgmt(), def0, TypeToken.of(WorkflowStepDefinition.class), true, loader, true);
+            Callable<Object> converter = () -> {
+                Object result = BeanWithTypeUtils.convert(mgmt(), def0, TypeToken.of(WorkflowStepDefinition.class), true, loader, true);
+                if (!(result instanceof WorkflowStepDefinition)) {
+                    // if it's unable to convert a complex type via the above, the original type may be returned,
+                    // in particular by ObjectReferencingSerialization; so the conversion doesn't report failure,
+                    // and the actual failure is masked by ObjectReferencingSerialization
+                    if (!inCoercionErrorBlock) {
+                        inCoercionErrorBlock = true;
+                        try {
+                            return TypeCoercions.tryCoerce(def0, WorkflowStepDefinition.class).get();
+                        } finally {
+                            inCoercionErrorBlock = false;
+                        }
+                    }
+                    // prefer above to give a better error -- but need to prevent recursion (NBD not thread safe, just won't always get best error)
+                    throw new IllegalArgumentException("Cannot convert "+def0+" to workflow step; either wrong step input or insufficient context");
+                }
+
+                return result;
+            };
             Entity entity = entity();
             if (entity==null) {
                 def = converter.call();
@@ -236,7 +256,7 @@ public class WorkflowStepResolution {
                 defW.onError = resolveSubSteps("error handling", onError);
             }
 
-            defW.validateStep(mgmt(), null);
+            defW.validateStep(this);
 
             return defW;
         } else {

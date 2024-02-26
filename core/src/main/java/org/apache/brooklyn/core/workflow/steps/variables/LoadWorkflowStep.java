@@ -19,13 +19,12 @@
 package org.apache.brooklyn.core.workflow.steps.variables;
 
 import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.text.ByteSizeStrings;
@@ -33,7 +32,6 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.nio.charset.Charset;
 
 public class LoadWorkflowStep extends WorkflowStepDefinition {
@@ -56,8 +54,8 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
-        super.validateStep(mgmt, workflow);
+    public void validateStep(WorkflowStepResolution workflowStepResolution) {
+        super.validateStep(workflowStepResolution);
 
         if (!input.containsKey(VARIABLE.getName())) {
             throw new IllegalArgumentException("Variable name is required");

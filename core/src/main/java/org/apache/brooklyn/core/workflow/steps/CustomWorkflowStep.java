@@ -57,7 +57,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -176,12 +175,12 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     protected Map<String,Object> reducing;
 
     @Override
-    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
-        super.validateStep(mgmt, workflow);
+    public void validateStep(WorkflowStepResolution workflowStepResolution) {
+        super.validateStep(workflowStepResolution);
 
         if (steps instanceof List) {
             if (steps.isEmpty()) throw new IllegalArgumentException("Workflow `steps` must be supplied for a custom or nested workflow");
-            new WorkflowStepResolution(mgmt, null, workflow).resolveSteps(steps, null);
+            workflowStepResolution.resolveSteps(steps, null);
         } else if (steps!=null) throw new IllegalArgumentException("Workflow `steps` must be a list");
         else if (target!=null) throw new IllegalArgumentException("Workflow cannot take a `target` without `steps`");
     }

@@ -18,16 +18,10 @@
  */
 package org.apache.brooklyn.core.workflow.steps.flow;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-
-import javax.annotation.Nullable;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 
 public class GotoWorkflowStep extends WorkflowStepDefinition {
 
@@ -42,8 +36,8 @@ public class GotoWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
-        super.validateStep(mgmt, workflow);
+    public void validateStep(WorkflowStepResolution workflowStepResolution) {
+        super.validateStep(workflowStepResolution);
         if (next==null) throw new IllegalStateException("next is required for goto step");
     }
 

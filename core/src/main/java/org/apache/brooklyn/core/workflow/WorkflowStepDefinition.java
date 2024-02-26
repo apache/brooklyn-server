@@ -43,7 +43,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -322,7 +321,7 @@ public abstract class WorkflowStepDefinition {
     /**
      * allows subclasses to throw exception early if required fields not set
      */
-    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
+    public void validateStep(WorkflowStepResolution workflowStepResolution) {
         validateReplayableAndIdempotent();
     }
 

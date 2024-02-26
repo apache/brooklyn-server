@@ -25,6 +25,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
@@ -47,7 +48,7 @@ public interface HasBlueprintWorkflowStep {
     Map<String, Object> getInput();
     Logger logger();
 
-    default void validateStepBlueprint(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
+    default void validateStepBlueprint(WorkflowStepResolution workflowStepResolution) {
         boolean hasBlueprint = getInput().containsKey(BLUEPRINT.getName());
         boolean hasType = getInput().containsKey(TYPE.getName());
         if (!hasBlueprint && !hasType) throw new IllegalArgumentException("A '"+BLUEPRINT.getName()+"' must be defined or a type supplied");

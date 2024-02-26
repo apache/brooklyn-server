@@ -42,7 +42,6 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.steps.flow.FailWorkflowStep.WorkflowFailException;
 import org.apache.brooklyn.core.workflow.store.WorkflowRetentionAndExpiration;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.core.workflow.utils.WorkflowRetentionParser;
@@ -391,9 +390,9 @@ public class WorkflowExecutionContext {
         return parent;
     }
 
-    public static void validateSteps(ManagementContext mgmt, List<WorkflowStepDefinition> steps, boolean alreadyValidatedIndividualSteps) {
+    public static void validateSteps(WorkflowStepResolution workflowStepResolution, List<WorkflowStepDefinition> steps, boolean alreadyValidatedIndividualSteps) {
         if (!alreadyValidatedIndividualSteps) {
-            steps.forEach(w -> w.validateStep(mgmt, null));
+            steps.forEach(w -> w.validateStep(workflowStepResolution));
         }
 
         computeStepsWithExplicitIdById(steps);

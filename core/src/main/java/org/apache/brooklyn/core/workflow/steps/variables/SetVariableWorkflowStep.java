@@ -20,13 +20,12 @@ package org.apache.brooklyn.core.workflow.steps.variables;
 
 import com.google.common.reflect.TypeToken;
 import freemarker.core.ParseException;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.core.workflow.utils.WorkflowSettingItemsUtils;
 import org.apache.brooklyn.util.collections.*;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -43,7 +42,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.time.Instant;
 import java.util.*;
 import java.util.function.BiFunction;
@@ -83,8 +81,8 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
-        super.validateStep(mgmt, workflow);
+    public void validateStep(WorkflowStepResolution workflowStepResolution) {
+        super.validateStep(workflowStepResolution);
 
         if (input.get(VARIABLE.getName())==null) {
             throw new IllegalArgumentException("Variable name is required");

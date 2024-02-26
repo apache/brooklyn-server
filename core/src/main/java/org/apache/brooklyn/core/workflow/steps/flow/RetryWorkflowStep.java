@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.workflow.steps.flow;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.*;
@@ -37,7 +36,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeoutException;
@@ -214,8 +212,8 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
-        super.validateStep(mgmt, workflow);
+    public void validateStep(WorkflowStepResolution workflowStepResolution) {
+        super.validateStep(workflowStepResolution);
 
         TypeCoercions.coerce(input.get(REPLAY.getName()), REPLAY.getTypeToken());
         TypeCoercions.coerce(input.get(LIMIT.getName()), LIMIT.getTypeToken());

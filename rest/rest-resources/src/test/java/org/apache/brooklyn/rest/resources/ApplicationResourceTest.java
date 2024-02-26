@@ -302,7 +302,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
 
         // Expect app to be running
         URI appUri = response.getLocation();
-        waitForApplicationToBeRunning(response.getLocation());
+        waitForApplicationToBeRunning(response.getLocation());  // observed to fail here, app ERROR, 2024-02
         assertEquals(client().path(appUri).get(ApplicationSummary.class).getSpec().getName(), "simple-app-yaml");
 
         Response response2 = client().path(appUri.getPath())
@@ -721,7 +721,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         log.info("LOCATIONS: " + result);
         Assert.assertEquals(result.size(), 1);
         Map details = (Map) result.values().iterator().next();
-        assertEquals(details.get("leafEntityCount"), 2);
+        assertEquals(details.get("leafEntityCount"), 2);  // observed to fail here once, 2024-02, size 1
     }
 
     
