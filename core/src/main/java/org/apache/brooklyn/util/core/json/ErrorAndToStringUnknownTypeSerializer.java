@@ -26,7 +26,6 @@ import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonStreamContext;
-import com.fasterxml.jackson.core.json.JsonWriteContext;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -74,25 +73,28 @@ public class ErrorAndToStringUnknownTypeSerializer extends UnknownSerializer {
 
         // if nested very deeply, come out, because there will be errors writing deeper things
         int closed = 0;
-        while (jgen.getOutputContext().getNestingDepth() > 30 && writeEndCurrentThing(jgen, closed++)) {}
-        if (jgen.getOutputContext().getNestingDepth() > 30) {
-            throw new IllegalStateException("Cannot recover from serialization object; nesting is too deep");
+        if (error!=null) {
+            while (jgen.getOutputContext().getNestingDepth() > 30 && writeEndCurrentThing(jgen, closed++)) {
+            }
+            if (jgen.getOutputContext().getNestingDepth() > 30) {
+                throw new IllegalStateException("Cannot recover from serialization object; nesting is too deep");
+            }
         }
 
         boolean createObject = !jgen.getOutputContext().inObject();
+        if (error==null && jgen.getOutputContext().hasCurrentName()) createObject = true;
         if (createObject) {
             // create if we're not in an object (ie in an array)
-            // or if we're in an object, but we've just written the field name
+            // or if we're in an object, it's not an error, and we've just written the field name
             jgen.writeStartObject();
         } else {
             // we might need to write a value, and then write the error fields next
-            writeErrorValueIfNeeded(jgen);
+            if (error!=null) writeErrorValueIfNeeded(jgen, true);
         }
 
         if (allowEmpty(value.getClass())) {
             // write nothing
         } else {
-
             jgen.writeFieldName("error");
             jgen.writeBoolean(true);
 
@@ -128,25 +130,36 @@ public class ErrorAndToStringUnknownTypeSerializer extends UnknownSerializer {
             return true;
         }
         if (jgen.getOutputContext().inObject()) {
-            if (count==0) writeErrorValueIfNeeded(jgen);
+            if (count==0) writeErrorValueIfNeeded(jgen, true);
             jgen.writeEndObject();
             return true;
         }
         return false;
     }
 
-    private static void writeErrorValueIfNeeded(JsonGenerator jgen) {
+    private static void writeErrorValueIfNeeded(JsonGenerator jgen, boolean fallbackToWritingRaw) {
         try {
             // at count 0, we usually need to write a value
             // (but there is no way to tell for sure; the internal status on JsonWriteContext is protected,
             // and the jgen methods are closely coupled to their state; and any attempt to mutate will insert an extra colon etc)
             if (jgen.getOutputContext().hasCurrentName()) {
                 // assume it wrote the name, but the output context might not have the correct state;
-                // have tried updated output context but it is mostly protected; instead just write this, usually good enough.
-                jgen.writeRaw("\"ERROR\"");
+                // have tried updated output context but it is mostly protected; instead just write this,
+                // good enough if it was in a healthy state
+                jgen.writeString("\"ERROR\"");
             }
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
+            if (fallbackToWritingRaw) {
+                try {
+                    // if it wasn't in a healthy state, probably it wrote a colon and failed in the value,
+                    // so we need to do this; caller may then end the object (confirmed) or
+                    // if writing a field immediately after, the jgen tool should detect a comma is needed
+                    jgen.writeRaw("\"ERROR\"");
+                } catch (Exception e2) {
+                    Exceptions.propagateIfFatal(e2);
+                }
+            }
             // if we couldn't write, we're probably at a place where a field would be written, so just end
         }
     }
