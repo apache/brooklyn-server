@@ -85,10 +85,10 @@ public class TypeCoercerExtensible implements TypeCoercer {
     }
 
     /** Store the coercion {@link Function functions} in a {@link Table table}. */
-    private final Table<Class<?>, Class<?>, Function<?,?>> registry = HashBasedTable.create();
+    private Table<Class<?>, Class<?>, Function<?,?>> registry = HashBasedTable.create();
 
-    /** Store the generic coercers, ordered by the name. */
-    private final Map<String,TryCoercer> genericCoercersByName = Maps.newTreeMap();
+    /** Store the generic coercers, ordered by the name; reset each time updated */
+    private SortedMap<String,TryCoercer> genericCoercersByName = Maps.newTreeMap();
     /** Put the list in a cache, reset each time the map is updated. */
     private List<TryCoercer> genericCoercers = new ArrayList<>();
 
@@ -201,44 +201,43 @@ public class TypeCoercerExtensible implements TypeCoercer {
         }
         
         //now look in registry
-        synchronized (registry) {
-            Map<Class<?>, Function<?,?>> adapters = registry.row(targetType);
-            for (Map.Entry<Class<?>, Function<?,?>> entry : adapters.entrySet()) {
-                if (entry.getKey().isInstance(value)) {
-                    try {
-                        T resultT = ((Function<Object,T>)entry.getValue()).apply(value);
-                        
-                        // Check if need to unwrap again (e.g. if want List<Integer> and are given a String "1,2,3"
-                        // then we'll have so far converted to List.of("1", "2", "3"). Call recursively.
-                        // First check that value has changed, to avoid stack overflow!
-                        if (!Objects.equal(value, resultT) && targetTypeToken.getType() instanceof ParameterizedType) {
-                            // Could duplicate check for `result instanceof Collection` etc; but recursive call
-                            // will be fine as if that doesn't match we'll safely reach `targetType.isInstance(value)`
-                            // and just return the result.
-                            Maybe<T> resultM = tryCoerce(resultT, targetTypeToken);
-                            if (resultM!=null) {
-                                if (resultM.isPresent()) return resultM;
-                                // if couldn't coerce parameterized types then back out of this coercer
-                                // but remember the error if we were first
-                                errors.add(resultM);
-                            }
-                        } else {
-                            return Maybe.of(resultT);
+        //previously synched on registry; but now we make the registry immutable
+        Map<Class<?>, Function<?,?>> adapters = registry.row(targetType);
+        for (Map.Entry<Class<?>, Function<?,?>> entry : adapters.entrySet()) {
+            if (entry.getKey().isInstance(value)) {
+                try {
+                    T resultT = ((Function<Object,T>)entry.getValue()).apply(value);
+
+                    // Check if need to unwrap again (e.g. if want List<Integer> and are given a String "1,2,3"
+                    // then we'll have so far converted to List.of("1", "2", "3"). Call recursively.
+                    // First check that value has changed, to avoid stack overflow!
+                    if (!Objects.equal(value, resultT) && targetTypeToken.getType() instanceof ParameterizedType) {
+                        // Could duplicate check for `result instanceof Collection` etc; but recursive call
+                        // will be fine as if that doesn't match we'll safely reach `targetType.isInstance(value)`
+                        // and just return the result.
+                        Maybe<T> resultM = tryCoerce(resultT, targetTypeToken);
+                        if (resultM!=null) {
+                            if (resultM.isPresent()) return resultM;
+                            // if couldn't coerce parameterized types then back out of this coercer
+                            // but remember the error if we were first
+                            errors.add(resultM);
                         }
-                    } catch (Exception e) {
-                        Exceptions.propagateIfFatal(e);
-                        if (log.isDebugEnabled()) {
-                            log.debug("When coercing, registry adapter "+entry+" gave error on "+value+" -> "+targetType+" "
-                                + (errors.isEmpty() ? "(rethrowing)" : "(adding as secondary error as there is already another)")
-                                + ": "+e, e);
-                        }
-                        if (e instanceof ClassCoercionException) {
-                            errors.add(Maybe.absent(e));
-                        } else {
-                            errors.add(Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetTypeToken+" ("+value+"): registered coercer failed", e)));
-                        }
-                        continue;
+                    } else {
+                        return Maybe.of(resultT);
                     }
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    if (log.isDebugEnabled()) {
+                        log.debug("When coercing, registry adapter "+entry+" gave error on "+value+" -> "+targetType+" "
+                            + (errors.isEmpty() ? "(rethrowing)" : "(adding as secondary error as there is already another)")
+                            + ": "+e, e);
+                    }
+                    if (e instanceof ClassCoercionException) {
+                        errors.add(Maybe.absent(e));
+                    } else {
+                        errors.add(Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetTypeToken+" ("+value+"): registered coercer failed", e)));
+                    }
+                    continue;
                 }
             }
         }
@@ -342,25 +341,25 @@ public class TypeCoercerExtensible implements TypeCoercer {
     /** Registers an adapter for use with type coercion. Returns any old adapter registered for this pair. */
     @SuppressWarnings("unchecked")
     public synchronized <A,B> Function<? super A,B> registerAdapter(Class<A> sourceType, Class<B> targetType, Function<? super A,B> fn) {
-        return (Function<? super A,B>) registry.put(targetType, sourceType, fn);
+        HashBasedTable<Class<?>, Class<?>, Function<?, ?>> newRegistry = HashBasedTable.create(registry);
+        Function<? super A, B> result = (Function<? super A, B>) newRegistry.put(targetType, sourceType, fn);
+        registry = newRegistry;
+        return result;
     }
     
     /** Registers a generic adapter for use with type coercion. */
     @Beta
     public synchronized void registerAdapter(String nameAndOrder, TryCoercer fn) {
-        synchronized (genericCoercersByName) {
-            genericCoercersByName.put(nameAndOrder, fn);
-            genericCoercers = ImmutableList.copyOf(genericCoercersByName.values());
-        }
+        TreeMap<String, TryCoercer> gcn = Maps.newTreeMap(genericCoercersByName);
+        gcn.put(nameAndOrder, fn);
+        genericCoercersByName = gcn;
+        genericCoercers = ImmutableList.copyOf(genericCoercersByName.values());
     }
     
     /** @deprecated since introduction, use {@link #registerAdapter(String, TryCoercer)} */
     @Beta @Deprecated
-    public synchronized void registerAdapter(TryCoercer fn) {
-        synchronized (genericCoercersByName) {
-            genericCoercersByName.put(Time.makeDateStampString()+"-"+Strings.makePaddedString(""+(genericCoercersByName.size()), 3, "0", ""), fn);
-            genericCoercers = ImmutableList.copyOf(genericCoercersByName.values());
-        }
+    public void registerAdapter(TryCoercer fn) {
+        registerAdapter(Time.makeDateStampString()+"-"+Strings.makePaddedString(""+(genericCoercersByName.size()), 3, "0", ""), fn);
     }
 
 }
