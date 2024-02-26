@@ -22,14 +22,18 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution.WorkflowExpressionStage;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution.WrappedResolvedExpression;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution.WrappingMode;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.predicates.DslPredicates.DslEntityPredicateDefault;
 import org.apache.brooklyn.util.core.predicates.DslPredicates.DslPredicate;
+import org.apache.brooklyn.util.core.predicates.DslPredicates.DslPredicateDefault;
 import org.apache.brooklyn.util.core.predicates.DslPredicates.WhenPresencePredicate;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 
 public class IfWorkflowStep extends SubWorkflowStep {
 
@@ -77,21 +81,51 @@ public class IfWorkflowStep extends SubWorkflowStep {
         Map<String, Object> raw = MutableMap.of("target", getConditionRaw());
         Object conditionConstructed = this.condition;
         if (conditionConstructed==null) {
-            Object k = context.getWorkflowExectionContext().resolveWrapped(
-                    WorkflowExpressionStage.STEP_RUNNING, condition_target, TypeToken.of(Object.class),
-                    WrappingMode.WRAPPED_RESULT_DEFER_THROWING_ERROR_BUT_NO_RETRY);
-            Map c = MutableMap.of("target", WrappedResolvedExpression.ifNonDeferred(condition_target, k));
-
-            if (condition_equals !=null) {
-                Object v = context.getWorkflowExectionContext().resolveWrapped(
-                        WorkflowExpressionStage.STEP_RUNNING, condition_equals, TypeToken.of(Object.class),
-                        WrappingMode.WRAPPED_RESULT_DEFER_THROWING_ERROR_BUT_NO_RETRY);
-                c.put("check", WrappedResolvedExpression.ifNonDeferred(condition_equals, v));
-                c.put("assert", MutableMap.of("when", WhenPresencePredicate.PRESENT));  // when doing equals we need LHS and RHS to be present
-            } else {
-                c.put("when", WhenPresencePredicate.TRUTHY);
+            boolean isCondition = false;
+            boolean seemsStatic = false;
+            Object k = condition_target;
+            if (condition_equals==null) {
+                if (condition_target instanceof Map) isCondition = true;
+                else if (condition_target instanceof String) {
+                    if (((String) condition_target).trim().startsWith("$")) isCondition = false;
+                    if (((String) condition_target).trim().startsWith("{")) {
+                        isCondition = true;
+                        k = context.getWorkflowExectionContext().resolveWrapped(
+                                WorkflowExpressionStage.STEP_RUNNING, condition_target, TypeToken.of(Map.class),
+                                WrappingMode.WRAPPED_RESULT_DEFER_THROWING_ERROR_BUT_NO_RETRY);
+                    } else seemsStatic = true;
+                } else seemsStatic = true;
             }
-            conditionConstructed = c;
+            k = context.getWorkflowExectionContext().resolveWrapped(
+                    WorkflowExpressionStage.STEP_RUNNING, k, TypeToken.of(isCondition ? DslEntityPredicateDefault.class : Object.class),
+                    WrappingMode.WRAPPED_RESULT_DEFER_THROWING_ERROR_BUT_NO_RETRY);
+
+            if (seemsStatic && !(k instanceof DslPredicate || k instanceof Boolean || k instanceof DeferredSupplier)) {
+                throw new IllegalArgumentException("Argument supplied as condition target will always evaluate as true.");
+            }
+
+            if (isCondition) {
+                if (WrappedValue.getMaybe( ((DslPredicateDefault<?>)k).implicitEquals ).map(
+                        impEq -> condition_target.equals(impEq)).or(false)) {
+                    // will probably have thrown error when coercing from map, so probably not needed, but for good measure
+                    throw new IllegalArgumentException("Argument supplied as condition target could not be evaluated as condition.");
+                }
+                conditionConstructed = k;
+
+            } else {
+                Map c = MutableMap.of("target", WrappedResolvedExpression.ifNonDeferred(condition_target, k));
+
+                if (condition_equals != null) {
+                    Object v = context.getWorkflowExectionContext().resolveWrapped(
+                            WorkflowExpressionStage.STEP_RUNNING, condition_equals, TypeToken.of(Object.class),
+                            WrappingMode.WRAPPED_RESULT_DEFER_THROWING_ERROR_BUT_NO_RETRY);
+                    c.put("check", WrappedResolvedExpression.ifNonDeferred(condition_equals, v));
+                    c.put("assert", MutableMap.of("when", WhenPresencePredicate.PRESENT));  // when doing equals we need LHS and RHS to be present
+                } else {
+                    c.put("when", WhenPresencePredicate.TRUTHY);
+                }
+                conditionConstructed = c;
+            }
         }
 
         DslPredicate result = getConditionResolved(context, conditionConstructed);

@@ -199,6 +199,11 @@ public class WorkflowSubIfAndCustomExtensionEdgeTest extends RebindTestFixture<T
         Asserts.assertEquals(run.apply(null, "${x} == ${x}"), "yes");
         Asserts.assertEquals(run.apply("let boolean x = true", "${x} == true"), "yes");
 
+        Asserts.assertEquals(run.apply("set-sensor xy = yes", "{ sensor: xy, equals: yes }"), "yes");
+        Asserts.assertEquals(run.apply(null, "{ sensor: xn, equals: yes }"), "no");
+        Asserts.assertFailsWith(() -> run.apply(null, "{ unknown_field: xn }"),
+                Asserts.expectedFailureContainsIgnoreCase("unknown_field", "predicate"));
+
         // unresolvable things -- allowed iff no == block
         Asserts.assertEquals(run.apply(null, "${unresolvable_without_equals}"), "no");
         Asserts.assertFailsWith(() -> run.apply(null, "${x} == ${unresolvable_on_rhs}"),
@@ -210,11 +215,22 @@ public class WorkflowSubIfAndCustomExtensionEdgeTest extends RebindTestFixture<T
         Asserts.assertEquals(runWorkflow(MutableList.of("let boolean x = true",
                 "if ${x} then return yes",
                 "return no")), "yes");
-
         Asserts.assertEquals(runWorkflow(MutableList.of("let integer x = 1",
                 MutableMap.of("id", "loop", "step", "let x = ${x} + 1"),
                 "if ${x} == 2 then goto loop",
                 "return ${x}")), 3);
+    }
+
+    @Test
+    public void testIfWorkflowWithSteps() throws Exception {
+        BiFunction<String, String, Object> run = (preface, cond) ->
+                runWorkflow(MutableList.<Object>of(preface==null ? "let x = hi" : preface,
+                        MutableMap.of("step", "if "+(cond==null ? "${x}" : cond),
+                            "steps", MutableList.of("let y = yes", "return ${y}")),
+                        "return no"));
+
+        Asserts.assertEquals(run.apply(null, null), "yes");
+        Asserts.assertEquals(run.apply("let boolean x = false", null), "no");
     }
 
 }
