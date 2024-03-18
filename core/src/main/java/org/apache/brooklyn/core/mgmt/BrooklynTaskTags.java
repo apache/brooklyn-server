@@ -479,6 +479,7 @@ public class BrooklynTaskTags extends TaskTags {
         protected String applicationId;
         protected String entityId;
         protected String workflowId;
+        protected String workflowName;
 
         protected Integer stepIndex;
         // TODO handle these in the UI:
@@ -536,6 +537,7 @@ public class BrooklynTaskTags extends TaskTags {
         t.applicationId = workflow.getEntity().getApplicationId();
         t.entityId = workflow.getEntity().getId();
         t.workflowId = workflow.getWorkflowId();
+        t.workflowName = workflow.getName();
         return t;
     }
     public static WorkflowTaskTag tagForWorkflow(WorkflowStepInstanceExecutionContext workflowStep) {

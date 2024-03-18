@@ -18,6 +18,15 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -38,7 +47,13 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.*;
+import org.apache.brooklyn.core.workflow.WorkflowCommonConfig;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
+import org.apache.brooklyn.core.workflow.WorkflowReplayUtils;
+import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.core.workflow.utils.WorkflowConcurrencyParser;
 import org.apache.brooklyn.core.workflow.utils.WorkflowRetentionParser;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -55,16 +70,6 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nonnull;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 public class CustomWorkflowStep extends WorkflowStepDefinition implements WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization, WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow {
 
@@ -136,7 +141,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
             if (SHORTHAND_TYPE_NAME_DEFAULT.equals(shorthandTypeName)) {
                 shorthand = WORKFLOW_SETTING_SHORTHAND;
             } else {
-                throw new IllegalStateException("Shorthand not supported for " + getNameOrDefault());
+                throw new IllegalStateException("Shorthand not supported for " + getStepTypeName());
             }
         }
         if (input==null) input = MutableMap.of();
@@ -258,7 +263,6 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         boolean wasList = targetR instanceof Iterable;
 
         targetR = checkTarget(targetR);
-
         Map reducingV = initializeReducingVariables(context, reducing);
 
         AtomicInteger index = new AtomicInteger(0);
@@ -504,11 +508,36 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         throw new IllegalArgumentException("Invalid target '"+target+"'; if a string, it must match a known keyword ('children' or 'members') or pattern (a range, '1..10')");
     }
 
-    public String getNameOrDefault() {
-        return getNameOrDefault(() -> Strings.isNonBlank(shorthandTypeName) ? shorthandTypeName : "custom step");
+    private static final String FALLBACK_STEP_TYPE_NAME = "custom step";
+    @JsonIgnore
+    protected String getStepTypeName() {
+        return Strings.isNonBlank(shorthandTypeName) ? shorthandTypeName : FALLBACK_STEP_TYPE_NAME;
     }
-    public String getNameOrDefault(Supplier<String> defaultSupplier) {
-        return Strings.isNonBlank(getName()) ? getName() : defaultSupplier==null ? null : defaultSupplier.get();
+    public String getSubworkflowName(Object target, Integer targetIndexOrNullIfNotList) {
+        // old subworkflow name
+//        String indexName = targetIndexOrNull==null ? "" : " "+(targetIndexOrNull+1);
+//        String name = getName();
+//        name = (name == null ? "Sub-workflow" + indexName : "Sub-workflow"+indexName+" for " + name);
+//        String targetString = target==null ? null : target.toString();
+//        if (targetString!=null && targetString.length()<60 && !Strings.isMultiLine(targetString)) name += " ("+targetString+")";
+//        return name;
+
+        // now:
+        String name = getName();
+        if (Strings.isBlank(name) || name.length()>30) name = getStepTypeName();
+        String targetString = target==null ? null :
+                (target instanceof BrooklynObject) ? ((BrooklynObject)target).getDisplayName()
+                : target.toString();
+        if (targetIndexOrNullIfNotList!=null) {
+            name = name + " ("+(targetIndexOrNullIfNotList+1)+")";
+        }
+        if (targetString!=null && targetString.length()<30) {
+            name = name + ": "+targetString;
+        } else if (targetIndexOrNullIfNotList==null) {
+            // need to say something to distinguish from parent
+            name = name + " (sub-workflow)";
+        }
+        return name;
     }
 
     @Override
@@ -572,14 +601,10 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         return typeBestGuess!=null && !shorthandDefault.equals(typeBestGuess) && !clazz.getName().equals(typeBestGuess);
     }
 
-    protected WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target, Integer targetIndexOrNull) {
+    protected WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target, Integer targetIndexOrNullIfNotList) {
         if (steps==null) throw new IllegalArgumentException("Cannot make new workflow with no steps");
 
-        String indexName = targetIndexOrNull==null ? "" : " "+(targetIndexOrNull+1);
-        String name = getNameOrDefault(null);
-        name = (name == null ? "Sub-workflow" + indexName : "Sub-workflow"+indexName+" for " + name);
-        String targetString = target==null ? null : target.toString();
-        if (targetString!=null && targetString.length()<60 && !Strings.isMultiLine(targetString)) name += " ("+targetString+")";
+        String name = getSubworkflowName(target, targetIndexOrNullIfNotList);
 
         WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(
                 target instanceof BrooklynObject ? (BrooklynObject) target : context.getEntity(), context.getWorkflowExectionContext(),
@@ -590,7 +615,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
 
         String tivn = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, target_index_var_name, String.class);
-        if (targetIndexOrNull!=null) nestedWorkflowContext.updateWorkflowScratchVariable(tivn == null ? TARGET_INDEX_VAR_NAME_DEFAULT : tivn, targetIndexOrNull);
+        if (targetIndexOrNullIfNotList!=null) nestedWorkflowContext.updateWorkflowScratchVariable(tivn == null ? TARGET_INDEX_VAR_NAME_DEFAULT : tivn, targetIndexOrNullIfNotList);
         initializeSubWorkflowForTarget(context, target, nestedWorkflowContext);
 
         return nestedWorkflowContext;
