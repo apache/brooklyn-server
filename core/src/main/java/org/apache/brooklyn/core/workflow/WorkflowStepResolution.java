@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts.EntityAdjunctProxyable;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
@@ -228,7 +229,8 @@ public class WorkflowStepResolution {
                 def = converter.call();
             } else {
                 // run in a task context if we can, to facilitate conversion and type lookup
-                def = Entities.submit(entity, Tasks.create("convert steps", converter)).getUnchecked();
+                def = Entities.submit(entity,
+                        Tasks.builder().displayName("convert steps").body(converter).tag(BrooklynTaskTags.TRANSIENT_TASK_TAG).build()).getUnchecked();
             }
 
             if (def instanceof WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization) {

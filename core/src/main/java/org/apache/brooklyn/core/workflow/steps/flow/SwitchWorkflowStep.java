@@ -100,35 +100,44 @@ public class SwitchWorkflowStep extends WorkflowStepDefinition implements Workfl
         for (int i = 0; i<stepsResolved.size(); i++) {
             // go through steps, find first that matches
 
+            String potentialTaskName = Tasks.current().getDisplayName()+"-"+(i+1);
+
             WorkflowStepDefinition subStep = stepsResolved.get(i);
+            String name = subStep.getName();
+            if (Strings.isBlank(name)) {
+                subStep.setName(potentialTaskName);
+                name = subStep.getName();
+                potentialTaskName = null;
+            }
 
             WorkflowStepInstanceExecutionContext subStepContext = new WorkflowStepInstanceExecutionContext(
                 /** use same step index */ context.getStepIndex(), subStep, context.getWorkflowExectionContext());
 
-            // might want to record sub-step context somewhere; but for now we don't
-
-            String potentialTaskName = Tasks.current().getDisplayName()+"-"+(i+1);
+            // sub-step context gets recorded in selectedStepContext,
+            // and promoted and used by the UI
 
             DslPredicates.DslPredicate condition = subStep.getConditionResolved(subStepContext);
 
             if (condition!=null) {
-                if (log.isTraceEnabled()) log.trace("Considering condition " + condition + " for " + potentialTaskName);
+                if (log.isTraceEnabled()) log.trace("Considering condition " + condition + " for " + name);
                 boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(condition, valueResolved, subStepContext.getEntity());
-                if (log.isTraceEnabled()) log.trace("Considered condition " + condition + " for " + potentialTaskName + ": " + conditionMet);
+                if (log.isTraceEnabled()) log.trace("Considered condition " + condition + " for " + name + ": " + conditionMet);
                 if (!conditionMet) continue;
             }
 
             setStepState(context, true, subStep, subStepContext);  // persist this, so when we resume we can pick up the same one
-            Task<?> handlerI = subStep.newTaskAsSubTask(subStepContext,
-                    potentialTaskName, BrooklynTaskTags.tagForWorkflowSubStep(context, i));
+            // provide some details of other step
+            name = subStepContext.getName();
+            context.noteOtherMetadata("Switch match", "Case "+(i+1)+(Strings.isNonBlank(name) && Strings.isNonBlank(potentialTaskName) ? ": "+name : ""));
 
-            log.debug("Switch matched at substep "+i+", running " + potentialTaskName + " '" + subStep.computeName(subStepContext, false)+"' in task "+handlerI.getId());
+            Task<?> handlerI = subStep.newTaskAsSubTask(subStepContext,
+                    null, BrooklynTaskTags.tagForWorkflowSubStep(context, i));
+
+            log.debug("Switch matched at substep "+i+", running " + (potentialTaskName!=null ? potentialTaskName : "case") + " '" + subStep.computeName(subStepContext, false)+"' in task "+handlerI.getId());
 
             Object result = DynamicTasks.queue(handlerI).getUnchecked();
             context.next = WorkflowReplayUtils.getNext(subStepContext, subStep, context, this);
 
-            // provide some details of other step
-            context.noteOtherMetadata("Switch match", "Case "+(i+1)+": "+Strings.firstNonBlank(subStepContext.getName(), subStepContext.getWorkflowStepReference()));
             context.otherMetadata.putAll(subStepContext.otherMetadata);
 
             return result;
