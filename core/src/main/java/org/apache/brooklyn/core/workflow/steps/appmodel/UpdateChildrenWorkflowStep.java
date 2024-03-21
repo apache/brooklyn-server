@@ -30,24 +30,29 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.workflow.*;
 import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.ForeachWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.SubWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -77,6 +82,7 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
     public static final ConfigKey<CustomWorkflowStep> DELETION_CHECK_WORKFLOW = ConfigKeys.builder(CustomWorkflowStep.class, "deletion_check").build();
     public static final ConfigKey<CustomWorkflowStep> ON_CREATE_WORKFLOW = ConfigKeys.builder(CustomWorkflowStep.class, "on_create").build();
     public static final ConfigKey<CustomWorkflowStep> ON_UPDATE_WORKFLOW = ConfigKeys.builder(CustomWorkflowStep.class, "on_update").build();
+    public static final ConfigKey<CustomWorkflowStep> ON_UPDATE_CHILD_WORKFLOW = ConfigKeys.builder(CustomWorkflowStep.class, "on_update_child").build();
     public static final ConfigKey<CustomWorkflowStep> ON_DELETE_WORKFLOW = ConfigKeys.builder(CustomWorkflowStep.class, "on_delete").build();
 
     /*
@@ -166,6 +172,7 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
         if (stepState.creationCheck!=null && stepState.creationCheck.workflowTag!=null) return retrieveSubWorkflow(context, stepState.creationCheck.workflowTag.getWorkflowId());
         if (stepState.onCreate !=null && stepState.onCreate.workflowTag!=null) return retrieveSubWorkflow(context, stepState.onCreate.workflowTag.getWorkflowId());
         if (stepState.onUpdate!=null && stepState.onUpdate.workflowTag!=null) return retrieveSubWorkflow(context, stepState.onUpdate.workflowTag.getWorkflowId());
+        if (stepState.onUpdateChild!=null && stepState.onUpdateChild.workflowTag!=null) return retrieveSubWorkflow(context, stepState.onUpdateChild.workflowTag.getWorkflowId());
         if (stepState.deletionCheck!=null && stepState.deletionCheck.workflowTag!=null) return retrieveSubWorkflow(context, stepState.deletionCheck.workflowTag.getWorkflowId());
         if (stepState.onDelete!=null && stepState.onDelete.workflowTag!=null) return retrieveSubWorkflow(context, stepState.onDelete.workflowTag.getWorkflowId());
         return null;
@@ -190,6 +197,7 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
         WorkflowTagWithResult<List<Map>> creationCheck = new WorkflowTagWithResult<>();
         WorkflowTagWithResult<Object> onCreate = new WorkflowTagWithResult<>();
         WorkflowTagWithResult<Object> onUpdate = new WorkflowTagWithResult<>();
+        WorkflowTagWithResult<Object> onUpdateChild = new WorkflowTagWithResult<>();
         WorkflowTagWithResult<List> deletionCheck = new WorkflowTagWithResult<>();
         WorkflowTagWithResult<Object> onDelete = new WorkflowTagWithResult<>();
     }
@@ -274,7 +282,7 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
         };
 
 
-        List matches = runOrResumeSubWorkflowForPhaseOrReturnPreviousIfCompleted(context, instructionsForResuming, subworkflowTargetForResuming,
+        List matchesReturned = runOrResumeSubWorkflowForPhaseOrReturnPreviousIfCompleted(context, instructionsForResuming, subworkflowTargetForResuming,
                 "Matching items against children", stepState.matchCheck, MATCH_CHECK_WORKFLOW,
                 () -> new CustomWorkflowStep(MutableList.of(
                         "transform ${identifier_expression} | resolve_expression | set id",
@@ -292,10 +300,13 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
                 list -> (List) list.stream().map(m -> m instanceof Entity ? new TransientEntityReference((Entity)m) : m).collect(Collectors.toList()) );
 
         List<Map<String,Object>> stringMatchesToCreate = MutableList.of();
-        for (int i=0; i<matches.size(); i++) {
-            Object m = matches.get(i);
-            if (m instanceof String) {
-                stringMatchesToCreate.add(MutableMap.of("match", m, "item", stepState.items.get(i), "index", i));
+        Set matchesUnhandled = MutableSet.of();
+        for (int i=0; i<matchesReturned.size(); i++) {
+            Object m = matchesReturned.get(i);
+            if (Boxing.isPrimitiveOrStringOrBoxedObject(m)) {
+                stringMatchesToCreate.add(MutableMap.of("match", m.toString(), "item", stepState.items.get(i), "index", i));
+            } else if (m!=null) {
+                matchesUnhandled.add(m);
             }
         }
         List<Map> addedChildren = runOrResumeSubWorkflowForPhaseOrReturnPreviousIfCompleted(context, instructionsForResuming, subworkflowTargetForResuming,
@@ -340,13 +351,17 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
                 list -> list.size());
 
         List<Map<String,Object>> onUpdateTargets = MutableList.copyOf(onCreateTargets);
-        for (int i=0; i<matches.size(); i++) {
-            Object m = matches.get(i);
+        Iterator matchesUnhandledI = matchesUnhandled.iterator();
+        for (int i=0; i<matchesUnhandled.size(); i++) {
+            Object m = matchesUnhandledI.next();
             if (m instanceof TransientEntityReference) {
                 m = ((TransientEntityReference)m).getEntity(mgmt);
             }
             if (m instanceof Entity) {
                 onUpdateTargets.add(MutableMap.of("child", m, "item", stepState.items.get(i), "index", i));
+            } else {
+                DynamicTasks.queueIfPossible(Tasks.warning("Unexpected match check result ("+m+"); ignoring", null, true))
+                        .orSubmitAsync(context.getEntity());
             }
         }
         runOrResumeSubWorkflowForPhaseOrReturnPreviousIfCompleted(context, instructionsForResuming, subworkflowTargetForResuming,
@@ -359,10 +374,20 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
                                 "condition", MutableMap.of("target", "${child.effector.on_update}")
                         )) ),
                 checkWorkflow -> outerWorkflowCustomers.apply(checkWorkflow,
-                        // TODO run _on_ each child
                         foreach -> {
                             foreach.setTarget(onUpdateTargets);
                             foreach.setTargetVarName("{child,item,index}");
+                        }),
+                list -> list.size());
+
+        runOrResumeSubWorkflowForPhaseOrReturnPreviousIfCompleted(context, instructionsForResuming, subworkflowTargetForResuming,
+                "Calling on_update_child on item-matched children ("+onUpdateTargets.size()+")", stepState.onUpdateChild, ON_UPDATE_CHILD_WORKFLOW,
+                () -> null,
+                checkWorkflow -> outerWorkflowCustomers.apply(checkWorkflow,
+                        foreach -> {
+                            foreach.setTarget(onUpdateTargets);
+                            foreach.setTargetVarName("{child,item,index}");
+                            foreach.setTargetEntityKey("child");
                         }),
                 list -> list.size());
 
@@ -428,17 +453,19 @@ public class UpdateChildrenWorkflowStep extends WorkflowStepDefinition implement
                 if (checkWorkflow == null) {
                     checkWorkflow = defaultWorkflow.get();
                 }
-                ConfigBag outerWorkflowConfig = outerWorkflowConfigFn.apply(checkWorkflow);
+                if (checkWorkflow!=null) {
+                    ConfigBag outerWorkflowConfig = outerWorkflowConfigFn.apply(checkWorkflow);
 
-                WorkflowExecutionContext matchWorkflow = WorkflowExecutionContext.newInstanceUnpersistedWithParent(
-                        context.getEntity(), context.getWorkflowExectionContext(), WorkflowExecutionContext.WorkflowContextType.NESTED_WORKFLOW,
-                        name,
-                        outerWorkflowConfig, null, null, null);
-                stepSubState.workflowTag = BrooklynTaskTags.tagForWorkflow(matchWorkflow);
-                WorkflowReplayUtils.addNewSubWorkflow(context, stepSubState.workflowTag);
-                setStepState(context, stepState);
+                    WorkflowExecutionContext matchWorkflow = WorkflowExecutionContext.newInstanceUnpersistedWithParent(
+                            context.getEntity(), context.getWorkflowExectionContext(), WorkflowExecutionContext.WorkflowContextType.NESTED_WORKFLOW,
+                            name,
+                            outerWorkflowConfig, null, null, null);
+                    stepSubState.workflowTag = BrooklynTaskTags.tagForWorkflow(matchWorkflow);
+                    WorkflowReplayUtils.addNewSubWorkflow(context, stepSubState.workflowTag);
+                    setStepState(context, stepState);
 
-                stepSubState.result = postprocess.apply((List) DynamicTasks.queue(matchWorkflow.getTask(true).get()).getUnchecked());
+                    stepSubState.result = postprocess.apply((List) DynamicTasks.queue(matchWorkflow.getTask(true).get()).getUnchecked());
+                }
             } else {
                 stepSubState.result = postprocess.apply((List) WorkflowReplayUtils.replayResumingInSubWorkflow("workflow effector", context, subworkflowTargetForResuming, instructionsForResuming,
                         (w, e)-> {

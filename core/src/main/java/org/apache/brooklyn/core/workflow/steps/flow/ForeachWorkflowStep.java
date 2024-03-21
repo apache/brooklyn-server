@@ -40,6 +40,8 @@ public class ForeachWorkflowStep extends CustomWorkflowStep {
 
     public void setTarget(Object x) { this.target = x; }
     public void setTargetVarName(Object x) { this.target_var_name = x; }
+    public void setTargetIndexVarName(Object x) { this.target_index_var_name = x; }
+    public void setTargetEntityKey(String x) { this.target_entity_key = x; }
 
     @Override
     public void populateFromShorthand(String value) {

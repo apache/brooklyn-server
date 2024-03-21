@@ -160,6 +160,9 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     protected Object target_var_name;
     protected Object target_index_var_name;
+    // hard-coded key if the entity where it should run should be extracted from a map - should be enhanced in future to be a var expression,
+    // but often the vars people would want to use are not exposed
+    protected String target_entity_key;
 
     // see WorkflowCommonConfig.LOCK
     protected Object lock;
@@ -606,13 +609,26 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
         String name = getSubworkflowName(target, targetIndexOrNullIfNotList);
 
+        BrooklynObject targetEntity = null;
+        // would be nice for this to be more configurable, but would want to access foreach vars, which aren't set until 'initializeSubworkflow' below;
+        // so for now use a map
+        if (Strings.isNonBlank(target_entity_key)) {
+            if (target instanceof Map) {
+                Object targetEntity0 = ((Map)target).get(target_entity_key);
+                if (targetEntity0==null) throw new IllegalArgumentException("Cannot find entity key '"+target_entity_key+"' in "+target);
+                targetEntity = WorkflowStepResolution.findEntity(context, targetEntity0).get();
+            } else {
+                throw new IllegalArgumentException("Cannot specify entity key '"+target_entity_key+"' with non-map target entry "+target);
+            }
+        }
+        if (targetEntity==null) targetEntity = target instanceof BrooklynObject ? (BrooklynObject) target : context.getEntity();
+
         WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(
-                target instanceof BrooklynObject ? (BrooklynObject) target : context.getEntity(), context.getWorkflowExectionContext(),
+                targetEntity, context.getWorkflowExectionContext(),
                 WorkflowExecutionContext.WorkflowContextType.NESTED_WORKFLOW,
                 name,
                 getConfigForSubWorkflow(false), null,
                 ConfigBag.newInstance(getInput()), null);
-
 
         String tivn = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, target_index_var_name, String.class);
         if (targetIndexOrNullIfNotList!=null) nestedWorkflowContext.updateWorkflowScratchVariable(tivn == null ? TARGET_INDEX_VAR_NAME_DEFAULT : tivn, targetIndexOrNullIfNotList);

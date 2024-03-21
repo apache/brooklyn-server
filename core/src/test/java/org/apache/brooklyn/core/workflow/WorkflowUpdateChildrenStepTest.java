@@ -128,6 +128,29 @@ public class WorkflowUpdateChildrenStepTest extends BrooklynMgmtUnitTestSupport 
     }
 
     @Test
+    public void testOnUpdateChild() {
+        WorkflowExecutionContext execution = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                        "- step: let items",
+                        "  value:",
+                        "  - x_id: one",
+                        "    x_name: name1",
+                        "  - x_id: two",
+                        "    x_name: name2",
+                        "- step: update-children type " + BasicEntity.class.getName() + " id ${item.x_id} from ${items}",
+                        "  on_update_child:",
+                        "  - set-entity-name ${item.x_name}-${index}",
+                        ""),
+                "set entity name using on_update_child");
+        execution.getTask(false).get().getUnchecked();
+
+        Set<String> childrenIds = app.getChildren().stream().map(c -> c.config().get(BrooklynConfigKeys.PLAN_ID)).collect(Collectors.toSet());
+        Asserts.assertEquals(childrenIds, MutableSet.of("one", "two"));
+
+        Set<String> childrenNames = app.getChildren().stream().map(c -> c.getDisplayName()).collect(Collectors.toSet());
+        Asserts.assertEquals(childrenNames, MutableSet.of("name1-0", "name2-1"));
+    }
+
+    @Test
     public void testCustomMatch() {
         WorkflowExecutionContext execution = WorkflowBasicTest.runWorkflow(app, Strings.lines(
                         "- step: let items",
@@ -149,6 +172,19 @@ public class WorkflowUpdateChildrenStepTest extends BrooklynMgmtUnitTestSupport 
 
         Set<String> childrenIds = app.getChildren().stream().map(c -> c.config().get(BrooklynConfigKeys.PLAN_ID)).collect(Collectors.toSet());
         Asserts.assertEquals(childrenIds, MutableSet.of("ONE", "two"));
+    }
+
+    @Test
+    public void testNumericId() {
+        WorkflowExecutionContext execution = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                        "- step: let items",
+                        "  value:",
+                        "  - x_id: 1",
+                        "  - x_id: two",
+                        "- update-children type " + BasicEntity.class.getName() + " id ${item.x_id} from ${items}"),
+                "first run at children");
+        execution.getTask(false).get().getUnchecked();
+        Asserts.assertSize(app.getChildren(), 2);
     }
 
     @Test
