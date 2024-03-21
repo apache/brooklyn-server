@@ -40,14 +40,14 @@ public class TransformJoin extends WorkflowTransformDefault {
     @Override
     public Object apply(Object v) {
         Object separatorResolvedO = separator==null ? "" : context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, separator, Object.class);
-        if (!(separatorResolvedO instanceof String || Boxing.isPrimitiveOrBoxedObject(separatorResolvedO))) {
+        if (!(Boxing.isPrimitiveOrStringOrBoxedObject(separatorResolvedO))) {
             throw new IllegalStateException("Argument must be a string or primitive to use as the separator");
         }
         String separatorResolved = ""+separatorResolvedO;
         if (v instanceof Iterable) {
             List list = MutableList.copyOf((Iterable)v);
             return list.stream().map(x -> {
-                if (!(x instanceof String || Boxing.isPrimitiveOrBoxedObject(x))) {
+                if (!(Boxing.isPrimitiveOrStringOrBoxedObject(x))) {
                     throw new IllegalStateException("Elements in the list to join must be a strings or primitives");
                 }
                 return ""+x;

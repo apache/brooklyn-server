@@ -44,8 +44,8 @@ public class TransformPrependAppend extends WorkflowTransformDefault {
     @Override
     public Object apply(Object v) {
         Object expressionResolved = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, expression, Object.class);
-        if (v instanceof String || Boxing.isPrimitiveOrBoxedObject(v)) {
-            if (!(expressionResolved instanceof String || Boxing.isPrimitiveOrBoxedObject(expressionResolved))) {
+        if (Boxing.isPrimitiveOrStringOrBoxedObject(v)) {
+            if (!(Boxing.isPrimitiveOrStringOrBoxedObject(expressionResolved))) {
                 throw new IllegalStateException("Argument must be a string or primitive to prepend/append");
             }
             if (atEnd) return Strings.toString(v) + expressionResolved;

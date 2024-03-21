@@ -742,7 +742,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
             List<String> msgs = logWatcher.getMessages();
             log.info("Error handler output:\n"+msgs.stream().collect(Collectors.joining("\n")));
             Asserts.assertEquals(msgs.stream().filter(s -> s.contains("NOT")).findAny().orElse(null), null);
-            Asserts.assertEquals(msgs.stream().filter(s -> s.contains("created-but-not-logged") && !s.contains("Creating handler")).findAny().orElse(null), null);
+            Asserts.assertEquals(msgs.stream().filter(s -> s.contains("created-but-not-logged") && !s.contains("error-handler")).findAny().orElse(null), null);
             Asserts.assertNotNull(msgs.stream().filter(s -> s.contains("1-1")).findAny().orElse(null));
             Asserts.assertNotNull(msgs.stream().filter(s -> s.contains("1-2")).findAny().orElse(null));
             Asserts.assertNotNull(msgs.stream().filter(s -> s.contains("1-4")).findAny().orElse(null));

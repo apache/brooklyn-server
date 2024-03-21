@@ -93,6 +93,9 @@ public class Boxing {
         if (o==null) return false;
         return isPrimitiveOrBoxedClass(o.getClass());
     }
+    public static boolean isPrimitiveOrStringOrBoxedObject(Object o) {
+        return o instanceof String || isPrimitiveOrBoxedObject(o);
+    }
     public static boolean isPrimitiveOrBoxedClass(Class<?> t) {
         // TODO maybe better to switch to using Primitives, eg:
         // return Primitives.allPrimitiveTypes().contains(type) || Primitives.allWrapperTypes().contains(type);

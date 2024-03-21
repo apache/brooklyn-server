@@ -46,6 +46,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.Map;
@@ -103,7 +104,9 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
                 new ShellEnvironmentSerializer(context.getManagementContext()).serialize(params)
                     .forEach((k, v) -> urib.addParameter(k, v));
             }
-            httpb.uri(urib.build());
+            URI uri = urib.build();
+            httpb.uri(uri);
+            context.noteOtherMetadata("URL", uri.toString());
         } catch (URISyntaxException e) {
             throw Exceptions.propagateAnnotated("Invalid URI: "+endpoint, e);
         }

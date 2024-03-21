@@ -120,9 +120,7 @@ public class BeanWithTypeUtils {
         return isJsonAndOthers(o, oo -> false);
     }
     public static boolean isJsonAndOthers(Object o, Predicate<Object> acceptOthers) {
-        if (o instanceof String) return true;
-        if (o==null) return true;
-        if (Boxing.isPrimitiveOrBoxedObject(o)) return true;
+        if (o==null || Boxing.isPrimitiveOrStringOrBoxedObject(o)) return true;
         if (o instanceof Collection) {
             for (Object oo : (Collection<?>) o) {
                 if (!isJsonAndOthers(oo, acceptOthers)) return false;
@@ -222,7 +220,7 @@ public class BeanWithTypeUtils {
         boolean useLonghandObjectWriter = true;
 
         if (type.getRawType().equals(Object.class)) useLonghandObjectWriter = false;
-        else if (mapOrListToSerializeThenDeserialize==null || mapOrListToSerializeThenDeserialize instanceof String || Boxing.isPrimitiveOrBoxedObject(mapOrListToSerializeThenDeserialize)) useLonghandObjectWriter = false;
+        else if (mapOrListToSerializeThenDeserialize==null || Boxing.isPrimitiveOrStringOrBoxedObject(mapOrListToSerializeThenDeserialize)) useLonghandObjectWriter = false;
 
         String serialization = !useLonghandObjectWriter ? mapper.writeValueAsString(mapOrListToSerializeThenDeserialize) : mapper.writerFor(Object.class).writeValueAsString(mapOrListToSerializeThenDeserialize);
         return mapper.readValue(serialization, BrooklynJacksonType.asJavaType(mapper, type));
@@ -245,7 +243,7 @@ public class BeanWithTypeUtils {
         if (inputMap.isAbsent()) return (Maybe<T>)inputMap;
 
         Object o = inputMap.get();
-        if (!(o instanceof Map) && !(o instanceof List) && !Boxing.isPrimitiveOrBoxedObject(o) && !(o instanceof String)) {
+        if (!(o instanceof Map) && !(o instanceof List) && !Boxing.isPrimitiveOrStringOrBoxedObject(o)) {
             if (type.isSupertypeOf(o.getClass())) {
                 return (Maybe<T>)inputMap;
             }  else {
@@ -337,6 +335,6 @@ public class BeanWithTypeUtils {
         }
 
         // we want some special object. if we have a map or a string or possibly a primitive then conversion might sort us out.
-        return (t instanceof Map || t instanceof String || Boxing.isPrimitiveOrBoxedObject(t)) ? 1 : -1;
+        return (t instanceof Map || Boxing.isPrimitiveOrStringOrBoxedObject(t)) ? 1 : -1;
     }
 }

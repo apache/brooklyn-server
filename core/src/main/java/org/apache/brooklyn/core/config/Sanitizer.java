@@ -176,7 +176,7 @@ public final class Sanitizer {
     }
 
     public static String suppressJson(Object value, boolean excludeBrooklynDslExpressions) {
-        if (value==null || Boxing.isPrimitiveOrBoxedObject(value) || value instanceof CharSequence) {
+        if (value==null || Boxing.isPrimitiveOrStringOrBoxedObject(value) || value instanceof CharSequence) {
             if (excludeBrooklynDslExpressions && value instanceof String && ((String)value).startsWith("$brooklyn:")) return (String)value;
             return suppress(value);
         }

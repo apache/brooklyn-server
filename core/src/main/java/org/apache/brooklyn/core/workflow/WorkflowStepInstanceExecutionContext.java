@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.LossySerializingThrowable;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -179,8 +180,14 @@ public class WorkflowStepInstanceExecutionContext {
         if (inputResolved.containsKey(key)) return (T)inputResolved.get(key);
 
         Object v = input.get(key);
-        T v2 = WorkflowExpressionResolution.allowingRecursionWhenSetting(context, WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, key,
-                () -> context.resolve(stage, v, type));
+        T v2;
+        try {
+            v2 = WorkflowExpressionResolution.allowingRecursionWhenSetting(context, WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, key,
+                    () -> context.resolve(stage, v, type));
+        } catch (Exception e) {
+            throw Exceptions.propagateAnnotated("Cannot resolve input "+
+                    (Boxing.isPrimitiveOrStringOrBoxedObject(v) ? "'"+v+"'" : v.getClass().getName() + " ("+v+")"), e);
+        }
         if (REMEMBER_RESOLVED_INPUT) {
             if (!Objects.equals(v, v2)) {
                 inputResolved.put(key, v2);

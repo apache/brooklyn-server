@@ -361,7 +361,7 @@ public class TypeCoercions {
 
                 @Override
                 public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
-                    if (!(input instanceof Map || input instanceof Collection || Boxing.isPrimitiveOrBoxedObject(input) || input instanceof String)) {
+                    if (!(input instanceof Map || input instanceof Collection || Boxing.isPrimitiveOrStringOrBoxedObject(input))) {
                         return null;
                     }
                     if (BeanWithTypeUtils.isConversionRecommended(Maybe.of(input), type)) {

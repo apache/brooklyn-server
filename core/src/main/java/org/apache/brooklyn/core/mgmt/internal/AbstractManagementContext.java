@@ -566,7 +566,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         String entityId;
         if (entityO instanceof Entity) {
             entity = (Entity) entityO;
-        } else if (entityO instanceof String || Boxing.isPrimitiveOrBoxedObject(entityO)) {
+        } else if (Boxing.isPrimitiveOrStringOrBoxedObject(entityO)) {
             entityId = entityO.toString();
 
             List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(contextEntity, true,

@@ -103,8 +103,7 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
         } else if (args instanceof Collection) {
             List<String> result = MutableList.of();
             ((Collection)args).forEach(x -> {
-                if (x instanceof String) result.add((String)x);
-                else if (Boxing.isPrimitiveOrBoxedObject(x)) result.add(x.toString());
+                if (Boxing.isPrimitiveOrStringOrBoxedObject(x)) result.add(x.toString());
                 else throw new IllegalArgumentException("Argument '"+x+"' not supported; should be a string");
             });
             tf.arguments(result);
