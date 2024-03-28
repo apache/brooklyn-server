@@ -47,9 +47,11 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     private String format;
     private String url;
     private Credentials credentials;
+    private Boolean fromInitialCatalog;
 
     /** pretty much redundant as it is put in the delta if changed, and included even if not needed when full checkpoint requested */
     private transient boolean persistenceNeeded = false;
+
 
     /** Creates an empty one, with an ID, expecting other fields will be populated. */
     public BasicManagedBundle() {}
@@ -65,14 +67,17 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
 
     /** @deprecated since 1.1 use larger constructor */ @Deprecated
     public BasicManagedBundle(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum) {
-        init(name, version, url, format, credentials, checksum, null);
+        init(name, version, url, format, credentials, checksum, null, null);
     }
 
     public BasicManagedBundle(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable) {
-        init(name, version, url, format, credentials, checksum, deleteable);
+        init(name, version, url, format, credentials, checksum, deleteable, null);
+    }
+    public BasicManagedBundle(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable, @Nullable Boolean fromInitialCatalog) {
+        init(name, version, url, format, credentials, checksum, deleteable, fromInitialCatalog);
     }
 
-    private void init(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable) {
+    private void init(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable, @Nullable Boolean fromInitialCatalog) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "Either a URL or both name and version are required");
         } else {
@@ -86,18 +91,20 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         this.credentials = credentials;
         this.checksum = checksum;
         this.deleteable = deleteable;
+        this.fromInitialCatalog = fromInitialCatalog;
     }
 
-    private BasicManagedBundle(String id, String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable) {
+    private BasicManagedBundle(String id, String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable, @Nullable Boolean fromInitialCatalog) {
         super(id);
-        init(name, version, url, format, credentials, checksum, deleteable);
+        init(name, version, url, format, credentials, checksum, deleteable, fromInitialCatalog);
     }
 
     /** used when updating a persisted bundle, we want to use the coords (ID and OSGI unique URL) of the second with the checksum of the former;
      * the other fields should be the same between the two but if in doubt use the first argument
      */
     public static BasicManagedBundle copyFirstWithCoordsOfSecond(ManagedBundle update, ManagedBundle oldOneForCoordinates) {
-        BasicManagedBundle result = new BasicManagedBundle(oldOneForCoordinates.getId(), update.getSymbolicName(), update.getSuppliedVersionString(), update.getUrl(), update.getFormat(), update.getUrlCredential(), update.getChecksum(), update.getDeleteable());
+        BasicManagedBundle result = new BasicManagedBundle(oldOneForCoordinates.getId(), update.getSymbolicName(), update.getSuppliedVersionString(), update.getUrl(), update.getFormat(), update.getUrlCredential(), update.getChecksum(), update.getDeleteable(),
+                update instanceof BasicManagedBundle ? ((BasicManagedBundle)update).getFromInitialCatalog() : null);
         result.tags().addTags(update.tags().getTags());
         // we have secondary logic which should accept a change in the OSGi unique URL,
         // but more efficient if we use the original URL
@@ -110,6 +117,9 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         return symbolicName != null && version != null;
     }
 
+    public void setDeleteable(Boolean deleteable) {
+        this.deleteable = deleteable;
+    }
     @Override
     public Boolean getDeleteable() {
         return deleteable;
@@ -271,7 +281,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         throw new UnsupportedOperationException();
     }
 
-    public static ManagedBundle of(CatalogBundle bundle) {
+    public static ManagedBundle of(OsgiBundleWithUrl bundle) {
         String checksum = (bundle instanceof ManagedBundle) ? ((ManagedBundle)bundle).getChecksum() : null;
         return new BasicManagedBundle(
                 bundle.getSymbolicName(),
@@ -280,7 +290,8 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
                 null,
                 bundle.getUrlCredential(),
                 checksum,
-                bundle instanceof ManagedBundle ? ((ManagedBundle)bundle).getDeleteable() : null);
+                bundle.getDeleteable(),
+                (bundle instanceof BasicManagedBundle ? ((BasicManagedBundle)bundle).getFromInitialCatalog() : null));
     }
 
     public void setPersistenceNeeded(boolean val) {
@@ -290,5 +301,11 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         return persistenceNeeded;
         
     }
-    
+
+    public Boolean getFromInitialCatalog() {
+        return fromInitialCatalog;
+    }
+    public void setFromInitialCatalog(Boolean fromInitialCatalog) {
+        this.fromInitialCatalog = fromInitialCatalog;
+    }
 }

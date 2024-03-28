@@ -130,7 +130,7 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
 
             BasicManagedBundle basicManagedBundle = new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(),
                     null, BrooklynBomBundleCatalogBundleResolver.FORMAT,
-                    null, null, options.getDeleteable());
+                    null, null, options.getDeleteable(), options.getFromInitialCatalog());
             // if the submitted blueprint contains tags, we set them on the bundle, so they can be picked up and used to tag the plan.
             if( cm.containsKey("tags") && cm.get("tags") instanceof Iterable) {
                 basicManagedBundle.tags().addTags((Iterable<?>)cm.get("tags"));

@@ -146,13 +146,19 @@ public class BrooklynServerConfig {
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_URL_EXCLUDE_REGEX = ConfigKeys.newStringConfigKey(
             "brooklyn.persistence.bundle.exclude.url.regex",
             "Regex for bundle URLs explicitly excluded from persistence, unless symbolic name is in explicit include list",
-            "(mvn|classpath):.*");
+            null);
 
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_EXCLUDE_REGEX = ConfigKeys.newStringConfigKey(
             "brooklyn.persistence.bundle.exclude.symbolicName.regex",
             "Regex for bundle symbolic names explicitly excluded from persistence (but include list takes precedence); "
                     + "if not explicitly excluded by this or the URL exclusion, managed bundles will by default be peristed",
             "org\\.apache\\.brooklyn\\..*");
+
+    public static final ConfigKey<Boolean> PERSIST_MANAGED_BUNDLES_FROM_INITIAL_CATALOG = ConfigKeys.newBooleanConfigKey(
+            "brooklyn.persistence.bundle.initialCatalog",
+            "Whether bundles installed by the startup catalog file(s) are persisted; " +
+                "historically defaulted to true, but now not as it was wasteful, but can be overridden here",
+            false);
 
     @Deprecated /** @deprecated in favour of {@link #PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_INCLUDE_REGEX} */
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX = ConfigKeys.newStringConfigKey(

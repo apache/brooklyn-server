@@ -171,6 +171,8 @@ public class CatalogUtils {
     /** As {@link #installLibraries(ManagementContext, Collection)} but letting caller suppress the deferred start/install
      * (for use in tests where bundles' BOMs aren't resolvable). */
     public static void installLibraries(ManagementContext managementContext, @Nullable Collection<CatalogBundle> libraries, boolean startBundlesAndInstallToBrooklyn) {
+    }
+    public static void installLibraries(ManagementContext managementContext, @Nullable Collection<CatalogBundle> libraries, boolean startBundlesAndInstallToBrooklyn, boolean fromInitialCatalog) {
         if (libraries == null) return;
 
         ManagementContextInternal mgmt = (ManagementContextInternal) managementContext;
@@ -186,7 +188,9 @@ public class CatalogUtils {
             Stopwatch timer = Stopwatch.createStarted();
             List<OsgiBundleInstallationResult> results = MutableList.of();
             for (CatalogBundle bundle : libraries) {
-                ReferenceWithError<OsgiBundleInstallationResult> result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundle), null, true);
+                BasicManagedBundle mb = (BasicManagedBundle) BasicManagedBundle.of(bundle);
+                if (fromInitialCatalog) mb.setFromInitialCatalog(true);
+                ReferenceWithError<OsgiBundleInstallationResult> result = osgi.get().installDeferredStart(mb, null, true);
                 if (log.isDebugEnabled()) {
                     logDebugOrTraceIfRebinding(log, "Installation of library "+bundle+": "+result);
                 }

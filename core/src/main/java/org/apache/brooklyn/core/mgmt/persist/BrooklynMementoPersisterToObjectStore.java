@@ -826,7 +826,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                                 // someone else persisted this (race)
                                 return;
                             }
-                            if (!isBundleOmittedFromPersistence(mb)) {
+                            if (!isBundleExcludedFromPersistence(mb)) {
                                 persist(type.getSubPathName(), type, id + ".jar", com.google.common.io.Files.asByteSource(
                                         ((ManagementContextInternal) mgmt).getOsgiManager().get().getBundleFile(mb)), exceptionHandler);
                             }
@@ -837,7 +837,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
     }
 
-    private boolean isBundleOmittedFromPersistence(ManagedBundle mb) {
+    private boolean isBundleExcludedFromPersistence(ManagedBundle mb) {
         return ((ManagementContextInternal)mgmt).getOsgiManager().get().isExcludedFromPersistence(mb);
     }
 

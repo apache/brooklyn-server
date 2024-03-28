@@ -59,6 +59,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.BrooklynBomBundleCatalogBundleResolver;
 import org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver.BundleInstallationOptions;
 import org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolvers;
@@ -110,6 +111,7 @@ public class OsgiManager {
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_EXCLUDE_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_EXCLUDE_REGEX;
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_URL_EXCLUDE_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_URL_EXCLUDE_REGEX;
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_INCLUDE_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_INCLUDE_REGEX;
+    public static final ConfigKey<Boolean> PERSIST_MANAGED_BUNDLES_FROM_INITIAL_CATALOG = BrooklynServerConfig.PERSIST_MANAGED_BUNDLES_FROM_INITIAL_CATALOG;
 
     /* see `Osgis` class for info on starting framework etc */
     
@@ -471,10 +473,14 @@ public class OsgiManager {
         return install(input, format, force, null);
     }
     public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> input, String format, boolean force, Boolean deleteable) {
+        return install(input, format, force, deleteable, false);
+    }
+    public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> input, String format, boolean force, Boolean deleteable, Boolean fromInitialCatalog) {
         BundleInstallationOptions options = new BundleInstallationOptions();
         options.setFormat(format);
         options.setForceUpdateOfNonSnapshots(force);
         options.setDeleteable(deleteable);
+        options.setFromInitialCatalog(fromInitialCatalog);
         return BrooklynCatalogBundleResolvers.install(getManagementContext(), input, options);
     }
 
@@ -897,6 +903,11 @@ public class OsgiManager {
 
         // But we don't want to persist the entire brooklyn distro! Therefore default is to exclude those from persistence.
         // Similarly for anything installed via mvn or classpath.
+
+        if (managedBundle instanceof BasicManagedBundle && Boolean.TRUE.equals(((BasicManagedBundle)managedBundle).getFromInitialCatalog())) {
+            Boolean persistInitialCatalogBundles = mgmt.getConfig().getConfig(PERSIST_MANAGED_BUNDLES_FROM_INITIAL_CATALOG);
+            if (Boolean.FALSE.equals(persistInitialCatalogBundles)) return true;
+        }
 
         if (bundlePersistenceExclusionFilterCache == null) {
             String regexSymnameInclude = mgmt.getConfig().getConfig(PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_INCLUDE_REGEX);

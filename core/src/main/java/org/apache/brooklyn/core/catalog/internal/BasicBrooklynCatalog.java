@@ -18,12 +18,9 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
-import com.google.common.base.*;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import com.google.common.reflect.TypeToken;
-import java.io.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,13 +33,27 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
-import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -63,11 +74,19 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.typereg.*;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.core.typereg.BasicRegisteredType;
+import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.typereg.BrooklynBomYamlCatalogBundleResolver;
+import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
+import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution.BrooklynTypeNameResolver;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -95,14 +114,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
-import com.google.common.annotations.Beta;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /* TODO the complex tree-structured catalogs are only useful when we are relying on those separate catalog classloaders
  * to isolate classpaths. with osgi everything is just put into the "manual additions" catalog. Deprecate/remove this. */
@@ -684,7 +697,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // `libraries` is supported in some places as a legacy syntax; it should always be `brooklyn.libraries` for new apps
         List<?> librariesAddedHereNames = MutableList.copyOf(getFirstAs(itemMetadataWithoutItemDef, List.class, "brooklyn.libraries", "libraries").orNull());
         Collection<CatalogBundle> librariesAddedHereBundles = CatalogItemDtoAbstract.parseLibraries(librariesAddedHereNames);
-        
+        boolean fromInitialCatalog = containingBundle instanceof BasicManagedBundle && Boolean.TRUE.equals( ((BasicManagedBundle)containingBundle).getFromInitialCatalog() );
+
         MutableSet<Object> librariesCombinedNames = MutableSet.of();
         if (!isNoBundleOrSimpleWrappingBundle(mgmt, containingBundle)) {
             // ensure containing bundle is declared, first, for search purposes
@@ -700,7 +714,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // TODO this may take a while if downloading; ideally the REST call would be async
         // but this load is required for resolving YAML in this BOM (and if java-scanning);
         // need to think through how we expect dependencies to be installed
-        CatalogUtils.installLibraries(mgmt, librariesAddedHereBundles);
+        CatalogUtils.installLibraries(mgmt, librariesAddedHereBundles, true, fromInitialCatalog);
         
         // use resolved bundles
         librariesAddedHereBundles = resolveWherePossible(mgmt, librariesAddedHereBundles);
@@ -1810,10 +1824,14 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml, boolean validate, boolean forceUpdate) {
+        return addItems(yaml, validate, forceUpdate, false);
+    }
+
+    public List<? extends CatalogItem<?,?>> addItems(String yaml, boolean validate, boolean forceUpdate, boolean fromCatalog) {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
         if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
             // wrap in a bundle to be managed; need to get bundle and version from yaml
-            OsgiBundleInstallationResult result = addItemsOsgi(yaml, forceUpdate, osgiManager.get());
+            OsgiBundleInstallationResult result = addItemsOsgi(yaml, forceUpdate, osgiManager.get(), fromCatalog);
             // above will have done validation and supertypes recorded
             return toLegacyCatalogItems(result.getTypesInstalled());
 
@@ -1831,7 +1849,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
         if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
             // wrap in a bundle to be managed; need to get bundle and version from yaml
-            return addItemsOsgi(yaml, forceUpdate, osgiManager.get());
+            return addItemsOsgi(yaml, forceUpdate, osgiManager.get(), false);
 
             // if all items pertaining to an older anonymous catalog.bom bundle have been overridden
             // we delete those later; see list of wrapper bundles kept in OsgiManager
@@ -1847,7 +1865,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     protected OsgiBundleInstallationResult addItemsOsgi(String yaml, boolean forceUpdate, OsgiManager osgiManager) {
-        return osgiManager.install(InputStreamSource.of("addItemsOsgi supplied yaml", yaml.getBytes()), BrooklynBomYamlCatalogBundleResolver.FORMAT, forceUpdate).get();
+        return addItemsOsgi(yaml, forceUpdate, osgiManager, false);
+    }
+    protected OsgiBundleInstallationResult addItemsOsgi(String yaml, boolean forceUpdate, OsgiManager osgiManager, boolean fromCatalog) {
+        return osgiManager.install(InputStreamSource.of("addItemsOsgi supplied yaml", yaml.getBytes()), BrooklynBomYamlCatalogBundleResolver.FORMAT, forceUpdate, !fromCatalog, fromCatalog).get();
     }
     
     @SuppressWarnings("deprecation")
@@ -1913,7 +1934,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
         if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
             // wrap in a bundle to be managed; need to get bundle and version from yaml
-            return addItemsOsgi(catalogYaml, forceUpdate, osgiManager.get()).getTypesInstalled();
+            return addItemsOsgi(catalogYaml, forceUpdate, osgiManager.get(), false).getTypesInstalled();
             // above will have done validation and supertypes recorded
         }
 
@@ -2271,7 +2292,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         log.debug("Adding manual catalog item to "+mgmt+": "+item);
         checkNotNull(item, "item");
         //don't activate bundles; only intended for legacy tests where that might not work
-        CatalogUtils.installLibraries(mgmt, item.getLibraries(), false);
+        CatalogUtils.installLibraries(mgmt, item.getLibraries(), false, false);
         if (manualAdditionsCatalog==null) loadManualAdditionsCatalog();
         manualAdditionsCatalog.addEntry(getAbstractCatalogItem(item));
     }

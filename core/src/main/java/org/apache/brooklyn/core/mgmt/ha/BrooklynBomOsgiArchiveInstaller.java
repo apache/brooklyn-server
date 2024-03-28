@@ -27,8 +27,6 @@ import com.google.common.collect.Iterables;
 import java.io.*;
 import java.net.URL;
 import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
@@ -37,8 +35,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.rebind.ChangeListener;
-import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.BrooklynVersion;
@@ -301,10 +297,12 @@ public class BrooklynBomOsgiArchiveInstaller {
                         throw new IllegalArgumentException("No input stream available and no URL could be found: no way to install " + suppliedKnownBundleMetadata);
                     }
 
+                    boolean shouldReplaceExistingBundle = force || replacingInitialCatalogBundle(suppliedKnownBundleMetadata, existingBrooklynInstalledBundle.orNull());
+
                     if (zipIn != null) {
                         // found input stream for existing osgi bundle
 
-                    } else if (existingBrooklynInstalledBundle.isAbsent() || force) {
+                    } else if (existingBrooklynInstalledBundle.isAbsent() || shouldReplaceExistingBundle) {
                         // reload
                         String url = suppliedKnownBundleMetadata.getUrl();
                         if (url == null) {
@@ -373,6 +371,19 @@ public class BrooklynBomOsgiArchiveInstaller {
         }
 
         return prepareInstallResult;
+    }
+
+    private static boolean replacingInitialCatalogBundle(ManagedBundle suppliedKnownBundleMetadata, @Nullable ManagedBundle existingBrooklynInstalledBundle) {
+        boolean shouldReplaceExistingBundle = false;
+        if (existingBrooklynInstalledBundle instanceof BasicManagedBundle && suppliedKnownBundleMetadata instanceof BasicManagedBundle) {
+            if (Boolean.TRUE.equals(((BasicManagedBundle)existingBrooklynInstalledBundle).getFromInitialCatalog())) {
+                if (!Boolean.TRUE.equals(((BasicManagedBundle) suppliedKnownBundleMetadata).getFromInitialCatalog())) {
+                    // we should replace if we are manually installing an identical bundle, so it is persisted
+                    shouldReplaceExistingBundle = true;
+                }
+            }
+        }
+        return shouldReplaceExistingBundle;
     }
 
     private void discoverManifestFromCatalogBom(boolean isCatalogBomRequired) {
@@ -514,35 +525,49 @@ public class BrooklynBomOsgiArchiveInstaller {
                 result.bundle = osgiManager.getFramework().getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
 
                 // Check if exactly this bundle is already installed
+                boolean replacingInitialCatalogBundleWithMatchingChecksums = false;
                 if (result.bundle != null && checksumsMatch(result.getMetadata(), inferredMetadata)) {
-                    // e.g. repeatedly installing the same bundle
-                    log.trace("Bundle "+inferredMetadata+" matches already installed managed bundle "+result.getMetadata()
-                            +"; install is no-op");
-                    result.setIgnoringAlreadyInstalled();
-                    return ReferenceWithError.newInstanceWithoutError(result);
-
+                    if (replacingInitialCatalogBundle(inferredMetadata, result.getMetadata())) {
+                        replacingInitialCatalogBundleWithMatchingChecksums = true;
+                        // mark it not from initial catalog (but leave it as not deletable)
+                        ((BasicManagedBundle) result.getMetadata()).setFromInitialCatalog(false);
+                    } else {
+                        // e.g. repeatedly installing the same bundle
+                        log.trace("Bundle " + inferredMetadata + " matches already installed managed bundle " + result.getMetadata()
+                                + "; install is no-op");
+                        result.setIgnoringAlreadyInstalled();
+                        return ReferenceWithError.newInstanceWithoutError(result);
+                    }
                 }
 
                 List<Bundle> matchingVsnBundles = findBundlesBySymbolicNameAndVersion(osgiManager, inferredMetadata);
-
-                List<Bundle> sameContentBundles = matchingVsnBundles.stream().filter(b -> isBundleSameOsgiUrlOrSameContents(b, inferredMetadata, zipFile.getFile())).collect(Collectors.toList());
-                if (!sameContentBundles.isEmpty()) {
-                    // e.g. happens if pre-installed bundle is brought under management, and then add it again via a mvn-style url.
-                    // We wouldn't know the checksum from the pre-installed bundle, the osgi locations might be different,
-                    // but the contents are the same
-                    log.trace("Bundle "+inferredMetadata+" matches metadata of managed bundle "+result.getMetadata()
-                            +" (but not OSGi bundle location "+result.getMetadata().getOsgiUniqueUrl()+"), "
-                            + "and identified as equivalent to installed OSGi bundle; ; install is no-op");
-                    result.setIgnoringAlreadyInstalled();
-                    result.bundle = sameContentBundles.iterator().next();
-                    return ReferenceWithError.newInstanceWithoutError(result);
+                if (!replacingInitialCatalogBundleWithMatchingChecksums) {
+                    List<Bundle> sameContentBundles = matchingVsnBundles.stream().filter(b -> isBundleSameOsgiUrlOrSameContents(b, inferredMetadata, zipFile.getFile())).collect(Collectors.toList());
+                    if (!sameContentBundles.isEmpty()) {
+                        // e.g. happens if pre-installed bundle is brought under management, and then add it again via a mvn-style url.
+                        // We wouldn't know the checksum from the pre-installed bundle, the osgi locations might be different,
+                        // but the contents are the same
+                        log.trace("Bundle " + inferredMetadata + " matches metadata of managed bundle " + result.getMetadata()
+                                + " (but not OSGi bundle location " + result.getMetadata().getOsgiUniqueUrl() + "), "
+                                + "and identified as equivalent to installed OSGi bundle; ; install is no-op");
+                        result.setIgnoringAlreadyInstalled();
+                        result.bundle = sameContentBundles.iterator().next();
+                        return ReferenceWithError.newInstanceWithoutError(result);
+                    }
                 }
 
-                if (canUpdate()) {
-                    if (result.bundle == null && !matchingVsnBundles.isEmpty()) {
-                        // if we are updating a snapshot bundle or forcing, and somehow we did not manage to preserve the original OSGi location
-                        log.info("Updating existing brooklyn-managed bundle "+result+" with "+inferredMetadata+" with different OSGi location and different contents");
-                        result.bundle = matchingVsnBundles.iterator().next();
+                if (replacingInitialCatalogBundleWithMatchingChecksums || canUpdate()) {
+                    if (result.bundle == null) {
+                        if (replacingInitialCatalogBundleWithMatchingChecksums) {
+                            log.info("Updating existing brooklyn-managed bundle " + result + " with " + inferredMetadata + ", same contents, but post-initial-catalog installation means it must be persisted");
+                            result.bundle = matchingVsnBundles.iterator().next();
+                        } else if (!matchingVsnBundles.isEmpty()) {
+                            // if we are updating a snapshot bundle or forcing, and somehow we did not manage to preserve the original OSGi location
+                            log.info("Updating existing brooklyn-managed bundle " + result + " with " + inferredMetadata + " with different OSGi location and different contents");
+                            result.bundle = matchingVsnBundles.iterator().next();
+                        } else {
+                            // will set updating=false and warn below
+                        }
                     }
 
                     if (result.getBundle() == null) {

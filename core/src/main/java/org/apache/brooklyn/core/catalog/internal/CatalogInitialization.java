@@ -491,7 +491,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
             String contents = new ResourceUtils(this).getResourceAsString(catalogUrl);
 
             catalog.reset(MutableList.<CatalogItem<?,?>>of());
-            Object result = catalog.addItems(contents);
+            Object result = catalog.addItems(contents, true, false, true);
             
             log.debug("Loaded initial catalog from {}: {}", catalogUrl, result);
             

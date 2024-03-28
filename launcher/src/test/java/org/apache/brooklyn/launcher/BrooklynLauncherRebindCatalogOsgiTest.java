@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.launcher;
 
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.util.stream.InputStreamSource;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -322,7 +324,8 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             // Should bring it under brooklyn-management (without re-installing it).
             startT1(newLauncherForTests(initialBomFile.getAbsolutePath()));
 
-            // Launch brooklyn again (because will have persisted both those bundles)
+            alsoPersistBundlesInstalledToCatalog();
+            // Launch brooklyn again (because with the above, it will have persisted both those bundles)
             startT2(newLauncherForTests(CATALOG_EMPTY_INITIAL));
             
             launcherT2.terminate();
@@ -333,12 +336,12 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             runInstallPreexistingBundleViaInitialBomBrooklynLibrariesReference(false);
         }
         
-        // Aled thought we supported version ranges in 'brooklyn.libraries', but doesn't work here.
-        // Alex confirms nope, not supported there yet (2017-10).
-        @Test(groups="Broken")
-        public void testInstallPreexistingBundleViaInitialBomBrooklynLibrariesReferenceWithVersionRange() throws Exception {
-            runInstallPreexistingBundleViaInitialBomBrooklynLibrariesReference(true);
-        }
+//        // Aled thought we supported version ranges in 'brooklyn.libraries', but doesn't work here.
+//        // Alex confirms nope, not supported there yet (2017-10).
+//        @Test(groups="Broken")
+//        public void testInstallPreexistingBundleViaInitialBomBrooklynLibrariesReferenceWithVersionRange() throws Exception {
+//            runInstallPreexistingBundleViaInitialBomBrooklynLibrariesReference(true);
+//        }
         
         protected void runInstallPreexistingBundleViaInitialBomBrooklynLibrariesReference(boolean useVersionRange) throws Exception {
             Set<VersionedName> bundleItems = ImmutableSet.of(VersionedName.fromString("one:1.0.0"));
@@ -368,6 +371,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             // Should bring it under brooklyn-management (without re-installing it).
             startT1(newLauncherForTests(initialBomFile.getAbsolutePath()));
 
+            alsoPersistBundlesInstalledToCatalog();
             // Launch brooklyn again (because will have persisted both those bundles)
             startT2(newLauncherForTests(CATALOG_EMPTY_INITIAL));
             launcherT2.terminate();
@@ -479,6 +483,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             }
         };
         startT1(newLauncherForTests(initialBomFileV1.getAbsolutePath()));
+        alsoPersistBundlesInstalledToCatalog();
         startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
         assertManagedBundle(launcherLast, bundleNameV2, bundleItems);
         promoteT2IfStandby();
@@ -519,6 +524,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             }
         };
         startT1(newLauncherForTests(initialBomFileV1.getAbsolutePath()));
+        alsoPersistBundlesInstalledToCatalog();
         startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
         promoteT2IfStandby();
     }
@@ -608,6 +614,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         // First launcher should persist the bundle
         startT1(newLauncherForTests(initialBomFile.getAbsolutePath()));
         String bundlePersistenceId1 = findManagedBundle(launcherT1, bundleName).getId();
+        alsoPersistBundlesInstalledToCatalog();
         
         if (!isT1KeptRunningWhenT2Starts()) {
             launcherT1.terminate();
@@ -639,23 +646,55 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
     }
     
     @Test
-    public void testRebindRemovedItemButLeavingJavaSucceeds() throws Exception {
+    public void testRebindRemovedItemAlsoRemovesLibrary() throws Exception {
         File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(false, false);
         createAndStartApplication(launcherLast.getManagementContext(), 
             "services: [ { type: 'simple-entity:1' } ]");
         
-        // should start and promote fine, even though original catalog item ID not available
-        
-        // when we switch to loading from type registry types instead of persisted java type (see RebindIteration.load)
-        // T2 startup may fail like testRebindRemovedItemIAlsoRemovingJavaDependencyCausesFailure does,
-        // or it may fall back to the java type and succeed (but note this test does NOT allow the type to be upgraded)
+        // failover here fails, because we depend on the java library which is removed
+        startupAssertions = null;
+        startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()), false);
+    }
+
+    @Test
+    public void testRebindRemovedKeepsLibraryIfInstalledExplicitly() throws Exception {
+        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(false, false);
+        createAndStartApplication(launcherLast.getManagementContext(),
+                "services: [ { type: 'simple-entity:1' } ]");
+
+        // as before, but if we install the java library explicitly (directly or as a dependendency), then it _is_ persisted
+        // (we mark it v2 so that it replaces what startT2 installs, as the bom file on its own otherwise has no version, and the tests assert 1.0 or 2.0)
+        launcherLast.getManagementContext().getCatalog().addItems(initialBomV1+"\n  id: org.example.testRebindGetsInitialOsgiCatalog:2.0.0\n");
+
         startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
         promoteT2IfStandby();
-        
+
         Entity entity = Iterables.getOnlyElement( Iterables.getOnlyElement(launcherLast.getManagementContext().getApplications()).getChildren() );
         Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:1.0.0");
     }
-    
+
+    @Test
+    public void testRebindRemovedKeepsLibraryIfPersistFromInitialCatalogEnabled() throws Exception {
+        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(false, false);
+        alsoPersistBundlesInstalledToCatalog();
+
+        createAndStartApplication(launcherLast.getManagementContext(),
+                "services: [ { type: 'simple-entity:1' } ]");
+
+        // here rebind/failover should start and promote fine, and it should be able to load the entity from the java type
+        startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
+        promoteT2IfStandby();
+
+        Entity entity = Iterables.getOnlyElement( Iterables.getOnlyElement(launcherLast.getManagementContext().getApplications()).getChildren() );
+        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:1.0.0");
+    }
+
+    protected void alsoPersistBundlesInstalledToCatalog() {
+        ((ManagementContextInternal)launcherLast.getManagementContext()).getBrooklynProperties().put(
+                BrooklynServerConfig.PERSIST_MANAGED_BUNDLES_FROM_INITIAL_CATALOG, true);
+        launcherLast.getManagementContext().getRebindManager().forcePersistNow(true, null);
+    }
+
     @Test
     public void testRebindRemovedItemAndRemovingJavaDependencyCausesFailure() throws Exception {
         File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(true, false);
@@ -686,18 +725,18 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             Asserts.assertSize( Iterables.getOnlyElement(launcherLast.getManagementContext().getApplications()).getChildren(), 0 );
         }
     }
-    
+
+    private final String initialBomV1 = Joiner.on("\n").join(
+            "brooklyn.catalog:",
+            "  brooklyn.libraries:",
+            "    - " + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_URL,
+            "  items:",
+            "    - id: simple-entity",
+            "      item:",
+            "        type: com.example.brooklyn.test.osgi.entities.SimpleEntity");
     private File prepForRebindRemovedItemTestReturningBomV2(boolean removeSourceJavaBundle, boolean upgradeEntity) throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH);
         
-        String initialBomV1 = Joiner.on("\n").join(
-                "brooklyn.catalog:",
-                "  brooklyn.libraries:",
-                "    - " + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_URL,
-                "  items:",
-                "    - id: simple-entity",
-                "      item:",
-                "        type: com.example.brooklyn.test.osgi.entities.SimpleEntity");
         VersionedName bundleNameV1 = new VersionedName("org.example.testRebindGetsInitialOsgiCatalog", "1.0.0");
         File bundleFileV1 = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, initialBomV1.getBytes()), bundleNameV1);
         File initialBomFileV1 = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFileV1.toURI()), ImmutableList.of()));
@@ -740,7 +779,8 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType(), true);
         createAndStartApplication(launcherLast.getManagementContext(), 
             "services: [ { type: 'simple-entity:1' } ]");
-        
+
+        alsoPersistBundlesInstalledToCatalog();
         startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
         promoteT2IfStandby();
         
@@ -790,7 +830,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         createAndStartApplication(launcherLast.getManagementContext(), 
             "services: [ { type: references-simple-entity } ]");
         
-
+        alsoPersistBundlesInstalledToCatalog();
         startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
         promoteT2IfStandby();
         
@@ -836,7 +876,8 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         Entity cluster = Iterables.getOnlyElement( app.getChildren() );
         ((DynamicCluster)cluster).resize(0);
         // at size 0 it should always persist and rebind, even with the dependent java removed (args to prep method above)
-              
+
+        alsoPersistBundlesInstalledToCatalog();
         startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
         promoteT2IfStandby();
         
@@ -953,17 +994,17 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         return newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleName);
     }
 
-    // convenience for testing just a single test (TestNG plugin otherwise runs lots of them)
-    public static void main(String[] args) throws Exception {
-        try {
-            BrooklynLauncherRebindCatalogOsgiTest fixture = new LauncherRebindSubTests();
-            fixture.setUp();
-            fixture.testRebindUpgradeSpecUsedInDeployedApp();
-            fixture.tearDown();
-        } catch (Throwable e) {
-            e.printStackTrace();
-            System.exit(1);
-        } 
-        System.exit(0);
-    }
+//    // convenience for testing just a single test (TestNG plugin otherwise runs lots of them)
+//    public static void main(String[] args) throws Exception {
+//        try {
+//            BrooklynLauncherRebindCatalogOsgiTest fixture = new LauncherRebindSubTests();
+//            fixture.setUp();
+//            fixture.testRebindUpgradeSpecUsedInDeployedApp();
+//            fixture.tearDown();
+//        } catch (Throwable e) {
+//            e.printStackTrace();
+//            System.exit(1);
+//        }
+//        System.exit(0);
+//    }
 }
