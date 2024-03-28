@@ -18,11 +18,12 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
-import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
-import static org.testng.Assert.assertEquals;
-
 import java.util.Map;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -50,6 +51,7 @@ import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
@@ -61,10 +63,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import static org.testng.Assert.assertEquals;
 
 /** Many of the same tests as per {@link OsgiVersionMoreEntityTest} but using YAML for catalog and entities, so catalog item ID is set automatically */
 public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTest implements OsgiTestResources {

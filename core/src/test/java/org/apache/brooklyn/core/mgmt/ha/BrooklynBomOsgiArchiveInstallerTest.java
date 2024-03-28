@@ -38,33 +38,33 @@ public class BrooklynBomOsgiArchiveInstallerTest extends BrooklynMgmtUnitTestSup
     // BrooklynMgmtUnitTestSupport, which does not expose `useOsgi` or `osgiReuse`
     
     @Test
-    public void testBlacklistPersistingOrgApacheBrooklyn() throws Exception {
-        OsgiManager osgiManager = newMockOsgiManager(mgmt);
+    public void testBundlePersistenceExclusionOrgApacheBrooklyn() throws Exception {
+        OsgiManager osgiManager = new OsgiManager(mgmt);
         BrooklynBomOsgiArchiveInstaller installer = new BrooklynBomOsgiArchiveInstaller(osgiManager, Mockito.mock(ManagedBundle.class), new ByteArrayInputStream(new byte[0]));
         
-        assertTrue(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.brooklyn.core", "1.0.0")));
-        assertTrue(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.brooklyn.mybundle", "1.0.0")));
-        assertFalse(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.different", "1.0.0")));
+        assertTrue(installer.isExcludedFromPersistence(newMockManagedBundle("org.apache.brooklyn.core", "1.0.0")));
+        assertTrue(installer.isExcludedFromPersistence(newMockManagedBundle("org.apache.brooklyn.mybundle", "1.0.0")));
+        assertFalse(installer.isExcludedFromPersistence(newMockManagedBundle("org.apache.different", "1.0.0")));
     }
 
     @Test
-    public void testWhitelistPersistingBundle() throws Exception {
-        mgmt.getBrooklynProperties().put(BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX, "org\\.apache\\.brooklyn\\.mywhitelistedbundle");
-        OsgiManager osgiManager = newMockOsgiManager(mgmt);
+    public void testBundlePersistenceExclusionExplicitInclusion() throws Exception {
+        mgmt.getBrooklynProperties().put(BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_INCLUDE_REGEX, "org\\.apache\\.brooklyn\\.myincludebundle");
+        OsgiManager osgiManager = new OsgiManager(mgmt);
         BrooklynBomOsgiArchiveInstaller installer = new BrooklynBomOsgiArchiveInstaller(osgiManager, Mockito.mock(ManagedBundle.class), new ByteArrayInputStream(new byte[0]));
         
-        assertTrue(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.brooklyn.core", "1.0.0")));
-        assertFalse(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.brooklyn.mywhitelistedbundle", "1.0.0")));
+        assertTrue(installer.isExcludedFromPersistence(newMockManagedBundle("org.apache.brooklyn.core", "1.0.0")));
+        assertFalse(installer.isExcludedFromPersistence(newMockManagedBundle("org.apache.brooklyn.myincludebundle", "1.0.0")));
     }
 
     @Test
-    public void testCustomBlacklistPersistingBundle() throws Exception {
-        mgmt.getBrooklynProperties().put(BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX, "org\\.example\\.myblacklistprefix.*");
-        OsgiManager osgiManager = newMockOsgiManager(mgmt);
+    public void testBundlePersistenceExclusionCustom() throws Exception {
+        mgmt.getBrooklynProperties().put(BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_EXCLUDE_REGEX, "org\\.example\\.myexcludeprefix.*");
+        OsgiManager osgiManager = new OsgiManager(mgmt);
         BrooklynBomOsgiArchiveInstaller installer = new BrooklynBomOsgiArchiveInstaller(osgiManager, Mockito.mock(ManagedBundle.class), new ByteArrayInputStream(new byte[0]));
         
-        assertTrue(installer.isBlacklistedForPersistence(newMockManagedBundle("org.example.myblacklistprefix.mysuffix", "1.0.0")));
-        assertFalse(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.brooklyn.core", "1.0.0")));
+        assertTrue(installer.isExcludedFromPersistence(newMockManagedBundle("org.example.myexcludeprefix.mysuffix", "1.0.0")));
+        assertFalse(installer.isExcludedFromPersistence(newMockManagedBundle("org.apache.brooklyn.core", "1.0.0")));
     }
 
     @Test

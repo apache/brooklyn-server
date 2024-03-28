@@ -18,13 +18,12 @@
  */
 package org.apache.brooklyn.core.server;
 
-import static org.apache.brooklyn.core.config.ConfigKeys.newBooleanConfigKey;
-import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
-
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
@@ -36,8 +35,8 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.reflect.TypeToken;
+import static org.apache.brooklyn.core.config.ConfigKeys.newBooleanConfigKey;
+import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
 /** Config keys for the brooklyn server */
 public class BrooklynServerConfig {
@@ -97,7 +96,7 @@ public class BrooklynServerConfig {
             "Whether a backup of in-memory state should be made to the backup persistence location on node demotion, "
             + "in case other nodes might write conflicting state", true);
 
-    /** @deprecated since 0.7.0, use {@link #PERSISTENCE_BACKUPS_ON_PROMOTION} and {@link #PERSISTENCE_BACKUPS_ON_DEMOTION},
+    /** @deprecated since 0.7.0, use {@link #PERSISTENCE_BACKUPS_REQUIRED_ON_PROMOTION} and {@link #PERSISTENCE_BACKUPS_REQUIRED_ON_DEMOTION},
      * which allow using a different target location and are supported on more environments (and now default to true) */
     @Deprecated
     public static final ConfigKey<Boolean> PERSISTENCE_BACKUPS_REQUIRED =
@@ -138,18 +137,31 @@ public class BrooklynServerConfig {
     public static final ConfigKey<Boolean> OSGI_CACHE_CLEAN = ConfigKeys.newBooleanConfigKey("brooklyn.osgi.cache.clean",
         "Whether to delete the OSGi directory before and after use; if unset, it will delete if the node ID forms part of the cache dir path (which by default it does) to avoid file leaks");
 
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_INCLUDE_REGEX = ConfigKeys.newStringConfigKey(
+            "brooklyn.persistence.bundle.include.symbolicName.regex",
+            "Regex for bundle symbolic names explicitly allowed to be persisted, taking precedence over exclude list; " +
+                    "bundles are included by default unless excluded, so things only need to be listed here if they want to override an exclusion",
+            null);
+
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_URL_EXCLUDE_REGEX = ConfigKeys.newStringConfigKey(
+            "brooklyn.persistence.bundle.exclude.url.regex",
+            "Regex for bundle URLs explicitly excluded from persistence, unless symbolic name is in explicit include list",
+            "(mvn|classpath):.*");
+
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_EXCLUDE_REGEX = ConfigKeys.newStringConfigKey(
+            "brooklyn.persistence.bundle.exclude.symbolicName.regex",
+            "Regex for bundle symbolic names explicitly excluded from persistence (but include list takes precedence); "
+                    + "if not explicitly excluded by this or the URL exclusion, managed bundles will by default be peristed",
+            "org\\.apache\\.brooklyn\\..*");
+
+    @Deprecated /** @deprecated in favour of {@link #PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_INCLUDE_REGEX} */
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX = ConfigKeys.newStringConfigKey(
             "brooklyn.persistence.bundle.whitelist",
-            "Regex for bundle symbolic names explicitly allowed to be persisted (taking precedence over blacklist); "
-                    + "managed bundles will by default be peristed if not blacklisted; "
-                    + "they do not need to be explicitly whitelisted.",
-            null);
-    
+            "Legacy name for "+PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_INCLUDE_REGEX.getName());
+    @Deprecated /** @deprecated in favour of {@link #PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_EXCLUDE_REGEX} */
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX = ConfigKeys.newStringConfigKey(
             "brooklyn.persistence.bundle.blacklist",
-            "Regex for bundle symbolic names explicitly excluded from persistence (but whitelist takes precedence); "
-                    + "if not explicitly blacklisted, managed bundles will by default be peristed",
-            "org\\.apache\\.brooklyn\\..*");
+            "Legacy name for "+PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_EXCLUDE_REGEX.getName());
 
     /** @see BrooklynServerPaths#getMgmtBaseDir(ManagementContext) */
     public static String getMgmtBaseDir(ManagementContext mgmt) {

@@ -27,26 +27,25 @@ import com.google.common.collect.Iterables;
 import java.io.*;
 import java.net.URL;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.rebind.ChangeListener;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
-import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.typereg.*;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -76,9 +75,6 @@ public class BrooklynBomOsgiArchiveInstaller {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynBomOsgiArchiveInstaller.class);
     
-    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX;
-    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX;
-
     final private OsgiManager osgiManager;
     private ManagedBundle suppliedKnownBundleMetadata;
     private InputStream zipIn;
@@ -116,8 +112,6 @@ public class BrooklynBomOsgiArchiveInstaller {
     
     private ManagedBundle inferredMetadata;
     private final boolean inputStreamSupplied;
-    
-    private volatile Predicate<ManagedBundle> blacklistBundlePersistencePredicate;
     
     public BrooklynBomOsgiArchiveInstaller(OsgiManager osgiManager, ManagedBundle knownBundleMetadata, InputStream zipIn) {
         this.osgiManager = osgiManager;
@@ -709,11 +703,12 @@ public class BrooklynBomOsgiArchiveInstaller {
                             log.error("Error rolling back following failed install of updated "+result.getVersionedName()+"; "
                                 + "installation will likely be corrupted and correct version should be manually installed.", e);
                         }
-                        
-                        if (!isBlacklistedForPersistence(result.getMetadata())) {
-                            ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
-                            mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
+
+                        if (!isExcludedFromPersistence(oldManagedBundle)) {
+                            ((BasicManagedBundle)oldManagedBundle).setPersistenceNeeded(true);
+                            mgmt().getRebindManager().getChangeListener().onChanged(oldManagedBundle);
                         }
+
                     } else {
                         if (isBringingExistingOsgiInstalledBundleUnderBrooklynManagement) {
                             log.debug("Uninstalling bundle "+result.getVersionedName()+" from Brooklyn management only (rollback needed but it was already installed to OSGi)");
@@ -721,7 +716,7 @@ public class BrooklynBomOsgiArchiveInstaller {
                             log.debug("Uninstalling bundle "+result.getVersionedName()+" (roll back of failed fresh install, no previous version to revert to)");
                         }                        
                         osgiManager.uninstallUploadedBundle(result.getMetadata(), false, isBringingExistingOsgiInstalledBundleUnderBrooklynManagement);
-                        if (!isBlacklistedForPersistence(result.getMetadata())) {
+                        if (!isExcludedFromPersistence(result.getMetadata())) {
                             ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
                             mgmt().getRebindManager().getChangeListener().onUnmanaged(result.getMetadata());
                         }
@@ -731,7 +726,7 @@ public class BrooklynBomOsgiArchiveInstaller {
                     if (start) {
                         try {
                             log.debug("Starting bundle "+result.getVersionedName());
-                            if (!isBlacklistedForPersistence(result.getMetadata())) {
+                            if (!isExcludedFromPersistence(result.getMetadata()) && !Boolean.TRUE.equals(result.rebinding)) {
                                 ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
                                 if (updating) {
                                     mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
@@ -914,36 +909,8 @@ public class BrooklynBomOsgiArchiveInstaller {
     }
 
     @VisibleForTesting
-    boolean isBlacklistedForPersistence(ManagedBundle managedBundle) {
-        // We treat as "managed bundles" (to extract their catalog.bom) the contents of:
-        //   - org.apache.brooklyn.core
-        //   - org.apache.brooklyn.policy
-        //   - org.apache.brooklyn.test-framework
-        //   - org.apache.brooklyn.software-*
-        //   - org.apache.brooklyn.library-catalog
-        //   - org.apache.brooklyn.karaf-init (not sure why this one could end up in persisted state!)
-        // We don't want to persist the entire brooklyn distro! Therefore default is to blacklist those.
-        
-        if (blacklistBundlePersistencePredicate == null) {
-            String whitelistRegex = mgmt().getConfig().getConfig(PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX);
-            String blacklistRegex = mgmt().getConfig().getConfig(PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX);
-            
-            final Pattern whitelistPattern = (whitelistRegex != null) ? Pattern.compile(whitelistRegex) : null;
-            final Pattern blacklistPattern = (blacklistRegex != null) ? Pattern.compile(blacklistRegex) : null;
-
-            blacklistBundlePersistencePredicate = input -> {
-                    String bundleName = input.getSymbolicName();
-                    if (whitelistPattern != null && whitelistPattern.matcher(bundleName).matches()) {
-                        return false;
-                    }
-                    if (blacklistPattern != null && blacklistPattern.matcher(bundleName).matches()) {
-                        return true;
-                    }
-                    return false;
-            };
-        }
-        
-        return blacklistBundlePersistencePredicate.test(managedBundle);
+    boolean isExcludedFromPersistence(ManagedBundle managedBundle) {
+        return osgiManager.isExcludedFromPersistence(managedBundle);
     }
     
     private static List<Bundle> findBundlesBySymbolicNameAndVersion(OsgiManager osgiManager, ManagedBundle desired) {

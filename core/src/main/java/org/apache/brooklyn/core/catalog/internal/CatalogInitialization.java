@@ -555,6 +555,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         Set<OsgiBundleInstallationResult> bundlesToRemove = MutableSet.of();
         installs.values().stream().forEach(candidate -> {
             if (filteredPersistedState.getBundles().containsKey(candidate.getVersionedName())) {
+                candidate.setRebinding(true);
                 bundlesInOrder.add(candidate);
             } else {
                 log.debug("Skipping start of persisted bundle "+candidate+" due to catalog upgrade metadata instructions");

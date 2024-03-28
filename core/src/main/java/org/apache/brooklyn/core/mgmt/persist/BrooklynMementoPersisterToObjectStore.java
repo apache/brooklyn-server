@@ -684,7 +684,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             futures.add(asyncUpdatePlaneId(newMemento.getPlaneId(), exceptionHandler));
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Map.Entry<String, String> entry : newMemento.getObjectsOfType(type).entrySet()) {
-                    addPersistContentIfManagedBundle(type, entry.getKey(), entry.getValue(), futures, exceptionHandler, contextDetails);
+                    addPersistContentIfManagedBundle(type, false, entry.getKey(), entry.getValue(), futures, exceptionHandler, contextDetails);
                     futures.add(asyncPersist(type.getSubPathName(), type, entry.getKey(), entry.getValue(), exceptionHandler));
                 }
             }
@@ -770,7 +770,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Memento item : delta.getObjectsOfType(type)) {
                     if (!deletedIds.contains(item.getId())) {
-                        addPersistContentIfManagedBundle(type, item.getId(), ""+item.getCatalogItemId()+"/"+item.getDisplayName(), futures, exceptionHandler, null);
+                        addPersistContentIfManagedBundle(type, true, item.getId(), ""+item.getCatalogItemId()+"/"+item.getDisplayName(), futures, exceptionHandler, null);
                         futures.add(asyncPersist(type.getSubPathName(), item, exceptionHandler));
                     }
                 }
@@ -800,7 +800,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         return lastErrors;
     }
 
-    private void addPersistContentIfManagedBundle(final BrooklynObjectType type, final String id, final String summaryOrContents, List<ListenableFuture<?>> futures, final PersistenceExceptionHandler exceptionHandler, final @Nullable RebindManager deltaContext) {
+    private void addPersistContentIfManagedBundle(final BrooklynObjectType type, final boolean isDelta, final String id, final String summaryOrContents, List<ListenableFuture<?>> futures, final PersistenceExceptionHandler exceptionHandler, final @Nullable RebindManager deltaContext) {
         if (type==BrooklynObjectType.MANAGED_BUNDLE) {
             if (mgmt==null) {
                 throw new IllegalStateException("Cannot persist bundles without a management context");
@@ -818,21 +818,27 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             }
             
             if (mb instanceof BasicManagedBundle) {
-                if (((BasicManagedBundle)mb).getPersistenceNeeded()) {
+                if (!isDelta || ((BasicManagedBundle)mb).getPersistenceNeeded()) {
                     futures.add( executor.submit(new Runnable() {
                         @Override
                         public void run() {
-                            if (!((BasicManagedBundle)mb).getPersistenceNeeded()) {
+                            if (isDelta && !((BasicManagedBundle)mb).getPersistenceNeeded()) {
                                 // someone else persisted this (race)
                                 return;
                             }
-                            persist(type.getSubPathName(), type, id+".jar", com.google.common.io.Files.asByteSource(
-                                ((ManagementContextInternal)mgmt).getOsgiManager().get().getBundleFile(mb)), exceptionHandler);
+                            if (!isBundleOmittedFromPersistence(mb)) {
+                                persist(type.getSubPathName(), type, id + ".jar", com.google.common.io.Files.asByteSource(
+                                        ((ManagementContextInternal) mgmt).getOsgiManager().get().getBundleFile(mb)), exceptionHandler);
+                            }
                             ((BasicManagedBundle)mb).setPersistenceNeeded(false);
                         } }) );
                 }
             }
         }
+    }
+
+    private boolean isBundleOmittedFromPersistence(ManagedBundle mb) {
+        return ((ManagementContextInternal)mgmt).getOsgiManager().get().isExcludedFromPersistence(mb);
     }
 
     @Override

@@ -18,24 +18,34 @@
  */
 package org.apache.brooklyn.core.mgmt.ha;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
+import javax.annotation.Nullable;
+
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
-import java.io.*;
-import java.net.URL;
-import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
-import javax.annotation.Nullable;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -46,12 +56,14 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.typereg.*;
-import org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver.BundleInstallationOptions;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
+import org.apache.brooklyn.core.typereg.BrooklynBomBundleCatalogBundleResolver;
+import org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver.BundleInstallationOptions;
+import org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolvers;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -75,7 +87,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
-import org.osgi.framework.FrameworkEvent;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,6 +106,10 @@ public class OsgiManager {
     protected static final boolean REUSED_FRAMEWORKS_ARE_KEPT_RUNNING = true;
 
     public static final ConfigKey<Boolean> OSGI_STARTUP_COMPLETE = ConfigKeys.newBooleanConfigKey("brooklyn.osgi.startup.complete");
+
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_EXCLUDE_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_EXCLUDE_REGEX;
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_URL_EXCLUDE_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_URL_EXCLUDE_REGEX;
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_INCLUDE_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_INCLUDE_REGEX;
 
     /* see `Osgis` class for info on starting framework etc */
     
@@ -870,4 +885,43 @@ public class OsgiManager {
         return managedBundlesRecord.fileFor(mb);
     }
 
+    private volatile Predicate<ManagedBundle> bundlePersistenceExclusionFilterCache;
+    public boolean isExcludedFromPersistence(ManagedBundle managedBundle) {
+        // We treat as "managed bundles" (to extract their catalog.bom) the contents of:
+        //   - org.apache.brooklyn.core
+        //   - org.apache.brooklyn.policy
+        //   - org.apache.brooklyn.test-framework
+        //   - org.apache.brooklyn.software-*
+        //   - org.apache.brooklyn.library-catalog
+        //   - org.apache.brooklyn.karaf-init (not sure why this one could end up in persisted state!)
+
+        // But we don't want to persist the entire brooklyn distro! Therefore default is to exclude those from persistence.
+        // Similarly for anything installed via mvn or classpath.
+
+        if (bundlePersistenceExclusionFilterCache == null) {
+            String regexSymnameInclude = mgmt.getConfig().getConfig(PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_INCLUDE_REGEX);
+            String regexSymnameIncludeLegacy = mgmt.getConfig().getConfig(BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX);
+            String regexSymnameExclude = mgmt.getConfig().getConfig(PERSIST_MANAGED_BUNDLE_SYMBOLIC_NAME_EXCLUDE_REGEX);
+            String regexSymnameExcludeLegacy = mgmt.getConfig().getConfig(BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX);
+            String regexUrlExclude = mgmt.getConfig().getConfig(PERSIST_MANAGED_BUNDLE_URL_EXCLUDE_REGEX);
+
+            final Pattern patternSymnameInclude = (regexSymnameInclude != null) ? Pattern.compile(regexSymnameInclude) : null;
+            final Pattern patternSymnameIncludeLegacy = (regexSymnameIncludeLegacy != null) ? Pattern.compile(regexSymnameIncludeLegacy) : null;
+            final Pattern patternUrlExclude = (regexUrlExclude != null) ? Pattern.compile(regexUrlExclude) : null;
+            final Pattern patternSymnameExclude = (regexSymnameExclude != null) ? Pattern.compile(regexSymnameExclude) : null;
+            final Pattern patternSymnameExcludeLegacy = (regexSymnameExcludeLegacy != null) ? Pattern.compile(regexSymnameExcludeLegacy) : null;
+
+            bundlePersistenceExclusionFilterCache = input -> {
+                String bundleName = input.getSymbolicName();
+                if (patternSymnameInclude != null && patternSymnameInclude.matcher(bundleName).matches()) return false;
+                if (patternSymnameIncludeLegacy != null && patternSymnameIncludeLegacy.matcher(bundleName).matches()) return false;
+                if (patternUrlExclude != null && input.getUrl()!=null && patternUrlExclude.matcher(input.getUrl()).matches()) return true;
+                if (patternSymnameExclude != null && patternSymnameExclude.matcher(bundleName).matches()) return true;
+                if (patternSymnameExcludeLegacy != null && patternSymnameExcludeLegacy.matcher(bundleName).matches()) return true;
+                return false;
+            };
+        }
+
+        return bundlePersistenceExclusionFilterCache.test(managedBundle);
+    }
 }

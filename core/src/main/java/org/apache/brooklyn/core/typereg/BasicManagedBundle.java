@@ -47,6 +47,8 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     private String format;
     private String url;
     private Credentials credentials;
+
+    /** pretty much redundant as it is put in the delta if changed, and included even if not needed when full checkpoint requested */
     private transient boolean persistenceNeeded = false;
 
     /** Creates an empty one, with an ID, expecting other fields will be populated. */
@@ -282,7 +284,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     }
 
     public void setPersistenceNeeded(boolean val) {
-        persistenceNeeded |= val;
+        persistenceNeeded = val;
     }
     public boolean getPersistenceNeeded() {
         return persistenceNeeded;

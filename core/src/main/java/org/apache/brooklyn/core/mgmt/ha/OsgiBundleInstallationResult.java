@@ -37,6 +37,7 @@ public class OsgiBundleInstallationResult {
     Bundle bundle;
     ResultCode code;
     Runnable deferredStart;
+    Boolean rebinding;
     
     public enum ResultCode { 
         INSTALLED_NEW_BUNDLE(false),
@@ -116,5 +117,9 @@ public class OsgiBundleInstallationResult {
     public void addType(RegisteredType ci) {
         typesInstalled.add(ci);
         catalogItemsInstalled.add(ci.getId());        
+    }
+
+    public void setRebinding(Boolean rebinding) {
+        this.rebinding = rebinding;
     }
 }
