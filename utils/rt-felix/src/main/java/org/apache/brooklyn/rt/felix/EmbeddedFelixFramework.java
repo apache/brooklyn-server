@@ -31,7 +31,10 @@ import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
+import java.util.stream.Collectors;
 
+import com.google.common.base.Stopwatch;
+import com.google.common.reflect.ClassPath;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -49,8 +52,6 @@ import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Stopwatch;
-
 /**
  * Functions for starting an Apache Felix OSGi framework inside a non-OSGi Brooklyn distro.
  * 
@@ -63,6 +64,10 @@ public class EmbeddedFelixFramework {
     private static final String EXTENSION_PROTOCOL = "system";
     private static final String MANIFEST_PATH = "META-INF/MANIFEST.MF";
     private static final Set<String> SYSTEM_BUNDLES = MutableSet.of();
+
+    // set here to avoid importing core, only needed for tests
+    private static final String BROOKLYN_VERSION = "1.2.0-SNAPSHOT";
+    private static final String BROOKLYN_VERSION_OSGI_ROUGH = BROOKLYN_VERSION.replaceFirst("-.*", "");
 
     private static final Set<URL> CANDIDATE_BOOT_BUNDLES;
     
@@ -113,6 +118,23 @@ public class EmbeddedFelixFramework {
         if (clean) cfg.put(Constants.FRAMEWORK_STORAGE_CLEAN, "onFirstInit");
         if (felixCacheDir!=null) cfg.put(Constants.FRAMEWORK_STORAGE, felixCacheDir);
         cfg.put(Constants.FRAMEWORK_BSNVERSION, Constants.FRAMEWORK_BSNVERSION_MULTIPLE);
+
+        if (CANDIDATE_BOOT_BUNDLES.stream().noneMatch(url -> url.toString().contains("brooklyn-core"))) {
+            // if not running brooklyn-core from a jar, for osgi deps to work we need to make the system bundle export brooklyn packages;
+            // mainly for tests to work; everything else should be running from jars with manifest.mf
+
+            try {
+                // spring has: PathMatchingResourcePatternResolver; we use guava's ClassPath
+                Set<String> brooklynPackages = ClassPath.from(EmbeddedFelixFramework.class.getClassLoader()).getTopLevelClasses()
+                                .stream().map(c -> c.getPackageName())
+                                .filter(n -> n.startsWith("org.apache.brooklyn.")).collect(Collectors.toSet());
+                LOG.info("Embedded felix OSGi system running without brooklyn-core JAR; manually adding brooklyn packages ("+brooklynPackages.size()+") to system bundle exports");
+                cfg.put(Constants.FRAMEWORK_SYSTEMPACKAGES_EXTRA, brooklynPackages.stream().map(p -> p + ";version=\""+BROOKLYN_VERSION_OSGI_ROUGH+"\"").collect(Collectors.joining(",")));
+            } catch (Exception e) {
+                throw Exceptions.propagateAnnotated("Unable to set up embedded felix framework with packages inferred", e);
+            }
+        }
+
         FrameworkFactory factory = newFrameworkFactory();
 
         Stopwatch timer = Stopwatch.createStarted();
