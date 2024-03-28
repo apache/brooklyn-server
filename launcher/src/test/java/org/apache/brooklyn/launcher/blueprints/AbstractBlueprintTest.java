@@ -63,6 +63,7 @@ import java.io.File;
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -270,14 +271,15 @@ public abstract class AbstractBlueprintTest {
 
         ManagementContext origMgmt = mgmt;
         ManagementContext newMgmt = createNewManagementContext();
-        Collection<Application> origApps = origMgmt.getApplications();
-        
+        boolean origRunning = origMgmt != null && origMgmt.isRunning();
+        Collection<Application> origApps = origRunning ? origMgmt.getApplications() : Collections.emptyList();
+
         options = RebindOptions.create(options);
         if (options.classLoader == null) options.classLoader(classLoader);
         if (options.mementoDir == null) options.mementoDir(mementoDir);
-        if (options.origManagementContext == null) options.origManagementContext(origMgmt);
+        if (options.origManagementContext == null && origRunning) options.origManagementContext(origMgmt);
         if (options.newManagementContext == null) options.newManagementContext(newMgmt);
-        
+
         for (Application origApp : origApps) {
             RebindTestUtils.stopPersistence(origApp);
         }
