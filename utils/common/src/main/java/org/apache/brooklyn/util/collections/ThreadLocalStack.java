@@ -22,23 +22,27 @@ import com.google.common.collect.Iterables;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 public class ThreadLocalStack<T> implements Iterable<T> {
 
-    private final boolean allowDuplicates;
+    private final boolean acceptDuplicates;
 
-    public ThreadLocalStack(boolean allowsDuplicates) {
-        this.allowDuplicates = allowsDuplicates;
+    /** if duplicates not accepted, the call to push will return false */
+    public ThreadLocalStack(boolean acceptDuplicates) {
+        this.acceptDuplicates = acceptDuplicates;
     }
+    public ThreadLocalStack() { this.acceptDuplicates = true; }
 
     final ThreadLocal<Collection<T>> set = new ThreadLocal<>();
 
     public Collection<T> getAll(boolean forceInitialized) {
         Collection<T> result = set.get();
         if (forceInitialized && result==null) {
-            result = allowDuplicates ? MutableList.of() : MutableSet.of();
+            result = acceptDuplicates ? MutableList.of() : MutableSet.of();
             set.set(result);
         }
         return result;
@@ -52,13 +56,22 @@ public class ThreadLocalStack<T> implements Iterable<T> {
         return last;
     }
 
+    /** returns true unless duplicates are not accepted, in which case it returns false iff the object supplied is equal to one already present */
     public boolean push(T object) {
         return getAll(true).add(object);
     }
 
+    /** top of stack first */
     @Override
     public Iterator<T> iterator() {
-        return null;
+        return stream().iterator();
+    }
+
+    /** top of stack first */
+    public Stream<T> stream() {
+        MutableList<T> l = MutableList.copyOf(getAll(false));
+        Collections.reverse(l);
+        return l.stream();
     }
 
     public Maybe<T> peek() {

@@ -86,7 +86,7 @@ public class TemplateProcessor {
     public static TemplateModel wrapAsTemplateModel(Object o) throws TemplateModelException { return BROOKLYN_WRAPPER.wrap(o); }
     public static Maybe<Object> unwrapTemplateModelMaybe(TemplateModel templateModel) { return BROOKLYN_WRAPPER.unwrapMaybe(templateModel); }
 
-    static ThreadLocalStack<Map<TemplateModel,Object>> TEMPLATE_MODEL_UNWRAP_CACHE = new ThreadLocalStack<>(true);
+    static ThreadLocalStack<Map<TemplateModel,Object>> TEMPLATE_MODEL_UNWRAP_CACHE = new ThreadLocalStack<>();
     /** A cache is used to be able to retrieve the object from which a TemplateModel was created, if needed,
      *  because Freemarker doesn't support that except on selected UnwrappableTemplateModel subclasses.
      *  Use wrap and unwrap methods above to access.
@@ -94,8 +94,8 @@ public class TemplateProcessor {
     public static void openLocalTemplateModelCache() { TEMPLATE_MODEL_UNWRAP_CACHE.push(MutableMap.of()); }
     public static void closeLocalTemplateModelCache() { TEMPLATE_MODEL_UNWRAP_CACHE.pop(); }
 
-    static ThreadLocalStack<String> TEMPLATE_FILE_WANTING_LEGACY_SYNTAX = new ThreadLocalStack<>(true);
-    static ThreadLocalStack<Boolean> IS_FOR_WORKFLOW = new ThreadLocalStack<>(true);
+    static ThreadLocalStack<String> TEMPLATE_FILE_WANTING_LEGACY_SYNTAX = new ThreadLocalStack<>();
+    static ThreadLocalStack<Boolean> IS_FOR_WORKFLOW = new ThreadLocalStack<>();
 
     public interface UnwrappableTemplateModel {
         Maybe<Object> unwrap();
