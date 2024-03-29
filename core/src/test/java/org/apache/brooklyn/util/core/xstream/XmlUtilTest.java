@@ -26,6 +26,7 @@ import java.util.List;
 
 import javax.xml.xpath.XPathConstants;
 
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.xstream.XmlUtil.Escaper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,6 +98,17 @@ public class XmlUtilTest {
         }
         xml.append("</c></a>");
         assertEquals(XmlUtil.xpath(xml.toString(), "/a/b[text()]"), "myb");
+    }
+
+    @Test
+    public void testWeirdStrings() throws Exception {
+        // should work, and shouldn't print error to stderr anymore
+        Asserts.assertEquals(XmlUtil
+                        .xpathHandlingIllegalChars("<x>" +
+//                          "\u001b" +
+                            "&#x1b;"+
+                            "abc<y>a</y></x>", "/x/y[text()]"),
+                "a");
     }
 
     @Test

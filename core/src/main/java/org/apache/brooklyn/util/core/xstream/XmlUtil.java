@@ -30,12 +30,16 @@ import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import com.sun.org.apache.xerces.internal.xni.parser.XMLErrorHandler;
+import com.sun.org.apache.xml.internal.utils.DefaultErrorHandler;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.w3c.dom.Document;
+import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 import com.google.common.annotations.Beta;
+import org.xml.sax.SAXParseException;
 
 public class XmlUtil {
 
@@ -45,12 +49,40 @@ public class XmlUtil {
      */
     private static class SharedDocumentBuilder {
         private static ThreadLocal<DocumentBuilder> instance = new ThreadLocal<DocumentBuilder>();
-        
-        public static DocumentBuilder get() throws ParserConfigurationException {
+
+        /** xpath in particular prints to stderr and then throws or swallows; do the same, but without printing to stderr */
+        public static DocumentBuilder getSwallowingOrThrowingErrors(boolean throwIfWarning, boolean throwIfError, boolean throwIfFatal) {
+            ErrorHandler eh = new ErrorHandler() {
+                @Override
+                public void warning(SAXParseException exception) throws SAXException {
+                    if (throwIfWarning) throw exception;
+                }
+                @Override
+                public void error(SAXParseException exception) throws SAXException {
+                    if (throwIfError) throw exception;
+                }
+                @Override
+                public void fatalError(SAXParseException exception) throws SAXException {
+                    if (throwIfFatal) throw exception;
+                }
+            };
+            return get(eh);
+        }
+
+        public static DocumentBuilder get() {
+            return get(null);
+        }
+
+        public static DocumentBuilder get(ErrorHandler errorHandler) {
             DocumentBuilder result = instance.get();
             if (result == null) {
                 DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-                result = factory.newDocumentBuilder();
+                try {
+                    result = factory.newDocumentBuilder();
+                } catch (ParserConfigurationException e) {
+                    throw Exceptions.propagate(e);
+                }
+                if (errorHandler!=null) result.setErrorHandler(errorHandler);
                 instance.set(result);
             } else {
                 result.reset();
@@ -64,16 +96,16 @@ public class XmlUtil {
     }
 
     public static Object xpath(String xml, String xpath, QName returnType) {
+        return xpath(SharedDocumentBuilder.get(), xml, xpath, returnType);
+    }
+    public static Object xpath(DocumentBuilder builder, String xml, String xpath, QName returnType) {
         try {
-            DocumentBuilder builder = SharedDocumentBuilder.get();
             Document doc = builder.parse(new InputSource(new StringReader(xml)));
             XPathFactory xPathfactory = XPathFactory.newInstance();
             XPathExpression expr = xPathfactory.newXPath().compile(xpath);
-            
+
             return expr.evaluate(doc, returnType);
             
-        } catch (ParserConfigurationException e) {
-            throw Exceptions.propagate(e);
         } catch (SAXException e) {
             throw Exceptions.propagate(e);
         } catch (IOException e) {
@@ -97,7 +129,8 @@ public class XmlUtil {
     @Beta
     public static Object xpathHandlingIllegalChars(String xml, String xpath, QName returnType) {
         try {
-            return xpath(xml, xpath, returnType);
+            return xpath(SharedDocumentBuilder.getSwallowingOrThrowingErrors(false, false, true),
+                    xml, xpath, returnType);
         } catch (Exception e) {
             SAXException saxe = Exceptions.getFirstThrowableOfType(e, SAXException.class);
             if (saxe != null && saxe.toString().contains("&#")) {
