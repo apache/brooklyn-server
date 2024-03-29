@@ -94,7 +94,7 @@ public class WorkflowStatePersistenceViaSensors {
         WorkflowStateActiveInMemory.get(context.getManagementContext()).checkpoint(context);
 
         if (Boolean.TRUE.equals(context.getRetentionSettings().disabled)) {
-            if (getFromTag(BrooklynTaskTags.tagForWorkflow(context), false)!=null) {
+            if (getFromTag(BrooklynTaskTags.tagForWorkflow(context), false, false)!=null) {
                 // need to clear
                 updateMap(entity, false, true, v -> v.remove(context.getWorkflowId(), context));
             }
@@ -168,7 +168,7 @@ public class WorkflowStatePersistenceViaSensors {
     }
 
     public Map<String,WorkflowExecutionContext> getWorkflows(Entity entity) {
-        MutableMap<String, WorkflowExecutionContext> result = WorkflowStateActiveInMemory.get(mgmt).getWorkflowsCopy(entity);
+        MutableMap<String, WorkflowExecutionContext> result = WorkflowStateActiveInMemory.get(mgmt).getWorkflowsCopy(entity, true);
         result.add(entity.sensors().get(INTERNAL_WORKFLOWS));
         return result;
     }
@@ -185,17 +185,20 @@ public class WorkflowStatePersistenceViaSensors {
     }
 
     public Maybe<WorkflowExecutionContext> getFromTag(BrooklynTaskTags.WorkflowTaskTag tag) {
-        return getFromTag(tag, true);
+        return getFromTag(tag, true, true);
+    }
+    public Maybe<WorkflowExecutionContext> getFromTag(BrooklynTaskTags.WorkflowTaskTag tag, boolean includeSoftlyKeptInMemory) {
+        return getFromTag(tag, true, includeSoftlyKeptInMemory);
     }
 
-    private Maybe<WorkflowExecutionContext> getFromTag(BrooklynTaskTags.WorkflowTaskTag tag, boolean allowInMemory) {
+    private Maybe<WorkflowExecutionContext> getFromTag(BrooklynTaskTags.WorkflowTaskTag tag, boolean allowActiveInMemory, boolean allowActiveAndSoftlyKeptInMemory) {
         Entity targetEntity = mgmt.lookup(tag.getEntityId(), Entity.class);
         if (targetEntity==null) {
             return Maybe.absent("Entity "+tag.getWorkflowId()+" not found");
         } else {
             WorkflowExecutionContext w = null;
 
-            if (allowInMemory) w = WorkflowStateActiveInMemory.get(mgmt).getFromTag(tag);
+            if (allowActiveInMemory || allowActiveAndSoftlyKeptInMemory) w = WorkflowStateActiveInMemory.get(mgmt).getFromTag(tag, allowActiveAndSoftlyKeptInMemory);
 
             if (w==null) {
                 w = new WorkflowStatePersistenceViaSensors(mgmt).getWorkflows(targetEntity).get(tag.getWorkflowId());

@@ -55,6 +55,8 @@ the semantics of `min` and `max` are
 * `max` means completed workflow instances must be retained if they meet any of the constraints implied by the `<value>` arguments, i.e. `max(2, 3, 1h, 2h)` means to keep the 3 most recent instances irrespective of when they run, and to keep all instances for up to two hours
 
 also allows a `hash <value>` to be set at the start or the end
+
+also allows `hard` at start or end, or `soft [limit]` at end
      */
 
     public static WorkflowRetentionSettings parse(String retentionExpression, @Nullable WorkflowExecutionContext context) {
@@ -63,20 +65,40 @@ also allows a `hash <value>` to be set at the start or the end
         if (Strings.isBlank(retentionExpression)) return result;
         retentionExpression = retentionExpression.trim().toLowerCase();
 
+        do {
+            if (retentionExpression.startsWith("hash ")) {
+                if (result.hash != null)
+                    throw new IllegalArgumentException("Cannot set multiple 'hash' in retention expression");
+                retentionExpression = Strings.removeFromStart(retentionExpression, "hash").trim();
+                result.hash = Strings.getFirstWord(retentionExpression);
+                retentionExpression = retentionExpression.substring(result.hash.length()).trim();
+                continue;
+            }
+            if (retentionExpression.startsWith("hard ")) {
+                if (result.softExpiry != null)
+                    throw new IllegalArgumentException("Cannot set multiple 'hard' or 'soft' in retention expression");
+                retentionExpression = Strings.removeFromStart(retentionExpression, "hard").trim();
+                result.softExpiry = "0";
+                continue;
+            }
+
+            // TODO soft/hard keyword; take whichever occurs last
+            if (retentionExpression.contains(" hash ")) {
+                if (result.hash != null)
+                    throw new IllegalArgumentException("Cannot set multiple 'hash' in retention expression");
+                int i = retentionExpression.indexOf(" hash ");
+                result.hash = Strings.removeFromStart(retentionExpression.substring(i).trim(), "hash").trim();
+                retentionExpression = retentionExpression.substring(0, i).trim();
+                continue;
+            }
+            break;
+        } while (false);
+
         if (retentionExpression.equals("disabled")) {
             result.disabled = true;
 
         } else {
 
-            if (retentionExpression.startsWith("hash ")) {
-                retentionExpression = Strings.removeFromStart(retentionExpression, "hash").trim();
-                result.hash = Strings.getFirstWord(retentionExpression);
-                retentionExpression = retentionExpression.substring(result.hash.length()).trim();
-            } else if (retentionExpression.contains(" hash ")) {
-                int i = retentionExpression.indexOf(" hash ");
-                result.hash = Strings.removeFromStart(retentionExpression.substring(i).trim(), "hash").trim();
-                retentionExpression = retentionExpression.substring(0, i).trim();
-            }
             if (Strings.isNonBlank(result.hash) && context!=null) {
                 result.hash = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result.hash, String.class);
             }

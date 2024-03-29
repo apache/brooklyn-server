@@ -50,8 +50,13 @@ public class WorkflowRetentionAndExpiration {
     public static class WorkflowRetentionSettings {
         public Boolean disabled;
         public String hash;
+
         public String expiry;
         public String expiryResolved;
+
+        // soft expiry refers to what is kept in memory
+        public String softExpiry;
+        public String softExpiryResolved;
 
         @JsonIgnore
         private transient WorkflowRetentionParser.WorkflowRetentionFilter expiryFn;
@@ -163,7 +168,7 @@ public class WorkflowRetentionAndExpiration {
     private static boolean isExpirable(WorkflowExecutionContext c) {
         if (c.getStatus() == null || !c.getStatus().expirable) return false;
         if (c.getParent()!=null) {
-            // fow now, don't expire children workflows unless parents are also expirable
+            // XXX for size reasons, should skip this - fow now, don't expire children workflows unless parents are also expirable
             if (!isExpirable(c.getParent())) return false;
 
             // we could weaken this if we have lots of children workflows, but that is more work; left as an enhancement

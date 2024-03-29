@@ -20,13 +20,17 @@ package org.apache.brooklyn.core.workflow.store;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.slf4j.Logger;
@@ -55,7 +59,10 @@ public class WorkflowStateActiveInMemory {
     }
 
     private final ManagementContext mgmt;
-    final Map<String,Map<String,WorkflowExecutionContext>> data = MutableMap.of();
+    // active workflows by entity then workflow id
+    final Map<String,Map<String,WorkflowExecutionContext>> active = MutableMap.of();
+    // cached remembered workflows by entity then workflow id
+    final Map<String, Cache<String, WorkflowExecutionContext>> completedSoftlyKept = MutableMap.of();
 
     // created and managed by mgmt context scratchpad
     protected WorkflowStateActiveInMemory(ManagementContext mgmt) {
@@ -67,40 +74,25 @@ public class WorkflowStateActiveInMemory {
     public void expireAbsentEntities() {
         lastInMemClear = System.currentTimeMillis();
         Set<String> copy;
-        synchronized (data) {
-            copy = MutableSet.copyOf(data.keySet());
-        }
+        synchronized (active) { copy = MutableSet.copyOf(active.keySet()); }
+        synchronized (completedSoftlyKept) { copy.addAll(completedSoftlyKept.keySet()); }
+
         copy.forEach(entityId -> {
             if (mgmt.getEntityManager().getEntity(entityId) == null) {
-                data.remove(entityId);
+                synchronized (active) { active.remove(entityId); }
+                synchronized (completedSoftlyKept) { completedSoftlyKept.remove(entityId); }
             }
         });
     }
 
     public void checkpoint(WorkflowExecutionContext context) {
-        // keep active workflows in memory, even if disabled
-        Map<String, WorkflowExecutionContext> entityActiveWorkflows = getForWorkflowIdWithLockButResultNeedsSynch(context.getEntity().getId());
         if (context.getStatus().expirable) {
-            if (entityActiveWorkflows!=null) {
-                synchronized (entityActiveWorkflows) {
-                    entityActiveWorkflows.remove(context.getWorkflowId());
-                }
-            }
+            withActiveForEntity(context.getEntity().getId(), false, wfm -> wfm.remove(context.getWorkflowId()));
+            withSoftlyKeptForEntity(context.getEntity().getId(), true, wfm -> { wfm.put(context.getWorkflowId(), context); return null; });
         } else {
-            if (entityActiveWorkflows==null) {
-                synchronized (data) {
-                    entityActiveWorkflows = data.get(context.getEntity().getId());
-                    if (entityActiveWorkflows==null) {
-                        entityActiveWorkflows = MutableMap.of();
-                        data.put(context.getEntity().getId(), entityActiveWorkflows);
-                    }
-                }
-            }
-            synchronized (entityActiveWorkflows) {
-                entityActiveWorkflows.put(context.getWorkflowId(), context);
-            }
+            // keep active workflows in memory, even if disabled
+            withActiveForEntity(context.getEntity().getId(), true, wfm -> wfm.put(context.getWorkflowId(), context));
         }
-
         if (lastInMemClear + GLOBAL_UPDATE_FREQUENCY < System.currentTimeMillis()) {
             // poor man's cleanup, every minute, but good enough
             expireAbsentEntities();
@@ -112,37 +104,59 @@ public class WorkflowStateActiveInMemory {
         return getWorkflowsCopy(entity);
     }
     public MutableMap<String,WorkflowExecutionContext> getWorkflowsCopy(Entity entity) {
-        Map<String, WorkflowExecutionContext> entityActiveWorkflows = getForWorkflowIdWithLockButResultNeedsSynch(entity.getId());
-        if (entityActiveWorkflows == null) return MutableMap.of();
-        synchronized (entityActiveWorkflows) {
-            return MutableMap.copyOf(entityActiveWorkflows);
-        }
+        return getWorkflowsCopy(entity, true);
+    }
+    public MutableMap<String,WorkflowExecutionContext> getWorkflowsCopy(Entity entity, boolean includeSoftlyKeptCompleted) {
+        MutableMap<String,WorkflowExecutionContext> result = MutableMap.of();
+        withActiveForEntity(entity.getId(), false, wfm -> { result.putAll(wfm); return null; });
+        if (includeSoftlyKeptCompleted) withSoftlyKeptForEntity(entity.getId(), false, wfm -> { result.putAll(wfm.asMap()); return null; });
+        return result;
     }
 
     boolean deleteWorkflow(WorkflowExecutionContext context) {
-        Map<String, WorkflowExecutionContext> entityActiveWorkflows = getForWorkflowIdWithLockButResultNeedsSynch(context.getEntity().getId());
-        if (entityActiveWorkflows!=null) {
-            synchronized (entityActiveWorkflows) {
-                return entityActiveWorkflows.remove(context.getWorkflowId()) != null;
-            }
-        }
-        return false;
+        boolean result = false;
+        result = Boolean.TRUE.equals(withActiveForEntity(context.getEntity().getId(), false, wfm -> wfm.remove(context.getWorkflowId())!=null)) || result;
+        result = Boolean.TRUE.equals(withSoftlyKeptForEntity(context.getEntity().getId(), false, wfm -> {
+            WorkflowExecutionContext soft = wfm.getIfPresent(context.getWorkflowId());
+            wfm.invalidate(context.getWorkflowId());
+            return (soft!=null);
+        })) || result;
+
+        return result;
     }
 
-    // note: callers should subsequently sync on the returned map
-    private Map<String, WorkflowExecutionContext> getForWorkflowIdWithLockButResultNeedsSynch(String entityId) {
-        synchronized (data) {
-            return data.get(entityId);
+    private <T> T withActiveForEntity(String entityId, boolean upsert, Function<Map<String, WorkflowExecutionContext>,T> fn) {
+        if (entityId==null) return null;
+        Map<String, WorkflowExecutionContext> result;
+        synchronized (active) {
+            result = active.computeIfAbsent(entityId, _key -> upsert ? MutableMap.of() : null);
+        }
+        if (result==null) return null;
+        synchronized (result) {
+            return fn.apply(result);
+        }
+    }
+
+    private <T> T withSoftlyKeptForEntity(String entityId, boolean upsert, Function<Cache<String, WorkflowExecutionContext>,T> fn) {
+        if (entityId==null) return null;
+        Cache<String, WorkflowExecutionContext> result;
+        synchronized (completedSoftlyKept) {
+            result = completedSoftlyKept.computeIfAbsent(entityId, _key -> upsert ? CacheBuilder.newBuilder().softValues().build() : null);
+        }
+        if (result==null) return null;
+        synchronized (result) {
+            return fn.apply(result);
         }
     }
 
     public WorkflowExecutionContext getFromTag(BrooklynTaskTags.WorkflowTaskTag tag) {
-        Map<String, WorkflowExecutionContext> activeForEntity = getForWorkflowIdWithLockButResultNeedsSynch(tag.getEntityId());
-        if (activeForEntity!=null) {
-            synchronized (activeForEntity) {
-                return activeForEntity.get(tag.getWorkflowId());
-            }
+        return getFromTag(tag, true);
+    }
+    public WorkflowExecutionContext getFromTag(BrooklynTaskTags.WorkflowTaskTag tag, boolean includeCompletedSoftlyKept) {
+        WorkflowExecutionContext result = withActiveForEntity(tag.getEntityId(), false, wfm -> wfm.get(tag.getWorkflowId()));
+        if (includeCompletedSoftlyKept && result==null) {
+            result = withSoftlyKeptForEntity(tag.getEntityId(), false, wfm -> wfm.getIfPresent(tag.getWorkflowId()));
         }
-        return null;
+        return result;
     }
 }

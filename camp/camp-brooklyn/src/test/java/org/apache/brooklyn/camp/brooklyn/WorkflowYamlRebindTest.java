@@ -18,7 +18,10 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-import com.google.common.base.Stopwatch;
+import java.io.File;
+import java.util.Map;
+import java.util.Set;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -28,20 +31,20 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.*;
+import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -58,11 +61,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import java.io.File;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Predicate;
 
 public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
 

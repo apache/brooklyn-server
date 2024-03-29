@@ -1036,7 +1036,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         }
         app.sensors().set(b, 1);
 
-        Maybe<WorkflowExecutionContext> wf = new WorkflowStatePersistenceViaSensors(mgmt()).getFromTag(wt);
+        Maybe<WorkflowExecutionContext> wf = new WorkflowStatePersistenceViaSensors(mgmt()).getFromTag(wt, false);
 
         if (shouldBeDisabled) {
             Time.sleep(Duration.millis(500));
