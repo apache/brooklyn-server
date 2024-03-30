@@ -362,7 +362,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
             defs.forEach(def -> Asserts.assertThat(def, d -> !(d instanceof WorkflowStepDefinition)));
         } else {
             EntityAsserts.assertAttributeEqualsContinually(entity, MY_WORKFLOW_SENSOR, null);
-            Asserts.assertThat(new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).values(), Collection::isEmpty);
+            Asserts.assertThat(new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity, false).values(), Collection::isEmpty);
         }
         return entity;
     }

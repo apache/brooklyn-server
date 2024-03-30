@@ -131,7 +131,7 @@ public class WorkflowStatePersistenceViaSensors {
         boolean interrupted = Thread.interrupted();
         boolean doExpiry = WorkflowRetentionAndExpiration.isExpirationCheckNeeded(entity);
         try {
-            return updateMap(entity, doExpiry, true, context==null ? null : v -> v.put(context.getWorkflowId(), context));
+            return updateMaps(entity, doExpiry, true, context==null ? null : v -> v.put(context.getWorkflowId(), context), null);
 
         } finally {
             if (interrupted) Thread.currentThread().interrupt();
@@ -142,15 +142,28 @@ public class WorkflowStatePersistenceViaSensors {
         if (w.getStatus()==null || w.getStatus().expirable || w.getStatus()== WorkflowExecutionContext.WorkflowStatus.STAGED) {
             log.debug("Explicit request to delete workflow "+w);
             AtomicBoolean result = new AtomicBoolean(false);
-            updateMap(w.getEntity(), false, true, map -> {
-                boolean removed = WorkflowRetentionAndExpiration.deleteWorkflowFromMap(map, w, true);
+            updateMaps(w.getEntity(), false, true, map -> {
+                boolean removed = WorkflowRetentionAndExpiration.deleteWorkflowFromMap(map, w, true, true);
                 if (removed) result.set(true);
-            });
+            }, w);
             return result.get();
         } else {
             log.warn("Explicit request to delete non-expirable workflow "+w+"; ignoring");
             return false;
         }
+    }
+
+    int updateMaps(Entity entity, boolean doExpiry, boolean persist, Consumer<Map<String,WorkflowExecutionContext>> action, WorkflowExecutionContext contextToRemoveFromSoftMemory) {
+        int result = updateMap(entity, doExpiry, persist, action);
+
+        // and update softly kept
+        WorkflowStateActiveInMemory activeInMemory = WorkflowStateActiveInMemory.get(mgmt);
+        if (contextToRemoveFromSoftMemory!=null) {
+            activeInMemory.deleteWorkflow(contextToRemoveFromSoftMemory);
+        }
+        if (doExpiry) activeInMemory.recomputeExpiration(entity);
+
+        return result;
     }
 
     int updateMap(Entity entity, boolean doExpiry, boolean persist, Consumer<Map<String,WorkflowExecutionContext>> action) {
@@ -159,7 +172,7 @@ public class WorkflowStatePersistenceViaSensors {
             Map<String, WorkflowExecutionContext> v = MutableMap.copyOf(vo);
             delta.set(-v.size());
             if (action!=null) action.accept(v);
-            if (doExpiry) v = WorkflowRetentionAndExpiration.recomputeExpiration(v, null);
+            if (doExpiry) v = WorkflowRetentionAndExpiration.recomputeExpiration(v, null, false);
             delta.getAndAdd(v.size());
             return Maybe.of(v);
         });
@@ -168,7 +181,10 @@ public class WorkflowStatePersistenceViaSensors {
     }
 
     public Map<String,WorkflowExecutionContext> getWorkflows(Entity entity) {
-        MutableMap<String, WorkflowExecutionContext> result = WorkflowStateActiveInMemory.get(mgmt).getWorkflowsCopy(entity, true);
+        return getWorkflows(entity, true);
+    }
+    public Map<String,WorkflowExecutionContext> getWorkflows(Entity entity, boolean includeSoftlyKeptCompleted) {
+        MutableMap<String, WorkflowExecutionContext> result = WorkflowStateActiveInMemory.get(mgmt).getWorkflowsCopy(entity, includeSoftlyKeptCompleted);
         result.add(entity.sensors().get(INTERNAL_WORKFLOWS));
         return result;
     }

@@ -106,7 +106,7 @@ public class WorkflowRetentionAndExpiration {
 
     static ThreadLocal<Set<String>> INIT_REENTRANT = new ThreadLocal<Set<String>>();
 
-    static Map<String, WorkflowExecutionContext> recomputeExpiration(Map<String, WorkflowExecutionContext> v, WorkflowExecutionContext optionalContext) {
+    static Map<String, WorkflowExecutionContext> recomputeExpiration(Map<String, WorkflowExecutionContext> v, WorkflowExecutionContext optionalContext, boolean useSoftlyKeptExpiry) {
         Set<String> workflowHashesToUpdate = optionalContext!=null ? MutableSet.of(Strings.firstNonBlank(optionalContext.getRetentionHash(), "empty-expiry-hash"))  //should always be set
             : v.values().stream().map(WorkflowExecutionContext::getRetentionHash).collect(Collectors.toSet());
 
@@ -121,7 +121,9 @@ public class WorkflowRetentionAndExpiration {
 
             Optional<WorkflowExecutionContext> existingRetentionExpiry = finishedTwins.stream().filter(w -> w.getRetentionSettings().expiry != null).findAny();
             WorkflowRetentionParser.WorkflowRetentionFilter expiry;
-            if (existingRetentionExpiry.isPresent()) {
+            if (useSoftlyKeptExpiry) {
+                expiry = WorkflowRetentionParser.newDefaultSoftFilter().init(finishedTwins.iterator().next());
+            } else if (existingRetentionExpiry.isPresent()) {
                 // log if expiry fn differs for the same hash
                 // (but note if it refers to parents, invocations from different places could result in different expiry functions)
                 if (optionalContext!=null && optionalContext.getRetentionHash().equals(k)) {
@@ -144,7 +146,7 @@ public class WorkflowRetentionAndExpiration {
                 toRemove.removeAll(retainedFinishedTwins);
                 toRemove.forEach(w -> {
                     log.debug("Expiring old workflow " + w + " as there are "+retainedFinishedTwins.size()+" more recent ones also completed");
-                    deleteWorkflowFromMap(v, w, true);
+                    deleteWorkflowFromMap(v, w, true, false);
                 });
             }
         });
@@ -152,9 +154,9 @@ public class WorkflowRetentionAndExpiration {
         return v;
     }
 
-    static boolean deleteWorkflowFromMap(Map<String, WorkflowExecutionContext> v, WorkflowExecutionContext w, boolean andAllReplayTasks) {
+    static boolean deleteWorkflowFromMap(Map<String, WorkflowExecutionContext> v, WorkflowExecutionContext w, boolean andAllReplayTasks, boolean andSoftlyKept) {
         boolean removed = v.remove(w.getWorkflowId()) != null;
-        removed |= WorkflowStateActiveInMemory.get(w.getManagementContext()).deleteWorkflow(w);
+        if (andSoftlyKept) removed = WorkflowStateActiveInMemory.get(w.getManagementContext()).deleteWorkflow(w) || removed;
         if (andAllReplayTasks) {
             BasicExecutionManager em = ((BasicExecutionManager) w.getManagementContext().getExecutionManager());
             w.getReplays().forEach(wr -> {
@@ -190,6 +192,6 @@ public class WorkflowRetentionAndExpiration {
 
 
     public static void expireOldWorkflows(Entity entity) {
-        new WorkflowStatePersistenceViaSensors(((EntityInternal)entity).getManagementContext()).updateMap(entity, true, true, null);
+        new WorkflowStatePersistenceViaSensors(((EntityInternal)entity).getManagementContext()).updateMaps(entity, true, true, null, null);
     }
 }

@@ -227,6 +227,9 @@ also allows `hard` at start or end, or `soft [limit]` at end
     public static WorkflowRetentionFilter newDefaultFilter() {
         return new KeepParent();
     }
+    public static WorkflowRetentionFilter newDefaultSoftFilter() {
+        return new KeepSystem();
+    }
     static class KeepParent extends KeepDelegate {
         @Override
         public WorkflowRetentionFilter findDelegate(WorkflowExecutionContext workflow) {

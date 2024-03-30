@@ -909,29 +909,40 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
         w1 = doTestRetentionDisabled("context", "min(1,2) hash my-fixed-hash", false, false, false);
         Asserts.assertEquals(lastWorkflowContext.getRetentionSettings().expiryResolved, "min(1,2)");
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId()));
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w1.getWorkflowId()));
 
         w1 = doTestRetentionDisabled(2, "hash my-fixed-hash min(1,context)", false, false, false);
         Asserts.assertEquals(lastWorkflowContext.getRetentionSettings().expiryResolved, "min(1,2)");
 
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId()));
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w1.getWorkflowId()));
+
+        // softly in-memory should also have both
+        Asserts.assertSize(wp.get().getWorkflows(app, true).keySet(), 2);
+
+        // do it 3 more times, we should have 1 persisted, but 3 in memory (not 4)
+        w1 = doTestRetentionDisabled(2, "hash my-fixed-hash min(1,context)", false, false, false);
+        w1 = doTestRetentionDisabled(2, "hash my-fixed-hash min(1,context)", false, false, false);
+        w1 = doTestRetentionDisabled(2, "hash my-fixed-hash min(1,context)", false, false, false);
+
+        Asserts.assertSize(wp.get().getWorkflows(app, false).keySet(), 1);
+        Asserts.assertSize(wp.get().getWorkflows(app, true).keySet(), 3);
 
         // invoking our test gives a new workflow hash because the effector name is different
         w2 = doTestRetentionDisabled(2, "1", false, false, false);
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
 
         // reinvoking that effector still gives 2
         Task<?> t = app.invoke(app.getEntityType().getEffectorByName("myWorkflow" + effNameCount).get(), null);
         t.blockUntilEnded();
         w2 = BrooklynTaskTags.getWorkflowTaskTag(t, false);
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
 
         // hash accepts variables
         app.config().set(ConfigKeys.newStringConfigKey("hash"), "my-fixed-hash");
 
         // this hash replaces old w1
         w1 = doTestRetentionDisabled("context", "min(1,2) hash ${entity.config.hash}", false, false, false);
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));  // should replace the one above
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));  // should replace the one above
 
         // workflow.id as the hash variable means each invocations has its own retention
         w3 = doTestRetentionDisabled("context", "1 hash ${workflow.id}", false, false, false);
@@ -940,7 +951,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         t.blockUntilEnded();
         w4 = BrooklynTaskTags.getWorkflowTaskTag(t, false);
 
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId(), w3.getWorkflowId(), w4.getWorkflowId()));  // should replace the one above
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId(), w3.getWorkflowId(), w4.getWorkflowId()));  // should replace the one above
     }
 
     @Test(groups="Integration")  // very slow
@@ -957,19 +968,19 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         w1 = doTestRetentionDisabled("1", "min(1,5s)", true, false, false);
 
         // only w1 should be persisted
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId()));
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w1.getWorkflowId()));
 
         // run something else within 5s, should now be persisting 2
 
         w2 = doTestRetentionDisabled("1", "min(1,5s)", true, false, false);
 
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
 
         // wait 5s and run something, it should cause everything else to expire
         Time.sleep(Duration.FIVE_SECONDS);
         wp.get().expireOldWorkflows(app, null);
         // should now be empty
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of());
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of());
 
         String longWait = "10s";
 
@@ -981,22 +992,22 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         w3 = doTestRetentionDisabled("hash my-fixed-hash max(1,"+longWait+")", "context", false, true, false);
         // should now have all 3
         wp.get().expireOldWorkflows(app, null);
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId(), w3.getWorkflowId()));
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId(), w3.getWorkflowId()));
 
         Time.sleep(Duration.seconds(5));
         // now just the last 1 (only 1 in 10s)
         wp.get().expireOldWorkflows(app, null);
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w3.getWorkflowId()));
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w3.getWorkflowId()));
 
         Time.sleep(Duration.seconds(5));
         // still have last 1 (even after 10s)
         wp.get().expireOldWorkflows(app, null);
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w3.getWorkflowId()));
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w3.getWorkflowId()));
 
         // run two more, that's all we should have
         w1 = doTestRetentionDisabled("1", "hash my-fixed-hash", false, true, false);
         w2 = doTestRetentionDisabled("1", "context", false, true, false);
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
+        Asserts.assertEquals(wp.get().getWorkflows(app, false).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
     }
 
     int effNameCount = 0;

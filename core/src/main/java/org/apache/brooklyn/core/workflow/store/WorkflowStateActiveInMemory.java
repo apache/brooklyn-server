@@ -159,4 +159,11 @@ public class WorkflowStateActiveInMemory {
         }
         return result;
     }
+
+    public void recomputeExpiration(Entity entity) {
+        withSoftlyKeptForEntity(entity.getId(), false, wfm -> {
+            WorkflowRetentionAndExpiration.recomputeExpiration(wfm.asMap(), null, true);
+            return null;
+        });
+    }
 }
