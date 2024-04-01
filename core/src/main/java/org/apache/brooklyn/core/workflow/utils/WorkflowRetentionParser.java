@@ -18,6 +18,18 @@
  */
 package org.apache.brooklyn.core.workflow.utils;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.store.WorkflowRetentionAndExpiration;
@@ -27,13 +39,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
-
-import javax.annotation.Nullable;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 
 public class WorkflowRetentionParser {
 
@@ -82,17 +88,48 @@ also allows `hard` at start or end, or `soft [limit]` at end
                 continue;
             }
 
-            // TODO soft/hard keyword; take whichever occurs last
-            if (retentionExpression.contains(" hash ")) {
-                if (result.hash != null)
-                    throw new IllegalArgumentException("Cannot set multiple 'hash' in retention expression");
-                int i = retentionExpression.indexOf(" hash ");
-                result.hash = Strings.removeFromStart(retentionExpression.substring(i).trim(), "hash").trim();
-                retentionExpression = retentionExpression.substring(0, i).trim();
-                continue;
+            List<Pair<String,Integer>> specialTerms = MutableList.of();
+            for (String term: MutableList.of("hash", "soft", "hard"))
+                specialTerms.add(Pair.of(term, retentionExpression.indexOf(" "+term+" ")));
+            Collections.sort(specialTerms, (x,y) -> -Integer.compare(x.getRight(), y.getRight()));
+            Pair<String, Integer> last = specialTerms.iterator().next();
+            if (last.getRight()>=0) {
+                if ("hash".equals(last.getLeft())) {
+                    if (result.hash != null)
+                        throw new IllegalArgumentException("Cannot set multiple 'hash' in retention expression");
+                    result.hash = Strings.removeFromStart(retentionExpression.substring(last.getRight()).trim(), last.getLeft()).trim();
+                    retentionExpression = retentionExpression.substring(0, last.getRight()).trim();
+                    continue;
+                }
+                if ("hard".equals(last.getLeft())) {
+                    if (result.softExpiry != null)
+                        throw new IllegalArgumentException("Cannot set multiple 'hard' or 'soft' in retention expression");
+                    result.softExpiry = "0";
+                    String hardTrailing = Strings.removeFromStart(retentionExpression.substring(last.getRight()).trim(), last.getLeft()).trim();
+                    if (Strings.isNonBlank(hardTrailing)) {
+                        if (last.getRight() == 0) retentionExpression = hardTrailing;
+                        else throw new IllegalArgumentException("Cannot have retention definition both before and after 'hard' keyword");
+                    } else {
+                        retentionExpression = retentionExpression.substring(0, last.getRight()).trim();
+                    }
+                    continue;
+                }
+                if ("soft".equals(last.getLeft())) {
+                    if (result.softExpiry != null)
+                        throw new IllegalArgumentException("Cannot set multiple 'hard' or 'soft' in retention expression");
+                    String softTrailing = Strings.removeFromStart(retentionExpression.substring(last.getRight()).trim(), last.getLeft()).trim();
+                    if (Strings.isNonBlank(softTrailing)) {
+                        result.softExpiry = softTrailing;
+                        new WorkflowRetentionParser(result.softExpiry).soft().parse();
+                        retentionExpression = retentionExpression.substring(0, last.getRight()).trim();
+                    } else {
+                        throw new IllegalArgumentException("Specification for 'soft' retetntion must provide retention expression after the keyword");
+                    }
+                    continue;
+                }
             }
             break;
-        } while (false);
+        } while (true);
 
         if (retentionExpression.equals("disabled")) {
             result.disabled = true;
@@ -201,6 +238,8 @@ also allows `hard` at start or end, or `soft [limit]` at end
 
     static abstract class KeepDelegate implements WorkflowRetentionFilter {
         WorkflowRetentionFilter delegate;
+        final boolean soft;
+        KeepDelegate(boolean soft) { this.soft = soft; }
         @Override
         public Collection<WorkflowExecutionContext> apply(Collection<WorkflowExecutionContext> workflowExecutionContexts) {
             if (delegate==null) throw new IllegalStateException("Not initialized");
@@ -214,30 +253,31 @@ also allows `hard` at start or end, or `soft [limit]` at end
         protected abstract WorkflowRetentionFilter findDelegate(WorkflowExecutionContext workflow);
     }
     static class KeepSystem extends KeepDelegate {
+        KeepSystem(boolean soft) { super(soft); }
         @Override
         public WorkflowRetentionFilter findDelegate(WorkflowExecutionContext workflow) {
             if (workflow==null) throw new IllegalStateException("Retention 'system' cannot be used here");
-            return new WorkflowRetentionParser(workflow.getManagementContext().getConfig().getConfig(WorkflowRetentionAndExpiration.WORKFLOW_RETENTION_DEFAULT)).parse().init(null);
+            return new WorkflowRetentionParser(workflow.getManagementContext().getConfig().getConfig(
+                    soft ? WorkflowRetentionAndExpiration.WORKFLOW_RETENTION_DEFAULT_SOFT : WorkflowRetentionAndExpiration.WORKFLOW_RETENTION_DEFAULT))
+                    .soft(soft).parse().init(null);
         }
         @Override
         public String toString() {
             return "system";
         }
     }
-    public static WorkflowRetentionFilter newDefaultFilter() {
-        return new KeepParent();
-    }
-    public static WorkflowRetentionFilter newDefaultSoftFilter() {
-        return new KeepSystem();
+    public static WorkflowRetentionFilter newDefaultFilter(boolean soft) {
+        return new KeepParent(soft);
     }
     static class KeepParent extends KeepDelegate {
+        KeepParent(boolean soft) { super(soft); }
         @Override
         public WorkflowRetentionFilter findDelegate(WorkflowExecutionContext workflow) {
             if (workflow == null) throw new IllegalStateException("Retention 'parent' cannot be used here");
             else if (workflow.getParent()!=null) {
-                return workflow.getParent().getRetentionSettings().getExpiryFn(workflow.getParent());
+                return soft ? workflow.getParent().getRetentionSettings().getSoftExpiryFn(workflow.getParent()) : workflow.getParent().getRetentionSettings().getExpiryFn(workflow.getParent());
             } else {
-                return new KeepSystem().init(workflow);
+                return new KeepSystem(soft).init(workflow);
             }
         }
         @Override
@@ -246,12 +286,13 @@ also allows `hard` at start or end, or `soft [limit]` at end
         }
     }
     static class KeepContext extends KeepDelegate {
+        KeepContext(boolean soft) { super(soft); }
         @Override
         public WorkflowRetentionFilter findDelegate(WorkflowExecutionContext workflow) {
             if (workflow == null) throw new IllegalStateException("Retention 'context' cannot be used here");
 
             // expands to string to something that doesn't reference context so that this does not infinitely recurse
-            return workflow.getRetentionSettings().getExpiryFn(workflow);
+            return soft ? workflow.getRetentionSettings().getSoftExpiryFn(workflow) : workflow.getRetentionSettings().getExpiryFn(workflow);
         }
         @Override
         public String toString() {
@@ -261,17 +302,21 @@ also allows `hard` at start or end, or `soft [limit]` at end
 
     String fullExpression;
     String rest;
+    boolean soft = false;
 
     public WorkflowRetentionParser(String fullExpression) {
         this.fullExpression = fullExpression;
     }
 
+    public WorkflowRetentionParser soft() { return soft(true); }
+    public WorkflowRetentionParser soft(boolean soft) { this.soft = soft; return this; }
+
     public WorkflowRetentionFilter parse() {
-        if (Strings.isBlank(fullExpression)) return newDefaultFilter();
+        if (Strings.isBlank(fullExpression)) return newDefaultFilter(soft);
 
         rest = Strings.trimStart(fullExpression.toLowerCase());
         WorkflowRetentionFilter result = parseTerm();
-        if (!Strings.isBlank(rest)) return newDefaultFilter();
+        if (!Strings.isBlank(rest)) return newDefaultFilter(soft);
         return result;
     }
 
@@ -337,9 +382,9 @@ also allows `hard` at start or end, or `soft [limit]` at end
         if (term.isPresent()) return term.get();
 
         if (eatNA("all") || eatNA("forever")) return new KeepAll();
-        if (eatNA("system")) return new KeepSystem();
-        if (eatNA("parent")) return new KeepParent();
-        if (eatNA("context")) return new KeepContext();
+        if (eatNA("system")) return new KeepSystem(soft);
+        if (eatNA("parent")) return new KeepParent(soft);
+        if (eatNA("context")) return new KeepContext(soft);
 
         int i = maxPositive(rest.indexOf(","), rest.indexOf(")"));
         if (i==-1) i = rest.length();

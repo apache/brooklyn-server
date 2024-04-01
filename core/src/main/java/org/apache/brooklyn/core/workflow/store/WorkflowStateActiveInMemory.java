@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.workflow.store;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -30,7 +31,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.slf4j.Logger;
@@ -42,7 +42,10 @@ public class WorkflowStateActiveInMemory {
 
     public static final ConfigKey<WorkflowStateActiveInMemory> IN_MEMORY_WORKFLOWS = ConfigKeys.newConfigKey(WorkflowStateActiveInMemory.class, "internals.brooklyn.workflow.in_memory");
 
-    private static final long GLOBAL_UPDATE_FREQUENCY = 5*60*1000;  // every 5m wipe out workflows from old entities
+    long lastInMemEntitiesClear = System.currentTimeMillis();
+
+    // this applies to both sensors and active, but is stored here as this instance is kept on the mgmt context
+    long lastGlobalClear = System.currentTimeMillis();
 
     public static WorkflowStateActiveInMemory get(ManagementContext mgmt) {
         WorkflowStateActiveInMemory localActiveWorkflows = mgmt.getScratchpad().get(IN_MEMORY_WORKFLOWS);
@@ -69,10 +72,8 @@ public class WorkflowStateActiveInMemory {
         this.mgmt = mgmt;
     }
 
-    long lastInMemClear = System.currentTimeMillis();
-
     public void expireAbsentEntities() {
-        lastInMemClear = System.currentTimeMillis();
+        lastInMemEntitiesClear = System.currentTimeMillis();
         Set<String> copy;
         synchronized (active) { copy = MutableSet.copyOf(active.keySet()); }
         synchronized (completedSoftlyKept) { copy.addAll(completedSoftlyKept.keySet()); }
@@ -89,11 +90,12 @@ public class WorkflowStateActiveInMemory {
         if (context.getStatus().expirable) {
             withActiveForEntity(context.getEntity().getId(), false, wfm -> wfm.remove(context.getWorkflowId()));
             withSoftlyKeptForEntity(context.getEntity().getId(), true, wfm -> { wfm.put(context.getWorkflowId(), context); return null; });
+            recomputeExpiration(context.getEntity(), context);
         } else {
             // keep active workflows in memory, even if disabled
             withActiveForEntity(context.getEntity().getId(), true, wfm -> wfm.put(context.getWorkflowId(), context));
         }
-        if (lastInMemClear + GLOBAL_UPDATE_FREQUENCY < System.currentTimeMillis()) {
+        if (lastInMemEntitiesClear + WorkflowRetentionAndExpiration.GLOBAL_UPDATE_FREQUENCY < System.currentTimeMillis()) {
             // poor man's cleanup, every minute, but good enough
             expireAbsentEntities();
         }
@@ -160,9 +162,9 @@ public class WorkflowStateActiveInMemory {
         return result;
     }
 
-    public void recomputeExpiration(Entity entity) {
+    public void recomputeExpiration(Entity entity, @Nullable WorkflowExecutionContext optionalContext) {
         withSoftlyKeptForEntity(entity.getId(), false, wfm -> {
-            WorkflowRetentionAndExpiration.recomputeExpiration(wfm.asMap(), null, true);
+            WorkflowRetentionAndExpiration.recomputeExpiration(wfm.asMap(), optionalContext, true);
             return null;
         });
     }

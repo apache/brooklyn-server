@@ -633,17 +633,12 @@ public class WorkflowExecutionContext {
         return ((EntityInternal)getEntity()).getManagementContext();
     }
 
-    @JsonIgnore
-    protected WorkflowStatePersistenceViaSensors getPersister() {
-        return new WorkflowStatePersistenceViaSensors(getManagementContext());
-    }
-
     public void persist() {
         if (isInErrorHandlerSubWorkflow()) {
             // currently don't persist error handler sub-workflows
             return;
         }
-        getPersister().checkpoint(this);
+        WorkflowRetentionAndExpiration.checkpoint(getManagementContext(), this);
     }
 
     /** Get the value of the input. Supports Brooklyn DSL resolution but NOT Freemarker resolution. */

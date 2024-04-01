@@ -129,7 +129,13 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
                 }
                 if (latch instanceof TerminableCountDownLatch) ((TerminableCountDownLatch)latch).terminate();
             }
-            super.tearDown(Duration.millis(10));   // stops here can be blocked, don't wait on them
+            try {
+                super.tearDown(Duration.millis(50));   // stops here can be blocked, don't wait on them
+            } catch (Exception e) {
+                // we fail on this in case it is a real problem, but not believed to be, only seen occasionally, and not since timeout was increased 2024-04-01
+                LOG.warn("Teardown of test encountered exception; not unknown if multiple processes attempt to destroy, as destruction is deliberately unsynchronized to minimize race errors", e);
+                throw Exceptions.propagateAnnotated("Concurrent teardown issue", e);
+            }
             if (executor != null) executor.shutdownNow();
         } finally {
             latches.clear();
