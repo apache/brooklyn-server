@@ -380,7 +380,11 @@ public class ClassLoaderUtils {
                             .reduce((v1, v2) -> v2));
                 }
                 if (bundle.isAbsent()) {
-                    throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version)+ " not found to load.");
+                    // fall back to loading from system classpath, if running as pojo
+                    Maybe<T> result = dispatcher.tryLoadFrom(classLoader, name);
+                    if (result.isAbsent()) {
+                        throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version) + " not found to load.");
+                    }
                 }
             }
             return dispatcher.tryLoadFrom(bundle.get(), name);

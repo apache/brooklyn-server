@@ -308,23 +308,23 @@ public class ClassLoaderUtilsTest {
             new ClassLoaderUtils(this, mgmt).loadClass(
                     "org.apache.brooklyn.api",
                     "100.100.100-alpha-version_wth.tags",
-                    Entity.class.getName());
+                    "org.apache.brooklyn.NonExistentClass");  // actual classes may be found on the classpath
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
             IllegalStateException nested = Exceptions.getFirstThrowableOfType(e, IllegalStateException.class);
             assertNotNull(nested);
-            Asserts.expectedFailureContains(nested, "not found to load");
+            Asserts.expectedFailureContains(nested, "not found to load", "org.apache.brooklyn.api", "100.100.100");
         }
         try {
             new ClassLoaderUtils(this, mgmt).loadClass(
                     "org.apache.brooklyn.api",
                     "100.100.100-SNAPSHOT",
-                    Entity.class.getName());
+                    "org.apache.brooklyn.NonExistentClass");  // actual classes may be found on the classpath
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
             IllegalStateException nested = Exceptions.getFirstThrowableOfType(e, IllegalStateException.class);
             assertNotNull(nested);
-            Asserts.expectedFailureContains(nested, "not found to load");
+            Asserts.expectedFailureContains(nested, "not found to load", "org.apache.brooklyn.api", "100.100.100");
         }
     }
 
