@@ -18,10 +18,6 @@
  */
 package org.apache.brooklyn.util.core.task;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Supplier;
-import com.google.common.collect.Iterables;
 import java.lang.reflect.Proxy;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -29,6 +25,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -39,6 +36,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Supplier;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
@@ -51,6 +53,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager.BrooklynTaskLoggingMdc;
@@ -60,6 +63,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Threads;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -404,15 +408,42 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             });
         }
 
-        if (task instanceof Task) {
-            return executionManager.submit(properties, (Task)task);
-        } else if (task instanceof Callable) {
-            return executionManager.submit(properties, (Callable)task);
-        } else if (task instanceof Runnable) {
-            return (Task<T>) executionManager.submit(properties, (Runnable)task);
-        } else {
-            throw new IllegalArgumentException("Unhandled task type: task="+task+"; type="+(task!=null ? task.getClass() : "null"));
+        return submitViaExecutionManagerOrHold(task, properties);
+    }
+
+    boolean paused = false;
+    List<Pair<Task,Map>> tasksQueuedWhilePaused = MutableList.of();
+    public void pause() {
+        this.paused = true;
+    }
+    public void unpause() {
+        synchronized (tasksQueuedWhilePaused) {
+            tasksQueuedWhilePaused.forEach(pair -> submitWithoutCheckingPaused(pair.getLeft(), pair.getRight()));
+            tasksQueuedWhilePaused.clear();
+            this.paused = false;
         }
+    }
+
+    private <T> Task submitViaExecutionManagerOrHold(Object task, Map properties) {
+        Task taskT = null;
+        if (task instanceof Task) taskT = (Task) task;
+        else if (task instanceof TaskAdaptable) taskT = ((TaskAdaptable) task).asTask();
+        else if (task instanceof Callable) taskT = new BasicTask(properties, (Callable)task);
+        else if (task instanceof Runnable) taskT = new BasicTask(properties, (Runnable)task);
+        else throw new IllegalArgumentException("Unhandled task type: task="+ task +"; type="+(task !=null ? task.getClass() : "null"));
+
+        if (paused) {
+            synchronized (tasksQueuedWhilePaused) {
+                if (paused) {
+                    tasksQueuedWhilePaused.add(Pair.of(taskT, properties));
+                    return taskT;
+                }
+            }
+        }
+        return submitWithoutCheckingPaused(taskT, properties);
+    }
+    private <T> Task submitWithoutCheckingPaused(Task task, Map properties) {
+        return executionManager.submit(properties, task);
     }
 
     private String idStack(Entity target) {

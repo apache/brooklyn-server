@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -52,6 +53,7 @@ import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.workflow.DanglingWorkflowException;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -231,10 +233,11 @@ public class EntityManagementSupport {
                         this.managementContext = info.getManagementContext();
                         nonDeploymentManagementContext.setMode(NonDeploymentManagementContextMode.MANAGEMENT_STARTING);
 
-                        if (!isReadOnly()) {
-                            nonDeploymentManagementContext.getSubscriptionManager().setDelegate((AbstractSubscriptionManager) managementContext.getSubscriptionManager());
-                            nonDeploymentManagementContext.getSubscriptionManager().startDelegatingForSubscribing();
-                        }
+                        // defer this until mgmt context started, so all other entities will be known, in case they are accessed in the tasks
+//                        if (!isReadOnly()) {
+//                            nonDeploymentManagementContext.getSubscriptionManager().setDelegate((AbstractSubscriptionManager) managementContext.getSubscriptionManager());
+//                            nonDeploymentManagementContext.getSubscriptionManager().startDelegatingForSubscribing();
+//                        }
 
                         managementContextUsable.set(true);
                         currentlyDeployed.set(true);
@@ -280,9 +283,13 @@ public class EntityManagementSupport {
                         entity.onManagementStarting();
 
                         // start those policies etc which are labelled as auto-start
-                        entity.policies().forEach(adj -> { if (adj instanceof EntityAdjunct.AutoStartEntityAdjunct) ((EntityAdjunct.AutoStartEntityAdjunct)adj).start(); });
-                        entity.enrichers().forEach(adj -> { if (adj instanceof EntityAdjunct.AutoStartEntityAdjunct) ((EntityAdjunct.AutoStartEntityAdjunct)adj).start(); });
-                        entity.feeds().forEach(f -> { if (!f.isActivated()) f.start(); });
+                        BiConsumer<String,Runnable> queueTask = (name, r) -> entity.getExecutionContext().submit(name, r);
+                        entity.policies().forEach(adj -> { if (adj instanceof EntityAdjunct.AutoStartEntityAdjunct)
+                            queueTask.accept("Start policy "+adj, ((EntityAdjunct.AutoStartEntityAdjunct)adj)::start); });
+                        entity.enrichers().forEach(adj -> { if (adj instanceof EntityAdjunct.AutoStartEntityAdjunct)
+                            queueTask.accept("Start enricher "+adj, ((EntityAdjunct.AutoStartEntityAdjunct)adj)::start); });
+                        entity.feeds().forEach(f -> { if (!f.isActivated())
+                            queueTask.accept("Start feed "+f, f::start); });
 
                         if (AUTO_FAIL_AND_RESUME_WORKFLOWS) {
                             // resume any workflows that were dangling due to shutdown
@@ -293,7 +300,7 @@ public class EntityManagementSupport {
                                     .collect(Collectors.toList());
                             if (!shutdownInterruptedWorkflows.isEmpty()) {
                                 log.debug("Discovered workflows noted as 'interrupted' on startup at "+entity+", will resume as dangling: "+shutdownInterruptedWorkflows);
-                                entity.getExecutionContext().submit(DynamicTasks.of("Resuming with failure " + shutdownInterruptedWorkflows.size() + " interrupted workflow" + (shutdownInterruptedWorkflows.size() != 1 ? "s" : ""), () -> {
+                                getManagementContext().getExecutionContext(entity).submit(DynamicTasks.of("Resuming with failure " + shutdownInterruptedWorkflows.size() + " interrupted workflow" + (shutdownInterruptedWorkflows.size() != 1 ? "s" : ""), () -> {
                                     shutdownInterruptedWorkflows.forEach(w -> {
                                         // these are backgrounded because they are expected to fail
                                         // we also have to wait until mgmt is complete
@@ -346,9 +353,7 @@ public class EntityManagementSupport {
             /* on start, we want to:
              * - set derived/inherited config values (not needed, the specs should have taken care of that?)
              * - publish all queued sensors (done below)
-             * - start all queued executions 
-             *   (e.g. subscription delivery - done below? are there others and if so how are they unlocked?
-             *   curious where the "start queued tasks" logic is; must be somewhere as it all seems to have been working fine (Aug 2016)) 
+             * - start all queued executions (unpause entity's execution context, subscription delivery)
              * [in exactly this order, at each entity]
              * then subsequent sensor events and executions occur directly (no queueing)
              * 
@@ -357,7 +362,10 @@ public class EntityManagementSupport {
              */                
             
             if (!isReadOnly()) {
+                nonDeploymentManagementContext.getSubscriptionManager().setDelegate((AbstractSubscriptionManager) managementContext.getSubscriptionManager());
                 nonDeploymentManagementContext.getSubscriptionManager().startDelegatingForPublishing();
+                nonDeploymentManagementContext.getSubscriptionManager().startDelegatingForSubscribing();
+                ((BasicExecutionContext)getExecutionContext()).unpause();
             }
             
             if (!isReadOnly()) {
@@ -520,7 +528,9 @@ public class EntityManagementSupport {
         if (managementContextUsable.get()) {
             synchronized (this) {
                 if (executionContext!=null) return executionContext;
-                executionContext = managementContext.getExecutionContext(entity);
+                ExecutionContext newExecutionContext = managementContext.getExecutionContext(entity);
+                ((BasicExecutionContext)newExecutionContext).pause(); // start paused, so things don't run until mgmt is started, and all entities known
+                executionContext = newExecutionContext;
                 return executionContext;
             }
         }

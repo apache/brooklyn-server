@@ -47,6 +47,7 @@ import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.drivers.downloads.BasicDownloadsManager;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
@@ -360,7 +361,7 @@ public class LocalManagementContext extends AbstractManagementContext {
     }
 
     protected <T> Task<T> runAtEntity(Entity entity, TaskAdaptable<T> task) {
-        getExecutionContext(entity).submit(task);
+        ((EntityInternal)entity).getExecutionContext().submit(task);
         if (DynamicTasks.getTaskQueuingContext()!=null) {
             // put it in the queueing context so it appears in the GUI
             // mark it inessential as this is being invoked from code,

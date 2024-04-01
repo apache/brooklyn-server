@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
@@ -38,6 +39,7 @@ import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomRespons
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecParams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
@@ -232,10 +234,9 @@ public class SshCommandSensorYamlTest extends AbstractYamlTest {
 
     @Test(groups="Integration") // because slow
     public void testSshCommandSensorPeriodicFeedServiceUpFalseDoesNotRunAtStartup() throws Exception {
-        RecordingSshTool.setCustomResponse(".*myCommand.*", new RecordingSshTool.CustomResponse(0, "myResponse", null));
+        RecordingSshTool.setCustomResponse(".*myCommand.*", new RecordingSshTool.CustomResponse(0, "myResponse0", null));
 
-        Stopwatch sw = Stopwatch.createStarted();
-        Entity app = createAndStartApplication(
+        BasicApplication app = (BasicApplication) createAndStartApplication(
                 "location:",
                 "  localhost:",
                 "    sshToolClass: "+RecordingSshTool.class.getName(),
@@ -248,13 +249,19 @@ public class SshCommandSensorYamlTest extends AbstractYamlTest {
                 "    brooklyn.config:",
                 "      name: mySensor",
                 "      command: myCommand",
-                "      period: 5s",
+                "      period: 2s",
                 "      onlyIfServiceUp: true");
         waitForApplicationTasks(app);
 
         VanillaSoftwareProcess entity = (VanillaSoftwareProcess) Iterables.getOnlyElement(app.getChildren());
-        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor("mySensor"), "myResponse");
-        Asserts.assertThat(Duration.of(sw), d -> d.isLongerThan(Duration.seconds(4)));
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor("mySensor"), "myResponse0");
+
+        // once run once, it shouldn't run again for 2s (plus or minus 1s tolerance here)
+        Stopwatch sw = Stopwatch.createStarted();
+        RecordingSshTool.setCustomResponse(".*myCommand.*", new RecordingSshTool.CustomResponse(0, "myResponse1", null));
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor("mySensor"), "myResponse1");
+        Asserts.assertThat(Duration.of(sw), d -> d.isLongerThan(Duration.seconds(1)));
+        Asserts.assertThat(Duration.of(sw), d -> d.isShorterThan(Duration.seconds(3)));
     }
 
     @Test

@@ -626,7 +626,7 @@ public class HotStandbyTest {
         forcePersistNow(n1);
         Assert.assertTrue(entity.feeds().getFeeds().size() > 0, "Feeds: "+entity.feeds().getFeeds());
         for (Feed feed : entity.feeds().getFeeds()) {
-            assertTrue(feed.isRunning(), "Feed expected running, but it is non-running");
+            Asserts.eventually(() -> feed, Feed::isRunning, Duration.seconds(2), Duration.millis(10), "Feed expected running, but it is non-running");
         }
 
         HaMgmtNode n2 = createHotStandby(Duration.PRACTICALLY_FOREVER);

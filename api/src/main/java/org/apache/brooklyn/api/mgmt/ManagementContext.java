@@ -156,12 +156,9 @@ public interface ManagementContext {
      */
     SubscriptionManager getSubscriptionManager();
 
-    //TODO (Alex) I'm not sure the following two getXxxContext methods are needed on the interface;
-    //I expect they will only be called once, in AbstractEntity, and fully capable
-    //there of generating the respective contexts from the managers
-    //(Litmus test will be whether there is anything in FederatedManagementContext
-    //which requires a custom FederatedExecutionContext -- or whether BasicEC 
-    //works with FederatedExecutionManager)
+    // not sure the following two getXxxContext methods are desired on this interface;
+    // almost everyone should use the entity.getExecutionContext() which is a shared instance with better blocking;
+    // this should just be called to initialize and for special cases where we want to bypass that startup blocking
     /**
      * Returns an {@link ExecutionContext} instance representing tasks 
      * (from the {@link ExecutionManager}) associated with this entity, and capable 

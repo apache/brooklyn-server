@@ -29,6 +29,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.EffectorTasks;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
@@ -128,6 +129,6 @@ public class SystemServiceEnricher extends AbstractEnricher implements Enricher 
     }
 
     ExecutionContext getEntityExecutionContext() {
-        return getManagementContext().getExecutionContext(entity);
+        return ((EntityInternal)entity).getExecutionContext();
     }
 }
