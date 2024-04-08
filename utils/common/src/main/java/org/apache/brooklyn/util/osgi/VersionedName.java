@@ -21,6 +21,8 @@ import java.util.Comparator;
 
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
@@ -34,26 +36,17 @@ import com.google.common.collect.ComparisonChain;
 
 /** Records a name (string) and version (string),
  * with conveniences for pretty-printing and converting to OSGi format. */
+@JsonInclude(Include.NON_EMPTY)
 public class VersionedName implements Comparable<VersionedName> {
     private final String name;
     private final String v;
-    
-    @Deprecated // since 0.12.0 - remove along with version and readResolve in 1.0.0
-    private final String symbolicName = null;
-    @Deprecated // since 0.12.0
-    private final Version version = null;
-    
 
-    private Object readResolve() {
-        if (symbolicName!=null || version!=null) {
-            // remove legacy fields, and convert to brooklyn recommended version in the process
-            // (might be slightly weird if bundles are persisted, but code will forgive that,
-            // and if types were persisted this will do the right thing)
-            return new VersionedName(symbolicName, BrooklynVersionSyntax.toGoodBrooklynVersion( version.toString() ));
-        }
-        return this;
-    }
-    
+    @Deprecated // since 0.12.0 - but null was not omitted in jackson serialization, so remove these fields after 1.2
+    private final String symbolicName = null;
+    @Deprecated // since 0.12.0 - but null was not omitted in jackson serialization, so remove these fields after 1.2
+    private final Version version = null;
+
+
     public VersionedName(Bundle b) {
         this(b.getSymbolicName(), b.getVersion().toString());
     }

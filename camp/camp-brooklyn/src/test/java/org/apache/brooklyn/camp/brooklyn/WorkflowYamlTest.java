@@ -109,14 +109,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, clazz.getName()));
     }
 
-    static RegisteredType addRegisteredTypeSpec(ManagementContext mgmt, String symName, Class<?> clazz, Class<? extends BrooklynObject> superClazz) {
-        RegisteredType rt = RegisteredTypes.spec(symName, VERSION,
-                new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, clazz.getName()));
-        RegisteredTypes.addSuperType(rt, superClazz);
-        mgmt.getCatalog().validateType(rt, null, false);
-        return mgmt.getTypeRegistry().get(rt.getSymbolicName(), rt.getVersion());
-    }
-
     public static void addWorkflowTypes(ManagementContext mgmt) {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
 

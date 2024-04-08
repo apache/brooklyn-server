@@ -103,25 +103,5 @@ public class MiscClassesRebindTest extends RebindTestFixtureWithApp {
         return (T) e.getConfig(TEST_KEY);
     }
 
-    
-    @Test
-    public void testVersionedName() throws Exception {
-        VersionedName vn = getTestKeyFromEntityMemento("2017-06-versionedname", "n7p20t5h4o", VersionedName.class);
-        Assert.assertEquals(vn, new VersionedName("foo", "1.0.0-foo"));
-        Assert.assertNotEquals(vn, new VersionedName("foo", "1.0.0.foo"));
-        Assert.assertTrue(vn.equalsOsgi(new VersionedName("foo", Version.parseVersion("1.0.0.foo"))));
-        
-        String newEntityContent = getEntityMementoContent();
-        // log.info("New VN persistence is\n"+newEntityContent);
-        Asserts.assertStringContains(newEntityContent, "1.0.0-foo");
-        // phrases from original persisted state are changed
-        Asserts.assertStringDoesNotContain(newEntityContent, "<symbolicName>foo");
-        Asserts.assertStringDoesNotContain(newEntityContent, "<version>1.0.0");
-        Asserts.assertStringDoesNotContain(newEntityContent, "1.0.0.foo");
-        // they should now be this
-        Asserts.assertStringContains(newEntityContent, "<name>foo");
-        Asserts.assertStringContains(newEntityContent, "<v>1.0.0-foo");
-    }
-
 }
 
