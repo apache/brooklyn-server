@@ -20,17 +20,22 @@ package org.apache.brooklyn.core.entity;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigMap.ConfigMapWithInheritance;
 import org.apache.brooklyn.config.ConfigValueAtContainer;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
+import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.EntityConfigTest.MyOtherEntity;
 import org.apache.brooklyn.core.entity.EntityConfigTest.MyOtherEntityImpl;
+import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey.IntegerAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -41,8 +46,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
-import com.google.common.collect.Iterables;
 
 public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
 
@@ -170,19 +173,81 @@ public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
         app.config().set(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE, "maybe");
         return app.addChild(EntitySpec.create(MyEntityWithPartiallyHeritableConfig.class));
     }
-    
+
+    private boolean isKeyInInternalConfigMapInherited(Entity entity, ConfigKey k) {
+        return isKeyInInternalConfigMapInherited(entity, k.getName());
+    }
+    private boolean isKeyInInternalConfigMapInherited(Entity entity, String s) {
+        Map<ConfigKey<?>, Object> cfgMap = ((EntityInternal) entity).config().getInternalConfigMap().getAllConfigInheritedRawValuesIgnoringErrors();
+        Set<String> cfgs = cfgMap.keySet().stream().map(k -> k.getName()).collect(Collectors.toSet());
+        return cfgs.contains(s);
+    }
+
     @Test
     public void testConfigKeysInheritance() throws Exception {
+        ConfigKey<Object> WAS_NEVER_INHERIT_BUT_NOW_DEFAULT_INHERITANCE = ConfigKeys.builder(Object.class, MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT.getName()).build();
+
         Entity child = setupBasicInheritanceTest();
         
         Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT));
         Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE));
         Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+        Assert.assertNull(child.getConfig(WAS_NEVER_INHERIT_BUT_NOW_DEFAULT_INHERITANCE));
         
         // it's reinheritable unless explicitly declared
         Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
+
+        Asserts.assertTrue(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT));
+        Asserts.assertTrue(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE));
+        Asserts.assertFalse(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+        Asserts.assertTrue(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
+
+        // if reinheritable is _declared_ at the app, it is null at the child
         app.getMutableEntityType().addConfigKey(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
         Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
+        // and not found
+        Asserts.assertFalse(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
+
+        // and returns to previous state when reverted
+        app.getMutableEntityType().removeConfigKey(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
+        Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
+        Asserts.assertTrue(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
+
+        // whereas never inherit is not found at child whether declared or not on parent or child
+        app.getMutableEntityType().addConfigKey(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT);
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+        Asserts.assertFalse(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+
+        app.getMutableEntityType().removeConfigKey(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT);
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+        Asserts.assertFalse(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+
+        ((EntityInternal)child).getMutableEntityType().addConfigKey(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT);
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+        Asserts.assertFalse(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+        Assert.assertNull(child.getConfig(WAS_NEVER_INHERIT_BUT_NOW_DEFAULT_INHERITANCE));
+        Asserts.assertFalse(isKeyInInternalConfigMapInherited(child, WAS_NEVER_INHERIT_BUT_NOW_DEFAULT_INHERITANCE));
+
+        ((EntityInternal)child).getMutableEntityType().removeConfigKey(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT);
+        // even if removed, if the key is set, it will keep that type
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+        ((EntityInternal) child).config().getInternalConfigMap().getAllConfigInheritedRawValuesIgnoringErrors();
+
+        Asserts.assertFalse(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+        Assert.assertNull(child.getConfig(WAS_NEVER_INHERIT_BUT_NOW_DEFAULT_INHERITANCE));
+        Asserts.assertFalse(isKeyInInternalConfigMapInherited(child, WAS_NEVER_INHERIT_BUT_NOW_DEFAULT_INHERITANCE));
+
+        // redefining at descendant doesn't change visibility
+        ConfigKey<Object> WAS_NEVER_INHERIT_BUT_NOW_OVERWRITE_AT_CHILD = ConfigKeys.builder(Object.class, MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT.getName())
+                .runtimeInheritance(BasicConfigInheritance.OVERWRITE).build();
+        ((EntityInternal)child).getMutableEntityType().addConfigKey(WAS_NEVER_INHERIT_BUT_NOW_OVERWRITE_AT_CHILD);
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+        // (but the key is known, of course)
+        Asserts.assertTrue(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+
+        ((EntityInternal)child).getMutableEntityType().removeConfigKey(WAS_NEVER_INHERIT_BUT_NOW_OVERWRITE_AT_CHILD);
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+        Asserts.assertFalse(isKeyInInternalConfigMapInherited(child, MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
     }
     
     @SuppressWarnings("unchecked")

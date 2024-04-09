@@ -19,15 +19,20 @@
 package org.apache.brooklyn.core.entity.internal;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigConstraints;
+import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
@@ -99,7 +104,20 @@ public class EntityConfigMap extends AbstractConfigMapImpl<Entity> {
     @Override
     protected <T> ConfigKey<?> getKeyAtContainerImpl(Entity container, ConfigKey<T> queryKey) {
         if (queryKey==null) return null;
-        return container.getEntityType().getConfigKey(queryKey.getName());
+        ConfigKey<?> kOnType = container.getEntityType().getConfigKey(queryKey.getName());
+        if (kOnType!=null) return kOnType;
+        ConfigKey<?> kOnTypeUndeclared;
+        Map<ConfigKey<?>, Object> ownConfig = ((EntityConfigMap) ((EntityInternal) container).config().getInternalConfigMap()).ownConfig;
+        synchronized (ownConfig) {
+            kOnTypeUndeclared = ownConfig.keySet().stream().filter(ck -> Objects.equals(queryKey.getName(), ck.getName())).findAny().orElse(null);
+        }
+        if (kOnTypeUndeclared!=null) {
+            // if a never inherited key is set, but not declared, it should be returned
+            if (BasicConfigInheritance.NEVER_INHERITED.equals(kOnTypeUndeclared.getInheritanceByContext(InheritanceContext.RUNTIME_MANAGEMENT))) {
+                return kOnTypeUndeclared;
+            }
+        }
+        return null;
     }
 
     @Override

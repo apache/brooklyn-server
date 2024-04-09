@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 import org.apache.brooklyn.config.ConfigInheritances;
 import org.apache.brooklyn.config.ConfigInheritances.BasicConfigValueAtContainer;
 import org.apache.brooklyn.config.ConfigKey;
@@ -613,11 +614,12 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return getSelectedConfigInheritedRaw(null, true);
     }
 
-    protected Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> getSelectedConfigInheritedRaw(Map<ConfigKey<?>,ConfigKey<?>> knownKeys, boolean onlyReinheritable) {
+    protected Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> getSelectedConfigInheritedRaw(Map<ConfigKey<?>,ConfigKey<?>> knownKeysAtDescendants,
+            /* if true, only returns keys which are intended for inheritance by our descendants */ boolean onlyReinheritable) {
         Map<ConfigKey<?>, ConfigKey<?>> knownKeysOnType = MutableMap.of();
         for (ConfigKey<?> k: getKeysAtContainer(getContainer())) knownKeysOnType.put(k, k);
 
-        Map<ConfigKey<?>, ConfigKey<?>> knownKeysIncludingDescendants = MutableMap.copyOf(knownKeys);
+        Map<ConfigKey<?>, ConfigKey<?>> knownKeysIncludingDescendants = MutableMap.copyOf(knownKeysAtDescendants);
         knownKeysIncludingDescendants.putAll(knownKeysOnType);
 
         Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> parents = MutableMap.of();
@@ -645,7 +647,15 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
 
             // if no key on type, we must use any descendant declared key here 
             // so that the correct descendant conflict resolution strategy is applied
-            ConfigInheritance inhHereOrDesc = ConfigInheritances.findInheritance(kTypeOrDescendant, InheritanceContext.RUNTIME_MANAGEMENT, getDefaultRuntimeInheritance());
+            ConfigInheritance inhHereOrDesc = ConfigInheritances.findInheritance(kTypeOrDescendant, InheritanceContext.RUNTIME_MANAGEMENT, null);
+            if (inhHereOrDesc==null) {
+                inhHereOrDesc = kSet.getInheritanceByContext(InheritanceContext.RUNTIME_MANAGEMENT);
+                if (inhHereOrDesc != null) {
+                    kOnType = kTypeOrDescendant = kSet;  // prefer kset if it has inheritance set (locally by value but not on type, e.g. because key was removed from type while still present)
+                } else {
+                    inhHereOrDesc = getDefaultRuntimeInheritance();
+                }
+            }
 
             // however for the purpose of qualifying we must not give any key except what is exactly declared here,
             // else reinheritance will be incorrectly deduced
