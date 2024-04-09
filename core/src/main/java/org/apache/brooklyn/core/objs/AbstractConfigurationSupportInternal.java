@@ -274,7 +274,11 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     @Override
     // see super; we aspire to depreate this due to poor treatment of inheritance
     public ConfigBag getBag() {
-        return getConfigsInternal().getAllConfigBag();
+        ConfigBag result = ConfigBag.newInstance();
+        AbstractConfigMapImpl<? extends BrooklynObject> ci = getConfigsInternal();
+        ci.findKeysPresent(x -> true).forEach(k ->
+                result.put((ConfigKey)k, ci.getConfigRaw(k, true).or(k.getDefaultValue()) ) );
+        return result;
     }
 
     /**

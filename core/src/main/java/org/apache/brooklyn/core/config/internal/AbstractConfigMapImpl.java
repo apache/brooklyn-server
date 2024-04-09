@@ -70,12 +70,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractConfigMapImpl.class);
 
-    @Deprecated /** @deprecated since 0.10.0 - see method which uses it */
-    protected final transient org.apache.brooklyn.core.entity.internal.ConfigMapViewWithStringKeys mapViewWithStringKeys = new org.apache.brooklyn.core.entity.internal.ConfigMapViewWithStringKeys(this);
-
-    // TODO make final when not working with previously serialized instances
-    // (we shouldn't be, but just in case!)
-    protected TContainer bo;
+    protected final TContainer bo;
 
     /**
      * Map of configuration information that is defined at start-up time for the entity. These
@@ -140,27 +135,6 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         synchronized (ownConfig) {
             return bag.putAll(ownConfig);
         }
-    }
-
-    /** an immutable copy of the config visible at this entity, local and inherited (preferring local) */
-    @Override @Deprecated
-    public Map<ConfigKey<?>,Object> getAllConfig() {
-        Map<ConfigKey<?>,Object> result = new LinkedHashMap<ConfigKey<?>,Object>();
-        if (getParent()!=null)
-            result.putAll( getParentInternal().config().getInternalConfigMap().getAllConfig() );
-        putAllOwnConfigIntoSafely(result);
-        return Collections.unmodifiableMap(result);
-    }
-
-    /** Creates an immutable copy of the config visible at this entity, local and inherited (preferring local), including those that did not match config keys */
-    @Deprecated
-    public ConfigBag getAllConfigBag() {
-        ConfigBag result = putAllOwnConfigIntoSafely(ConfigBag.newInstance());
-        if (getParent()!=null) {
-            result.putIfAbsent(
-                    ((AbstractConfigMapImpl<?>)getParentInternal().config().getInternalConfigMap()).getAllConfigBag() );
-        }
-        return result.seal();
     }
 
     /** As {@link #getAllConfigLocalRaw()} } but in a {@link ConfigBag} for convenience */
@@ -319,11 +293,6 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             }
         }
         return false;
-    }
-
-    @Override
-    public Map<String,Object> asMapWithStringKeys() {
-        return mapViewWithStringKeys;
     }
 
     @Override
