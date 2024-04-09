@@ -91,11 +91,6 @@ public class LocationConfigMap extends AbstractConfigMapImpl<Location> {
     }
 
     @Override
-    public LocationConfigMap submap(Predicate<ConfigKey<?>> filter) {
-        throw new UnsupportedOperationException("Location does not support submap");
-    }
-
-    @Override
     protected <T> Object coerceConfigValAndValidate(ConfigKey<T> key, Object v, boolean validate) {
         if ((Class.class.isAssignableFrom(key.getType()) || Function.class.isAssignableFrom(key.getType())) && v instanceof String) {
             // for locations only strings can be written where classes/functions are permitted;

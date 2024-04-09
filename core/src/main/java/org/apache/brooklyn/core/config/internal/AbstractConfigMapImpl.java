@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 import org.apache.brooklyn.config.ConfigInheritances;
 import org.apache.brooklyn.config.ConfigInheritances.BasicConfigValueAtContainer;
 import org.apache.brooklyn.config.ConfigKey;
@@ -70,12 +71,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractConfigMapImpl.class);
 
-    @Deprecated /** @deprecated since 0.10.0 - see method which uses it */
-    protected final transient org.apache.brooklyn.core.entity.internal.ConfigMapViewWithStringKeys mapViewWithStringKeys = new org.apache.brooklyn.core.entity.internal.ConfigMapViewWithStringKeys(this);
-
-    // TODO make final when not working with previously serialized instances
-    // (we shouldn't be, but just in case!)
-    protected TContainer bo;
+    protected final TContainer bo;
 
     /**
      * Map of configuration information that is defined at start-up time for the entity. These
@@ -140,27 +136,6 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         synchronized (ownConfig) {
             return bag.putAll(ownConfig);
         }
-    }
-
-    /** an immutable copy of the config visible at this entity, local and inherited (preferring local) */
-    @Override @Deprecated
-    public Map<ConfigKey<?>,Object> getAllConfig() {
-        Map<ConfigKey<?>,Object> result = new LinkedHashMap<ConfigKey<?>,Object>();
-        if (getParent()!=null)
-            result.putAll( getParentInternal().config().getInternalConfigMap().getAllConfig() );
-        putAllOwnConfigIntoSafely(result);
-        return Collections.unmodifiableMap(result);
-    }
-
-    /** Creates an immutable copy of the config visible at this entity, local and inherited (preferring local), including those that did not match config keys */
-    @Deprecated
-    public ConfigBag getAllConfigBag() {
-        ConfigBag result = putAllOwnConfigIntoSafely(ConfigBag.newInstance());
-        if (getParent()!=null) {
-            result.putIfAbsent(
-                    ((AbstractConfigMapImpl<?>)getParentInternal().config().getInternalConfigMap()).getAllConfigBag() );
-        }
-        return result.seal();
     }
 
     /** As {@link #getAllConfigLocalRaw()} } but in a {@link ConfigBag} for convenience */
@@ -319,11 +294,6 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             }
         }
         return false;
-    }
-
-    @Override
-    public Map<String,Object> asMapWithStringKeys() {
-        return mapViewWithStringKeys;
     }
 
     @Override
@@ -644,11 +614,12 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return getSelectedConfigInheritedRaw(null, true);
     }
 
-    protected Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> getSelectedConfigInheritedRaw(Map<ConfigKey<?>,ConfigKey<?>> knownKeys, boolean onlyReinheritable) {
+    protected Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> getSelectedConfigInheritedRaw(Map<ConfigKey<?>,ConfigKey<?>> knownKeysAtDescendants,
+            /* if true, only returns keys which are intended for inheritance by our descendants */ boolean onlyReinheritable) {
         Map<ConfigKey<?>, ConfigKey<?>> knownKeysOnType = MutableMap.of();
         for (ConfigKey<?> k: getKeysAtContainer(getContainer())) knownKeysOnType.put(k, k);
 
-        Map<ConfigKey<?>, ConfigKey<?>> knownKeysIncludingDescendants = MutableMap.copyOf(knownKeys);
+        Map<ConfigKey<?>, ConfigKey<?>> knownKeysIncludingDescendants = MutableMap.copyOf(knownKeysAtDescendants);
         knownKeysIncludingDescendants.putAll(knownKeysOnType);
 
         Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> parents = MutableMap.of();
@@ -676,7 +647,15 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
 
             // if no key on type, we must use any descendant declared key here 
             // so that the correct descendant conflict resolution strategy is applied
-            ConfigInheritance inhHereOrDesc = ConfigInheritances.findInheritance(kTypeOrDescendant, InheritanceContext.RUNTIME_MANAGEMENT, getDefaultRuntimeInheritance());
+            ConfigInheritance inhHereOrDesc = ConfigInheritances.findInheritance(kTypeOrDescendant, InheritanceContext.RUNTIME_MANAGEMENT, null);
+            if (inhHereOrDesc==null) {
+                inhHereOrDesc = kSet.getInheritanceByContext(InheritanceContext.RUNTIME_MANAGEMENT);
+                if (inhHereOrDesc != null) {
+                    kOnType = kTypeOrDescendant = kSet;  // prefer kset if it has inheritance set (locally by value but not on type, e.g. because key was removed from type while still present)
+                } else {
+                    inhHereOrDesc = getDefaultRuntimeInheritance();
+                }
+            }
 
             // however for the purpose of qualifying we must not give any key except what is exactly declared here,
             // else reinheritance will be incorrectly deduced

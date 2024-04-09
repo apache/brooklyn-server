@@ -127,7 +127,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
         @Override protected ConfigInheritance getDelegate() { return DELEGATE; }
     }
     /** Indicates that a key's value should never be inherited, even if inherited from a value set on a container that does not know the key.
-     * (Most usages will prefer {@link #NOT_REINHERITED}.) */
+     * (Many usages will prefer {@link #NOT_REINHERITED}, to allow unknown dynamic keys set in an ancestor accessible from descendants.) */
     public static final ConfigInheritance NEVER_INHERITED = new NeverInherited();
 
     /** In case we deserialize an old copy; the last arg (ancestor inherit default) is irrelevant

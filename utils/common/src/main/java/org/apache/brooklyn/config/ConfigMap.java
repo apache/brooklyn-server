@@ -63,23 +63,7 @@ public interface ConfigMap {
 
     /** returns a read-only map of all local config keys with their raw (unresolved+uncoerced) contents */
     public Map<ConfigKey<?>,Object> getAllConfigLocalRaw();
-    
-    /** returns a map of all config keys to their raw (unresolved+uncoerced) contents 
-     *         
-     * @deprecated since 0.10.0 in favour of {@link #getAllConfigLocalRaw()} for local
-     * and {@link ConfigMapWithInheritance} methods for inherited;
-     * kept on some sub-interfaces (eg Brooklyn properties) */
-    @Deprecated  // and confirmed no uses (besides sub-interface)
-    public Map<ConfigKey<?>,Object> getAllConfig();
 
-    /** returns submap matching the given filter predicate; see ConfigPredicates for common predicates
-     * @deprecated since 0.10.0 use {@link #findKeys(Predicate)} then do whatever is desired for the values;
-     * kept on {@link StringConfigMap} */
-    @Deprecated  // and confirmed no uses (besides sub-interface)
-    // deprecated because this becomes irritating to implement in a hierarchical world, it requires caching the predicate;
-    // also it encourages subsequent calls to deprecated methods such as #getAllConfig
-    public ConfigMap submap(Predicate<ConfigKey<?>> filter);
-    
     /** @deprecated since 0.11.0 use {@link #findKeysDeclared(Predicate)} or {@link #findKeysPresent(Predicate)}
      * <p>
      * this method is like the above but it does not compare against reference keys in the container / type context.
@@ -87,6 +71,7 @@ public interface ConfigMap {
      * one of the above other two methods. if keys in the map are needed and not the reference keys,
      * let the brooklyn developers know to keep this functionality! */
     @Deprecated
+    // XXX
     public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter);
 
     /** returns all keys present in the map matching the given filter predicate; see ConfigPredicates for common predicates.
@@ -103,16 +88,6 @@ public interface ConfigMap {
     // TODO should include structured config keys if they have a sub element config present
     public Set<ConfigKey<?>> findKeysPresent(Predicate<? super ConfigKey<?>> filter);
 
-    /** returns a read-only map view which has string keys (corresponding to the config key names);
-     * callers encouraged to use the typed keys (and so not use this method),
-     * but in some compatibility areas having a Properties-like view is useful
-     * 
-     * @deprecated since 0.10.0 use the corresponding methods to return {@link ConfigKey}-based maps,
-     * then pass to a ConfigBag to get a string-map view; kept for {@link StringConfigMap}
-     */
-    @Deprecated  // and confirmed no uses (besides sub-interface)
-    public Map<String,Object> asMapWithStringKeys();
-    
     public int size();
     
     public boolean isEmpty();

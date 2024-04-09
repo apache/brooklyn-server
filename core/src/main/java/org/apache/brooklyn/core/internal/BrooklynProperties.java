@@ -332,7 +332,7 @@ public interface BrooklynProperties extends StringConfigMap {
     @Override
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited);
 
-    @Override @Deprecated
+    @Deprecated
     public Map<ConfigKey<?>, Object> getAllConfig();
 
     @Override

@@ -18,23 +18,18 @@
  */
 package org.apache.brooklyn.core.objs;
 
-import java.util.Map;
 import java.util.Set;
 
-import org.apache.brooklyn.api.entity.Entity;
+import com.google.common.base.Preconditions;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 
 public class AdjunctConfigMap extends AbstractConfigMapImpl<EntityAdjunct> {
 
@@ -56,8 +51,6 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl<EntityAdjunct> {
         synchronized (this) {
             result = super.getContainer();
             if (result!=null) return result;
-            bo = adjunct;
-            adjunct = null;
         }
         return super.getContainer();
     }
@@ -78,15 +71,6 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl<EntityAdjunct> {
         return ((AbstractEntityAdjunct)bo).getExecutionContext();
     }
     
-    @Override
-    public AdjunctConfigMap submap(Predicate<ConfigKey<?>> filter) {
-        AdjunctConfigMap m = new AdjunctConfigMap((AbstractEntityAdjunct)getContainer());
-        for (Map.Entry<ConfigKey<?>,Object> entry: ownConfig.entrySet())
-            if (filter.apply(entry.getKey()))
-                m.ownConfig.put(entry.getKey(), entry.getValue());
-        return m;
-    }
-
     @Override
     protected EntityAdjunct getParentOfContainer(EntityAdjunct container) {
         return null;
