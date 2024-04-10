@@ -688,7 +688,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
 
-            String msg = "Error resolving "+(description!=null ? description+", " : "")+v+", in "+exec;
+            String msg = (description!=null ? "Error in resolution: "+description+"," : "Error resolving value") + " at "+exec;
             String eTxt = Exceptions.collapseText(e);
             IllegalArgumentException problem = eTxt.startsWith(msg) ? new IllegalArgumentException(e) : new IllegalArgumentException(msg+": "+eTxt, e);
             if (swallowExceptions) {

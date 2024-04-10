@@ -48,10 +48,10 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.ThreadLocalStack;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.ResolutionFailureTreatedAsAbsent;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.CrossTaskThreadLocalStack;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -530,7 +530,7 @@ public class WorkflowExpressionResolution {
             callable);
     }
 
-    static ThreadLocalStack<WorkflowResolutionStackEntry> RESOLVE_STACK = new ThreadLocalStack<>(false);
+    static CrossTaskThreadLocalStack<WorkflowResolutionStackEntry> RESOLVE_STACK = new CrossTaskThreadLocalStack<>(false);
 
     <T> T inResolveStackEntry(String callPointUid, Object expression, Supplier<T> code) {
         return inResolveStackEntry(WorkflowResolutionStackEntry.of(this, callPointUid, expression), null, code);
@@ -587,11 +587,11 @@ public class WorkflowExpressionResolution {
 
     public Object processTemplateExpression(Object expression, AllowBrooklynDslMode allowBrooklynDsl) {
         return inResolveStackEntry(WorkflowResolutionStackEntry.of(this, "process-template-expression", expression), () -> {
-            throw new WorkflowVariableRecursiveReference("Recursive reference: " + RESOLVE_STACK.getAll(false).stream().map(p -> "" + p.expression).collect(Collectors.joining("->")));
+            throw new WorkflowVariableRecursiveReference("Recursive reference: " + RESOLVE_STACK.stream().map(p -> "" + p.expression).collect(Collectors.joining("->")));
         }, () -> {
             try {
                 if (RESOLVE_STACK.size() > 100) {
-                    throw new WorkflowVariableRecursiveReference("Reference exceeded max depth 100: " + RESOLVE_STACK.getAll(false).stream().map(p -> "" + p.expression).collect(Collectors.joining("->")));
+                    throw new WorkflowVariableRecursiveReference("Reference exceeded max depth 100: " + RESOLVE_STACK.stream().map(p -> "" + p.expression).collect(Collectors.joining("->")));
                 }
 
                 Object result;

@@ -24,6 +24,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -37,28 +38,38 @@ public class ThreadLocalStack<T> implements Iterable<T> {
     }
     public ThreadLocalStack() { this.acceptDuplicates = true; }
 
-    final ThreadLocal<Collection<T>> set = new ThreadLocal<>();
+    protected final ThreadLocal<Collection<T>> backing = new ThreadLocal<>();
 
-    public Collection<T> getAll(boolean forceInitialized) {
-        Collection<T> result = set.get();
-        if (forceInitialized && result==null) {
+    protected Collection<T> get() {
+        return backing.get();
+    }
+    protected void set(Collection<T> value) {
+        backing.set(value);
+    }
+    protected void remove() {
+        backing.remove();
+    }
+
+    protected Collection<T> upsert() {
+        Collection<T> result = get();
+        if (result==null) {
             result = acceptDuplicates ? MutableList.of() : MutableSet.of();
-            set.set(result);
+            set(result);
         }
         return result;
     }
 
     public T pop() {
-        Collection<T> resultS = getAll(true);
+        Collection<T> resultS = upsert();
         T last = Iterables.getLast(resultS);
         resultS.remove(last);
-        if (resultS.isEmpty()) set.remove();
+        if (resultS.isEmpty()) remove();
         return last;
     }
 
     /** returns true unless duplicates are not accepted, in which case it returns false iff the object supplied is equal to one already present */
     public boolean push(T object) {
-        return getAll(true).add(object);
+        return upsert().add(object);
     }
 
     /** top of stack first */
@@ -69,23 +80,28 @@ public class ThreadLocalStack<T> implements Iterable<T> {
 
     /** top of stack first */
     public Stream<T> stream() {
-        MutableList<T> l = MutableList.copyOf(getAll(false));
+        return getCopyReversed().stream();
+    }
+    protected Collection<T> getCopyReversed() {
+        return copyReversed(get());
+    }
+    protected Collection<T> copyReversed(Collection<T> c1) {
+        List<T> l = MutableList.copyOf(c1);
         Collections.reverse(l);
-        return l.stream();
+        return l;
     }
 
     public Maybe<T> peek() {
-        Collection<T> resultS = getAll(false);
-        if (resultS==null || resultS.isEmpty()) return Maybe.absent("Nothing in local stack");
-        return Maybe.of( Iterables.getLast(resultS) );
+        Iterator<T> si = stream().iterator();
+        if (!si.hasNext()) return Maybe.absent("Nothing in local stack");
+        return Maybe.of( si.next() );
     }
 
     public Maybe<T> peekPenultimate() {
-        Collection<T> resultS = getAll(false);
-        if (resultS==null) return Maybe.absent();
-        int size = resultS.size();
-        if (size<=1) return Maybe.absent();
-        return Maybe.of( Iterables.get(resultS, size-2) );
+        Iterator<T> si = stream().iterator();
+        if (si.hasNext()) si.next();
+        if (!si.hasNext()) return Maybe.absent();
+        return Maybe.of( si.next() );
     }
 
     public void pop(T entry) {
@@ -96,8 +112,6 @@ public class ThreadLocalStack<T> implements Iterable<T> {
     }
 
     public int size() {
-        Collection<T> v = getAll(false);
-        if (v==null) return 0;
-        return v.size();
+        return (int) stream().count();
     }
 }

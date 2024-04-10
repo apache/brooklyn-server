@@ -49,6 +49,7 @@ import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.ThreadLocalStack;
+import org.apache.brooklyn.util.core.task.CrossTaskThreadLocalStack;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -95,7 +96,7 @@ public class TemplateProcessor {
     public static void closeLocalTemplateModelCache() { TEMPLATE_MODEL_UNWRAP_CACHE.pop(); }
 
     static ThreadLocalStack<String> TEMPLATE_FILE_WANTING_LEGACY_SYNTAX = new ThreadLocalStack<>();
-    static ThreadLocalStack<Boolean> IS_FOR_WORKFLOW = new ThreadLocalStack<>();
+    static CrossTaskThreadLocalStack<Boolean> IS_FOR_WORKFLOW = new CrossTaskThreadLocalStack<>();
 
     public interface UnwrappableTemplateModel {
         Maybe<Object> unwrap();

@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
@@ -45,6 +46,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
@@ -589,6 +591,6 @@ public class BasicExecutionContext extends AbstractExecutionContext {
 
     @Override
     public String toString() {
-        return super.toString()+"("+tags+")";
+        return getClass().getSimpleName()+tags.stream().filter(t -> !(t instanceof ManagementContext)).collect(Collectors.toList());
     }
 }
