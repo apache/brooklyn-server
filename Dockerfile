@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM maven:3.5.2-jdk-8-alpine
+FROM maven:3-eclipse-temurin-8
 
 # Install necessary binaries to build brooklyn-server
 RUN apk add --no-cache git
