@@ -17,8 +17,7 @@
 
 FROM maven:3-eclipse-temurin-8
 
-# Install necessary binaries to build brooklyn-server
-RUN apk add --no-cache git
+# no special binaries needed
 
 RUN mkdir -p /var/maven/.m2/ && chmod -R 777 /var/maven/
 ENV MAVEN_CONFIG=/var/maven/.m2
