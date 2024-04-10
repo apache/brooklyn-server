@@ -77,11 +77,11 @@ public class Exceptions {
         }
     };
 
-    private static List<Class<? extends Throwable>> BORING_PREFIX_THROWABLE_EXACT_TYPES = ImmutableList.<Class<? extends Throwable>>of(
+    public static final Set<Class<? extends Throwable>> BORING_PREFIX_THROWABLE_EXACT_TYPES = MutableSet.<Class<? extends Throwable>>of(
         RuntimeException.class, Exception.class, Throwable.class,
         IllegalStateException.class, IllegalArgumentException.class);
     
-    private static List<Class<? extends Throwable>> BORING_PREFIX_THROWABLE_SUPERTYPES = ImmutableList.<Class<? extends Throwable>>of(
+    public static final Set<Class<? extends Throwable>> BORING_PREFIX_THROWABLE_SUPERTYPES = MutableSet.<Class<? extends Throwable>>of(
         ClassCastException.class, CompoundRuntimeException.class, PropagatedRuntimeException.class);
 
     /** Returns whether the prefix is throwable either known to be boring or to have an unhelpful type name (prefix)
