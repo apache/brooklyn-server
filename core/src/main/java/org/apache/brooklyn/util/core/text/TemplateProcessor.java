@@ -99,6 +99,7 @@ public class TemplateProcessor {
     static CrossTaskThreadLocalStack<Boolean> IS_FOR_WORKFLOW = new CrossTaskThreadLocalStack<>();
 
     public interface UnwrappableTemplateModel {
+        // could make sense to distinguish 'unwrappable as result' from 'unwrappable for alternative lookup'
         Maybe<Object> unwrap();
     }
 
@@ -441,18 +442,13 @@ public class TemplateProcessor {
      * Freemarker will only do this when in inside bracket notation in an outer map, as in <code>${outer['a.b.']}</code>;
      * as a result this is intended only for use by {@link EntityAndMapTemplateModel} where
      * a caller has used bracked notation, as in <code>${mgmt['key.subkey']}</code>. */
-    protected static final class EntityConfigTemplateModel implements TemplateHashModel, UnwrappableTemplateModel {
+    protected static final class EntityConfigTemplateModel implements TemplateHashModel {
         protected final EntityInternal entity;
         protected final ManagementContext mgmt;
 
         protected EntityConfigTemplateModel(EntityInternal entity) {
             this.entity = checkNotNull(entity, "entity");
             this.mgmt = entity.getManagementContext();
-        }
-
-        @Override
-        public Maybe<Object> unwrap() {
-            return Maybe.of(entity);
         }
 
         @Override
@@ -524,18 +520,13 @@ public class TemplateProcessor {
      * Freemarker will only do this when in inside bracket notation in an outer map, as in <code>${outer['a.b.']}</code>;
      * as a result this is intended only for use by {@link LocationAndMapTemplateModel} where
      * a caller has used bracked notation, as in <code>${mgmt['key.subkey']}</code>. */
-    protected static final class LocationConfigTemplateModel implements TemplateHashModel, UnwrappableTemplateModel {
+    protected static final class LocationConfigTemplateModel implements TemplateHashModel {
         protected final LocationInternal location;
         protected final ManagementContext mgmt;
 
         protected LocationConfigTemplateModel(LocationInternal location) {
             this.location = checkNotNull(location, "location");
             this.mgmt = location.getManagementContext();
-        }
-
-        @Override
-        public Maybe<Object> unwrap() {
-            return Maybe.of(location);
         }
 
         @Override
@@ -597,14 +588,9 @@ public class TemplateProcessor {
         throw new TemplateModelException(msg+": "+Exceptions.collapseText(cause), cause);
     }
 
-    protected final static class EntityAttributeTemplateModel implements TemplateHashModel, UnwrappableTemplateModel {
+    protected final static class EntityAttributeTemplateModel implements TemplateHashModel {
         protected final EntityInternal entity;
         private final SensorResolutionMode mode;
-
-        @Override
-        public Maybe<Object> unwrap() {
-            return Maybe.of(entity);
-        }
 
         enum SensorResolutionMode { SENSOR_DEFINITION,
             ATTRIBUTE_VALUE,
