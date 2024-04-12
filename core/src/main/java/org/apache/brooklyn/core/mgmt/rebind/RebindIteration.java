@@ -927,15 +927,14 @@ public abstract class RebindIteration {
 
     protected CatalogItemIdAndSearchPath findCatalogItemIds(ClassLoader cl, Map<String,
             EntityMementoManifest> entityIdToManifest, EntityMementoManifest entityManifest) {
+        List<String> searchPath = MutableList.copyOf(entityManifest.getCatalogItemIdSearchPath());
 
         if (entityManifest.getCatalogItemId() != null) {
-            return new CatalogItemIdAndSearchPath(entityManifest.getCatalogItemId(),
-                    entityManifest.getCatalogItemIdSearchPath());
+            return new CatalogItemIdAndSearchPath(entityManifest.getCatalogItemId(), searchPath);
         }
 
         if (BrooklynFeatureEnablement.isEnabled(FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND)) {
             String typeId = null;
-            List<String> searchPath = MutableList.of();
             //First check if any of the parent entities has a catalogItemId set.
             EntityMementoManifest ptr = entityManifest;
             while (ptr != null) {
@@ -975,7 +974,7 @@ public abstract class RebindIteration {
                 RegisteredType t = types.get(ptr.getType(), BrooklynCatalog.DEFAULT_VERSION);
                 if (t != null) {
                     LOG.debug("Inferred catalog item ID " + t.getId() + " for " + entityManifest + " from ancestor " + ptr);
-                    return new CatalogItemIdAndSearchPath(t.getId(), ImmutableList.<String>of());
+                    return new CatalogItemIdAndSearchPath(t.getId(), entityManifest.getCatalogItemIdSearchPath());
                 }
                 if (ptr.getParent() != null) {
                     ptr = entityIdToManifest.get(ptr.getParent());
@@ -987,7 +986,7 @@ public abstract class RebindIteration {
             //As a last resort go through all catalog items trying to load the type and use the first that succeeds.
             //But first check if can be loaded from the default classpath
             if (JavaBrooklynClassLoadingContext.create(managementContext).tryLoadClass(entityManifest.getType()).isPresent()) {
-                return new CatalogItemIdAndSearchPath(null, ImmutableList.<String>of());
+                return new CatalogItemIdAndSearchPath(null, searchPath);
             }
 
             // TODO get to the point when we can deprecate this behaviour!:
@@ -997,11 +996,11 @@ public abstract class RebindIteration {
                 if (canLoadClass) {
                     LOG.warn("Missing catalog item for " + entityManifest.getId() + " (" + entityManifest.getType()
                             + "), inferring as " + item.getId() + " because that is able to load the item");
-                    return new CatalogItemIdAndSearchPath(item.getId(), ImmutableList.<String>of());
+                    return new CatalogItemIdAndSearchPath(item.getId(), searchPath);
                 }
             }
         }
-        return new CatalogItemIdAndSearchPath(null, ImmutableList.<String>of());
+        return new CatalogItemIdAndSearchPath(null, searchPath);
     }
 
     protected static class LoadedClass<T extends BrooklynObject> {
