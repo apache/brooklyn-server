@@ -75,7 +75,7 @@ public class Time {
         return makeDateString(System.currentTimeMillis());
     }
 
-    /** as {@link #makeDateString(Date)} for long millis since UTC epock */
+    /** as {@link #makeDateString(Date)} for long millis since UTC epoch */
     public static String makeDateString(long date) {
         return makeDateString(new Date(date), DATE_FORMAT_PREFERRED);
     }

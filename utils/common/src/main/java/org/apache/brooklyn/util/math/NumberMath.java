@@ -165,6 +165,10 @@ public class NumberMath<T extends Number> {
     }
 
     public T abs() { return attemptUnary(x -> x<0 ? -x : x, x -> x<0 ? -x : x, BigInteger::abs, BigDecimal::abs); }
+    public T round() { return attemptUnary(x -> x, d -> (double) Math.round(d), x -> x, x -> x.setScale(0, BigDecimal.ROUND_DOWN)); }
+    public T ceil() { return attemptUnary(x -> x, d -> Math.ceil(d), x -> x, x -> x.setScale(0, BigDecimal.ROUND_CEILING)); }
+    public T floor() { return attemptUnary(x -> x, d -> Math.floor(d), x -> x, x -> x.setScale(0, BigDecimal.ROUND_FLOOR)); }
+    public T frac() { return attemptUnary(x -> 0L, d -> d - Math.floor(d), x -> BigInteger.ZERO, x -> x.subtract(x.setScale(0, BigDecimal.ROUND_FLOOR))); }
     public T negate() { return attemptUnary(x -> -x, x -> -x, BigInteger::negate, BigDecimal::negate); }
 
     public T add(T rhs) { return attemptBinary(rhs, (x,y) -> x+y, (x,y) -> x+y, BigInteger::add, BigDecimal::add); }

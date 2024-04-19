@@ -1057,8 +1057,11 @@ public class Strings {
 
     /** prefixes every line in `body` (second argument) by the given string (first argument) */
     public static String prefixAddedToEachLine(String prefix, String body) {
+        return prefixAddedToEachLine(prefix, body, false);
+    }
+    public static String prefixAddedToEachLine(String prefix, String body, boolean includeTrailingEmptyLines) {
         if (body==null) return null;
-        return Arrays.stream(body.split("\n")).map(s -> prefix + s).collect(Collectors.joining("\n"));
+        return Arrays.stream(body.split("\n", includeTrailingEmptyLines ? -1 : 0)).map(s -> prefix + s).collect(Collectors.joining("\n"));
     }
 
     public static boolean containsLiteralAsWord(String context, String word) {
