@@ -29,6 +29,8 @@ import org.apache.brooklyn.core.feed.PollHandler;
 import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext.WorkflowContextType;
+import org.apache.brooklyn.core.workflow.WorkflowSensor.WorkflowPollCallable;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -62,6 +64,7 @@ public class WorkflowPolicy<T> extends AbstractPolicy implements WorkflowCommonC
     public static final ConfigKey<String> UNIQUE_TAG_DASH = WorkflowSensor.UNIQUE_TAG_DASH;
 
     protected transient Poller<Object> poller;
+    protected transient WorkflowPollCallable pollCallable;
 
     // ? - do we need to have an option not to run when added?
 
@@ -143,8 +146,8 @@ public class WorkflowPolicy<T> extends AbstractPolicy implements WorkflowCommonC
                 .condition(new ConditionSupplierFromAdjunct());
 
         Set<PollConfig> pollConfigs = MutableSet.of(pc);
-        poller.schedulePoll(this, pollConfigs, new WorkflowSensor.WorkflowPollCallable(WorkflowExecutionContext.WorkflowContextType.POLICY,
-                getDisplayName() + " (policy)", config().getBag(), this), new PolicyNoOpPollHandler());
+        pollCallable = new WorkflowPollCallable(WorkflowContextType.POLICY, getDisplayName() + " (policy)", config().getBag(), this);
+        poller.schedulePoll(this, pollConfigs, pollCallable, new PolicyNoOpPollHandler());
 
         if (!isSuspended()) resume();
     }
@@ -163,5 +166,13 @@ public class WorkflowPolicy<T> extends AbstractPolicy implements WorkflowCommonC
         if (needsStarting) poller.start();
     }
 
+    // we could add an API for this, so arbitrary policies can be re-run from the UI
+    public Object runOnceNow() {
+        try {
+            return pollCallable.call();
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
+    }
 }
 
