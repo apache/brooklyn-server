@@ -93,7 +93,7 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
     }
 
     @SuppressWarnings("unchecked")
-    private void updateFromBrooklynProperties(ManagementContext mgmt) {
+    public void updateFromBrooklynProperties(ManagementContext mgmt) {
         // form is:
         //     brooklyn.external.<name> : fully.qualified.ClassName
         //     brooklyn.external.<name>.<key> : <value>
