@@ -1000,9 +1000,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    // non-deterministic failure seen once:
-    // testInitializerDelay:1031 failed succeeds-eventually, 75 attempts, 30000ms elapsed:
-    // AssertionError: entity=BasicEntityImpl{id=v65dmc7x81}; attribute=Sensor: x (java.lang.Integer) expected [6] but found [3]
     public void testInitializerDelay() throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
@@ -1020,6 +1017,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "    brooklyn.config:",
                 "      name: pre-init",
                 "      steps:",
+                //"        - sleep 1s",   // to check that 'async' really does always wait
                 "        - set-sensor integer x = 3");
         waitForApplicationTasks(app);
         Entity entity = Iterables.getOnlyElement(app.getChildren());

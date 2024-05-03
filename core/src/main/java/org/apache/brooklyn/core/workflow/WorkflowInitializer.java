@@ -35,6 +35,7 @@ import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -101,6 +102,12 @@ public class WorkflowInitializer extends EntityInitializers.InitializerPatternWi
                     if (delayed) {
                         DynamicTasks.queue(Tasks.create("Delaying until " + delaySummary, () -> {
                             ((EntityInternal) entity).getManagementContext().waitForManagementStartupComplete(null);
+                            while (!Entities.isManagedActive(entity)) {
+                                if (!Entities.isManagedActiveOrComingUp(entity)) {
+                                    return;
+                                }
+                                Time.sleep(Repeater.DEFAULT_REAL_QUICK_PERIOD);
+                            }
                             if (delayDuration.isPositive()) Time.sleep(delayDuration);
                         }));
                     }
