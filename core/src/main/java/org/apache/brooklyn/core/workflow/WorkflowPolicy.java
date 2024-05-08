@@ -146,10 +146,14 @@ public class WorkflowPolicy<T> extends AbstractPolicy implements WorkflowCommonC
                 .condition(new ConditionSupplierFromAdjunct());
 
         Set<PollConfig> pollConfigs = MutableSet.of(pc);
-        pollCallable = new WorkflowPollCallable(WorkflowContextType.POLICY, getDisplayName() + " (policy)", config().getBag(), this);
+        pollCallable = newWorkflowPollCallable();
         poller.schedulePoll(this, pollConfigs, pollCallable, new PolicyNoOpPollHandler());
 
         if (!isSuspended()) resume();
+    }
+
+    protected WorkflowPollCallable newWorkflowPollCallable() {
+        return new WorkflowPollCallable(WorkflowContextType.POLICY, getDisplayName() + " (policy)", config().getBag(), this);
     }
 
     @Override
