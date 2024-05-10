@@ -88,7 +88,9 @@ public class CommonAdaptorTypeCoercions {
     public synchronized <A,B> Function<? super A,B> registerAdapter(Class<A> sourceType, Class<B> targetType, Function<? super A,B> fn) {
         return coercer.registerAdapter(sourceType, targetType, fn);
     }
-    /** Registers an adapter for use with type coercion. */
+    /** Registers an adapter for use with type coercion. nameAndOrder is of the form NUM-NAME with the natural order prevailing (ordered by NUM numerically),
+     * eg 1-x before 2-x before 9-x before 11-x;
+     * negative indexed orders are processed after, with -1-x before -2-x before -11-x */
     public synchronized void registerAdapter(String nameAndOrder, TryCoercer coerceFn) {
         coercer.registerAdapter(nameAndOrder, coerceFn);
     }

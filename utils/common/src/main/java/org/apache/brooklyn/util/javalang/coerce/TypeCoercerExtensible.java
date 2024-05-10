@@ -20,10 +20,26 @@ package org.apache.brooklyn.util.javalang.coerce;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.*;
+import java.util.Collection;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.*;
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Table;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.core.validation.BrooklynValidation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -32,16 +48,12 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.reflect.TypeToken;
 
 /**
  * Attempts to coerce {@code value} to {@code targetType}.
@@ -88,9 +100,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
     private Table<Class<?>, Class<?>, Function<?,?>> registry = HashBasedTable.create();
 
     /** Store the generic coercers, ordered by the name; reset each time updated */
-    private SortedMap<String,TryCoercer> genericCoercersByName = Maps.newTreeMap();
-    /** Put the list in a cache, reset each time the map is updated. */
-    private List<TryCoercer> genericCoercers = new ArrayList<>();
+    private SortedMap<String,TryCoercer> genericCoercersByName = Maps.newTreeMap(NaturalOrderComparator.INSTANCE);
 
     @Override
     public <T> T coerce(Object value, Class<T> targetType) {
@@ -148,43 +158,14 @@ public class TypeCoercerExtensible implements TypeCoercer {
         if (targetType.isInstance(value)) return Maybe.of( (T) value );
 
         targetTypeToken = TypeTokens.getTypeToken(targetTypeToken, targetType);
-        for (TryCoercer coercer : genericCoercers) {
-            result = coercer.tryCoerce(value, targetTypeToken);
-            
-            if (result!=null && result.isPresentAndNonNull()) {
-                // Check if need to unwrap again (e.g. if want List<Integer> and are given a String "1,2,3"
-                // then we'll have so far converted to List.of("1", "2", "3"). Call recursively.
-                // First check that value has changed, to avoid stack overflow!
-                if (!Objects.equal(value, result.get()) && !Objects.equal(value.getClass(), result.get().getClass())
-                        // previously did this just for generics but it's more useful than that, e.g. if was a WrappedValue
-                        //&& targetTypeToken.getType() instanceof ParameterizedType
-                        ) {
-                    Maybe<T> resultM = tryCoerce(result.get(), targetTypeToken);
-                    if (resultM!=null) {
-                        if (resultM.isPresent()) return resultM;
-                        // if couldn't coerce parameterized types then back out of this coercer
-                        result = resultM;
-                    }
-                } else {
-                    return result;
-                }
-            }
-            
-            if (result!=null) {
-                if (result.isAbsent()) errors.add(result);
-                else {
-                    if (coercer instanceof TryCoercer.TryCoercerReturningNull) {
-                        return result;
-                    } else {
-                        String c = getCoercerName(coercer);
-                        log.warn("Coercer " + c + " returned wrapped null when coercing " + value);
-                        errors.add(Maybe.absent("coercion returned null ("+c+")"));
-                        // coercers the return null should implement 'TryCoercerReturningNull'
-                    }
-                }
+        for (Entry<String, TryCoercer> mapEntry : genericCoercersByName.entrySet()) {
+            String coercerName = mapEntry.getKey();
+            if (coercerName != null && !coercerName.startsWith("-")) {
+                Maybe<T> resultM = applyCoercer(value, targetTypeToken, errors, mapEntry.getValue(), coercerName);
+                if (resultM != null) return resultM;
             }
         }
-        
+
         //ENHANCEMENT could look in type hierarchy of both types for a conversion method...
         
         //at this point, if either is primitive then run instead over boxed types
@@ -242,6 +223,15 @@ public class TypeCoercerExtensible implements TypeCoercer {
             }
         }
 
+        // now try negative ordered coercers
+        for (Entry<String, TryCoercer> mapEntry : genericCoercersByName.entrySet()) {
+            String coercerName = mapEntry.getKey();
+            if (coercerName != null && coercerName.startsWith("-")) {
+                Maybe<T> resultM = applyCoercer(value, targetTypeToken, errors, mapEntry.getValue(), coercerName);
+                if (resultM != null) return resultM;
+            }
+        }
+
         // not found
         if (!errors.isEmpty()) {
             if (errors.size()==1) return Iterables.getOnlyElement(errors);
@@ -256,11 +246,42 @@ public class TypeCoercerExtensible implements TypeCoercer {
         return Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetTypeToken+" ("+value+"): no adapter known"));
     }
 
-    protected String getCoercerName(TryCoercer coercer) {
-        Optional<Map.Entry<String, TryCoercer>> bn = genericCoercersByName.entrySet().stream().filter(es -> Objects.equal(coercer, es.getValue())).findAny();
-        if (bn.isPresent()) return bn.get().getKey();
-        int index = genericCoercers.indexOf(coercer);
-        return coercer.toString() + (index>=0 ? " (index "+index+")" : "");
+    private <T> Maybe<T> applyCoercer(Object value, TypeToken<T> targetTypeToken, List<Maybe<T>> errors, TryCoercer coercer, String coercerName) {
+        Maybe<T> result;
+        result = coercer.tryCoerce(value, targetTypeToken);
+
+        if (result!=null && result.isPresentAndNonNull()) {
+            // Check if need to unwrap again (e.g. if want List<Integer> and are given a String "1,2,3"
+            // then we'll have so far converted to List.of("1", "2", "3"). Call recursively.
+            // First check that value has changed, to avoid stack overflow!
+            if (!Objects.equal(value, result.get()) && !Objects.equal(value.getClass(), result.get().getClass())
+                    // previously did this just for generics but it's more useful than that, e.g. if was a WrappedValue
+                    //&& targetTypeToken.getType() instanceof ParameterizedType
+                    ) {
+                Maybe<T> resultM = tryCoerce(result.get(), targetTypeToken);
+                if (resultM!=null) {
+                    if (resultM.isPresent()) return resultM;
+                    // if couldn't coerce parameterized types then back out of this coercer
+                    result = resultM;
+                }
+            } else {
+                return result;
+            }
+        }
+
+        if (result!=null) {
+            if (result.isAbsent()) errors.add(result);
+            else {
+                if (coercer instanceof TryCoercer.TryCoercerReturningNull) {
+                    return result;
+                } else {
+                    log.warn("Coercer " + coercerName + " returned wrapped null when coercing " + value);
+                    errors.add(Maybe.absent("coercion returned null ("+coercerName+")"));
+                    // coercers that return null should implement 'TryCoercerReturningNull'
+                }
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")
@@ -353,9 +374,8 @@ public class TypeCoercerExtensible implements TypeCoercer {
         TreeMap<String, TryCoercer> gcn = Maps.newTreeMap(genericCoercersByName);
         gcn.put(nameAndOrder, fn);
         genericCoercersByName = gcn;
-        genericCoercers = ImmutableList.copyOf(genericCoercersByName.values());
     }
-    
+
     /** @deprecated since introduction, use {@link #registerAdapter(String, TryCoercer)} */
     @Beta @Deprecated
     public void registerAdapter(TryCoercer fn) {

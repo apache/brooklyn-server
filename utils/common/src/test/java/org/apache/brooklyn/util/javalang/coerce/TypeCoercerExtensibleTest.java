@@ -81,4 +81,37 @@ public class TypeCoercerExtensibleTest {
             return MoreObjects.toStringHelper(this).add("val", val).toString();
         }
     }
+
+    void registerOrderedConditionalMyClassAdapter(int order, String requiredToken) {
+        coercer.registerAdapter(""+order+"-"+requiredToken,
+                new TryCoercer() {
+                    @Override
+                    @SuppressWarnings("unchecked")
+                    public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                        if (input instanceof String && type.getRawType().isAssignableFrom(Integer.class) && ((String)input).contains(requiredToken))
+                            return Maybe.of((T)(Object) (order*100+((String)input).length()));
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    public void testPriority() {
+        registerOrderedConditionalMyClassAdapter(-1, "11");
+        registerOrderedConditionalMyClassAdapter(1, "a");
+        registerOrderedConditionalMyClassAdapter(2, "b");
+        registerOrderedConditionalMyClassAdapter(3, "33");
+        registerOrderedConditionalMyClassAdapter(-2, "22");
+
+        assertEquals(coerce("a", Integer.class), (Integer) 101);
+        assertEquals(coerce("ab", Integer.class), (Integer) 102);
+        assertEquals(coerce("bb", Integer.class), (Integer) 202);
+        assertEquals(coerce("33", Integer.class), (Integer) 302);
+        assertEquals(coerce("ab11", Integer.class), (Integer) 104); // coercer 1-a applies
+        assertEquals(coerce("d11", Integer.class), (Integer) (-97)); // coercer -1-11 applies
+        assertEquals(coerce("d1122", Integer.class), (Integer) (-95)); // coercer -1-11 applies
+        assertEquals(coerce("d2222", Integer.class), (Integer) (-195)); // coercer -2-22 applies
+        assertEquals(coerce("33", Integer.class), (Integer) (302)); // coercer 3-33 applies before Integer.toString
+        assertEquals(coerce("1122", Integer.class), (Integer) (1122)); // Integer.fromString coercion applies before negative coercers
+    }
 }

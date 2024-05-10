@@ -381,7 +381,7 @@ public class TypeCoercions {
                 }
             });
 
-            registerAdapter("81-wrong-bean-to-map-or-bean", new TryCoercer() {
+            registerAdapter("-20-wrong-bean-to-map-or-bean", new TryCoercer() {
 
                 @Override
                 public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
