@@ -66,10 +66,10 @@ public class AsPropertyIfAmbiguous {
     /** @deprecated since 1.1 now use transform fn, and prefer wrapped in parens */
     public static final String CONFLICTING_TYPE_NAME_PROPERTY_PREFIX = "@";
 
-    // we can change this to false to allow e.g. deserialize "{type: unknown}" as a map when an object is expected;
-    // however it is probably more useful to return that as an error, because usually it is an error,
-    // and have a special way of permitting it in places
-    public static final boolean THROW_ON_OBJECT_EXPECTED_AND_INVALID_TYPE_KEY_SUPPLIED = true;
+    // almost always this can be true, but sometimes if deserializing to an object or map,
+    // more often now that we modify map deserializers, it might be necessary to ignore a "type":"unknown" entry,
+    // rather than failing because 'unknown' isn't known as a type
+    public static final boolean THROW_ON_OBJECT_EXPECTED_AND_INVALID_TYPE_KEY_SUPPLIED = false;
 
     public interface HasBaseType {
         JavaType getBaseType();

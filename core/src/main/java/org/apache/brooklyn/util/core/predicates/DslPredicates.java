@@ -18,10 +18,30 @@
  */
 package org.apache.brooklyn.util.core.predicates;
 
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import javax.annotation.Nullable;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.BeanProperty;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.annotations.Beta;
@@ -68,18 +88,6 @@ import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
-import java.io.IOException;
-import java.lang.reflect.Method;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.regex.Pattern;
-
 public class DslPredicates {
 
     private static final Logger LOG = LoggerFactory.getLogger(DslPredicates.class);
@@ -95,9 +103,7 @@ public class DslPredicates {
         TypeCoercions.registerAdapter(String.class, DslPredicate.class, DslPredicates::implicitlyEqualTo);
         TypeCoercions.registerAdapter(Boolean.class, DslPredicate.class, DslPredicates::always);
 
-//        TypeCoercions.registerAdapter(DeferredSupplier.class, DslPredicate.class, DslPredicates::implicitlyEqualTo);
-//        TypeCoercions.registerAdapter(WorkflowExpressionResolution.WrappedUnresolvedExpression.class, DslPredicate.class, DslPredicates::implicitlyEqualTo);
-        // not sure why above don't work, but below does
+        // use this to map more types of objects
         TypeCoercions.registerAdapter("60-expression-to-predicate", new TryCoercer() {
             @Override
             public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
@@ -127,8 +133,14 @@ public class DslPredicates {
         /** always returns false */ NEVER,
     }
 
-    static <T> T unwrapped(WrappedValue<T> t) {
-        return WrappedValue.get(t);
+    static <T> T unwrapped(WrappedValue<T> t, Class<T> type) {
+        return TypeCoercions.coerce(WrappedValue.get(t), type);
+    }
+    static <T> T unwrapped(WrappedValue<T> t, TypeToken<T> type) {
+        return TypeCoercions.coerce(WrappedValue.get(t), type);
+    }
+    static DslPredicate<?> unwrappedPredicate(WrappedValue t) {
+        return unwrapped(t, DslPredicate.class);
     }
 
     static Object unwrappedObject(Object t) {
@@ -345,7 +357,7 @@ public class DslPredicates {
             }
         }
 
-        public Object implicitEqualsUnwrapped() { return unwrapped(implicitEquals); }
+        public Object implicitEqualsUnwrapped() { return unwrapped(implicitEquals, Object.class); }
 
         public boolean apply(T input) {
             Maybe<Object> result = resolveTargetAgainstInput(input);
@@ -497,9 +509,8 @@ public class DslPredicates {
             if (assertCondition!=null) failOnAssertCondition(result, checker);
 
             checker.check(implicitEquals, result, (implicitTestSpec, value) -> {
-
                 // if a condition somehow gets put into the implicit equals, e.g. via an expression returning an expression, then recognize it as a condition
-                Object test = unwrapped(implicitTestSpec);
+                Object test = unwrapped(implicitTestSpec, Object.class);
                 if (test instanceof DslPredicate) {
                     return nestedPredicateCheck((DslPredicate) test, result);
                 }
@@ -517,8 +528,8 @@ public class DslPredicates {
                 return DslPredicates.coercedEqual(implicitTestSpec, value);
             });
             checker.check(equals, result, DslPredicates::coercedEqual);
-            checker.check(regex, result, (test, value) -> asStringTestOrFalse(value, v -> Pattern.compile(unwrapped(test), Pattern.DOTALL).matcher(v).matches()));
-            checker.check(glob, result, (test, value) -> asStringTestOrFalse(value, v -> WildcardGlobs.isGlobMatched(unwrapped(test), v)));
+            checker.check(regex, result, (test, value) -> asStringTestOrFalse(value, v -> Pattern.compile(unwrapped(test, String.class), Pattern.DOTALL).matcher(v).matches()));
+            checker.check(glob, result, (test, value) -> asStringTestOrFalse(value, v -> WildcardGlobs.isGlobMatched(unwrapped(test, String.class), v)));
 
             checker.check(inRange, result, (test,value) ->
                 // current Range only supports Integer, but this code will support any
@@ -549,10 +560,10 @@ public class DslPredicates {
                 return nestedPredicateCheck(test, Maybe.of(computedSize));
             });
 
-            checker.checkTest(not, test -> !nestedPredicateCheck(unwrapped(test), result));
-            checker.checkTest(check, test -> nestedPredicateCheck(unwrapped(test), result));
-            checker.checkTest(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(unwrapped(p), result)));
-            checker.checkTest(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(unwrapped(p), result)));
+            checker.checkTest(not, test -> !nestedPredicateCheck(unwrapped(test, DslPredicate.class), result));
+            checker.checkTest(check, test -> nestedPredicateCheck(unwrapped(test, DslPredicate.class), result));
+            checker.checkTest(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(unwrapped(p, DslPredicate.class), result)));
+            checker.checkTest(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(unwrapped(p, DslPredicate.class), result)));
 
             checker.check(javaInstanceOf, result, this::checkJavaInstanceOf);
         }
@@ -963,6 +974,7 @@ public class DslPredicates {
 
         @Override
         public JavaType getDefaultType() {
+            if (type!=null && DslEntityPredicate.class.isAssignableFrom(type.getRawClass())) return ctxt.constructType(DslEntityPredicateDefault.class);
             return ctxt.constructType(DslPredicateDefault.class);
         }
 

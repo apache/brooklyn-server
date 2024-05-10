@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.objs;
 
 import java.util.Set;
 
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.Configurable;
@@ -34,16 +36,13 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.text.Identifiers;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
-
 /**
  * A parent class for ancilliary objects that do not require the full heavy lifting of {@link AbstractBrooklynObject}
  * or similar, but wish to use {@link ConfigKey} and {@link Configurable} in their construction, via the
  * {@code $brooklyn:object} method of the CAMP DSL.
  * <p>
  * Type coercion of values will occur when the {@link ConfigMap} is accessed, but resolving of {@link Task tasks} and other
- * deferred operations are assumed to have occurred prior to calling {@link #setConfig(ConfigKey, Object)} i.e. at
+ * deferred operations are assumed to have occurred prior to calling {@link org.apache.brooklyn.api.objs.Configurable.ConfigurationSupport#set(ConfigKey, Object)} i.e. at
  * object construction.
  */
 public class BasicConfigurableObject implements Configurable, Identifiable, ManagementContextInjectable, HasBrooklynManagementContext {
@@ -116,11 +115,6 @@ public class BasicConfigurableObject implements Configurable, Identifiable, Mana
         @Override
         public <T> T set(HasConfigKey<T> key, Task<T> val) {
             return set(key.getConfigKey(), val);
-        }
-
-        @Override @Deprecated
-        public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
-            return findKeysDeclared(filter);
         }
 
         @Override

@@ -508,11 +508,6 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
         return getAllConfigLocalRaw();
     }
 
-    @Override @Deprecated
-    public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
-        return findKeysDeclared(filter);
-    }
-
     @Override
     public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter) {
         Set<ConfigKey<?>> result = new LinkedHashSet<ConfigKey<?>>();

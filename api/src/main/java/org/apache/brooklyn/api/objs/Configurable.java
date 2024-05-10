@@ -96,10 +96,6 @@ public interface Configurable {
          */
         <T> T set(HasConfigKey<T> key, Task<T> val);
         
-        /** @deprecated since 0.11.0 see {@link ConfigMap#findKeys(Predicate)} */
-        @Deprecated
-        Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter);
-
         /** see {@link ConfigMap#findKeysDeclared(Predicate)}  */
         public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter);
 

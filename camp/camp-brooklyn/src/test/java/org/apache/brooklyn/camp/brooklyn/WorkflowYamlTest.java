@@ -88,6 +88,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -423,6 +424,33 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         }
 
         if (extraChecks!=null) extraChecks.accept(policy);
+    }
+
+    @Test
+    public void testWorkflowPolicyInputs() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  id: main_entity",
+                "  brooklyn.policies:",
+                "  - type: workflow-policy",
+                "    brooklyn.config:",
+                "      name: Set myWorkflowSensor",
+                "      input:",
+                "        x: 42",
+                "      id: set-my-workflow-sensor",
+                "      steps:",
+                "        - set-sensor myWorkflowSensor = ${x}",
+                "        - return ${x}",
+                "");
+
+        Stopwatch sw = Stopwatch.createStarted();
+        waitForApplicationTasks(app);
+
+        Entity entity = app.getChildren().iterator().next();
+        WorkflowPolicy policy = (WorkflowPolicy) entity.policies().asList().stream().filter(p -> p instanceof WorkflowPolicy).findAny().get();
+        Asserts.assertEquals(Entities.submit(entity, Tasks.create("test", policy::runOnceNow)).getUnchecked(), 42);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "myWorkflowSensor"), 42);
     }
 
     ClassLogWatcher lastLogWatcher;

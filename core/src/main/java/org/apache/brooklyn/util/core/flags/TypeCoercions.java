@@ -36,6 +36,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -386,6 +387,9 @@ public class TypeCoercions {
                 @Override
                 public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
                     if (input instanceof Map || input instanceof Collection || Boxing.isPrimitiveOrBoxedObject(input)) {
+                        return null;
+                    }
+                    if (input instanceof DeferredSupplier) {
                         return null;
                     }
                     // input is a complex type / bean

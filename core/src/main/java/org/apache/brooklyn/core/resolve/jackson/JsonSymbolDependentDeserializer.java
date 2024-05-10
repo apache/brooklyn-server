@@ -32,10 +32,14 @@ import java.util.function.Function;
 
 import org.apache.brooklyn.util.core.units.Range;
 import org.apache.brooklyn.util.core.xstream.ImmutableSetConverter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.createBeanDeserializer;
 
 public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> implements ContextualDeserializer {
+
+    private static final Logger log = LoggerFactory.getLogger(JsonSymbolDependentDeserializer.class);
 
     public static final Set<JsonToken> SIMPLE_TOKENS = ImmutableSet.of(
             JsonToken.VALUE_STRING,
@@ -71,7 +75,13 @@ public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<O
             type = ctxt.getContextualType();
         }
         if (isTypeReplaceableByDefault()) {
-            type = getDefaultType();
+            JavaType type2 = getDefaultType();
+            if (type!=null && !type.getRawClass().isAssignableFrom(type2.getRawClass())) {
+                // keep old type if it's not compatible; it might fail subsequently, but at least it won't be incompatible
+                log.warn("Default type for "+type+" reported as "+type2+", in "+this+", which is not compatible; may fail subsequently");
+                // but change it, as if we leave it as an interface it will almost certainly fail
+            }
+            type = type2;
         }
 
         return this;

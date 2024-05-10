@@ -245,11 +245,6 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         getConfigsInternal().setLocalConfig(MutableMap.<ConfigKey<?>,Object>of());
     }
 
-    @Override @Deprecated
-    public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
-        return getConfigsInternal().findKeys(filter);
-    }
-
     @Override
     public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter) {
         return getConfigsInternal().findKeysDeclared(filter);
@@ -272,7 +267,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
 
     @SuppressWarnings("deprecation")
     @Override
-    // see super; we aspire to depreate this due to poor treatment of inheritance
+    // see super; we aspire to depreate this due to poor treatment of inheritance, and ambiguity about map subkeys;
     public ConfigBag getBag() {
         ConfigBag result = ConfigBag.newInstance();
         AbstractConfigMapImpl<? extends BrooklynObject> ci = getConfigsInternal();

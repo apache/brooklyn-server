@@ -18,16 +18,25 @@
  */
 package org.apache.brooklyn.core.config.internal;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.Future;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
-import java.util.function.Consumer;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigInheritance;
-import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 import org.apache.brooklyn.config.ConfigInheritances;
 import org.apache.brooklyn.config.ConfigInheritances.BasicConfigValueAtContainer;
 import org.apache.brooklyn.config.ConfigKey;
@@ -56,11 +65,6 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.*;
-import java.util.concurrent.Future;
 
 public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> implements ConfigMapWithInheritance<TContainer> {
 
@@ -526,11 +530,6 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return result;
     }
 
-    @Override @Deprecated
-    public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
-        return findKeys(filter, KeyFindingMode.PRESENT_NOT_RESOLVED);
-    }
-
     @Override
     public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter) {
         return findKeys(filter, KeyFindingMode.DECLARED_OR_PRESENT);
@@ -569,7 +568,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             switch (mode) {
             case DECLARED_OR_PRESENT:  inherited = getParentInternal().config().getInternalConfigMap().findKeysDeclared(filter); break;
             case PRESENT_AND_RESOLVED: inherited = getParentInternal().config().getInternalConfigMap().findKeysPresent(filter); break;
-            case PRESENT_NOT_RESOLVED: inherited = getParentInternal().config().getInternalConfigMap().findKeys(filter); break;
+            case PRESENT_NOT_RESOLVED: inherited = ((AbstractConfigMapImpl) getParentInternal().config().getInternalConfigMap()).findKeys(filter, KeyFindingMode.PRESENT_NOT_RESOLVED); break;
             default:
                 throw new IllegalStateException("Unsupported key finding mode: "+mode);
             }

@@ -21,17 +21,15 @@ package org.apache.brooklyn.core.config;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.base.Predicate;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
-import org.apache.brooklyn.core.config.ConfigUtils;
-import org.apache.brooklyn.core.config.WrappedConfigKey;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -40,8 +38,6 @@ import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Predicate;
 
 @SuppressWarnings({"unchecked"})
 public class ConfigUtils {
@@ -83,7 +79,7 @@ public class ConfigUtils {
     
     public static BrooklynProperties filterFor(BrooklynProperties properties, Predicate<? super String> filter) {
         BrooklynProperties result = BrooklynProperties.Factory.newEmpty();
-        Set<ConfigKey<?>> keys = properties.findKeys(ConfigPredicates.nameSatisfies(filter));
+        Set<ConfigKey<?>> keys = properties.findKeysPresent(ConfigPredicates.nameSatisfies(filter));
         for (ConfigKey<?> key : keys) {
             result.put(key, properties.getConfig(key));
         }
@@ -92,7 +88,7 @@ public class ConfigUtils {
     
     public static BrooklynProperties filterForPrefix(BrooklynProperties properties, String prefix) {
         BrooklynProperties result = BrooklynProperties.Factory.newEmpty();
-        Set<ConfigKey<?>> keys = properties.findKeys(ConfigPredicates.nameSatisfies(StringPredicates.startsWith(prefix)));
+        Set<ConfigKey<?>> keys = properties.findKeysPresent(ConfigPredicates.nameSatisfies(StringPredicates.startsWith(prefix)));
         for (ConfigKey<?> key : keys) {
             result.put(key, properties.getConfig(key));
         }

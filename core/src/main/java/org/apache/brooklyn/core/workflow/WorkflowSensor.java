@@ -32,10 +32,13 @@ import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.SubElementConfigKey;
+import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.effector.AddSensorInitializer;
 import org.apache.brooklyn.core.effector.AddSensorInitializerAbstractProto;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal.ConfigurationSupportInternal;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.steps.appmodel.EntityValueToSet;
@@ -158,6 +161,17 @@ public class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> implement
         private final Map<String,Object> params;
         private final WorkflowExecutionContext.WorkflowContextType wcType;
 
+        protected WorkflowPollCallable(WorkflowExecutionContext.WorkflowContextType wcType, String workflowCallableName, BrooklynObject entityOrAdjunct) {
+            this(wcType, workflowCallableName, getFlatBag(entityOrAdjunct), entityOrAdjunct);
+        }
+        static ConfigBag getFlatBag(BrooklynObject entityOrAdjunct) {
+            ConfigBag result = ConfigBag.newInstance();
+            entityOrAdjunct.config().findKeysPresent(x -> true).forEach(k -> {
+                while (k instanceof SubElementConfigKey) k = ((SubElementConfigKey)k).parent;
+                result.put((ConfigKey)k, ((ConfigurationSupportInternal)entityOrAdjunct.config()).getRaw(k).or(k.getDefaultValue()) );
+            });
+            return result;
+        }
         protected WorkflowPollCallable(WorkflowExecutionContext.WorkflowContextType wcType, String workflowCallableName, ConfigBag params, BrooklynObject entityOrAdjunct) {
             this.wcType = wcType;
             this.workflowCallableName = workflowCallableName;

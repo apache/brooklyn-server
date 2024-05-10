@@ -196,7 +196,18 @@ public class BeanWithTypeUtils {
             try {
                 // needed for a few things, mainly where a bean has a type field that conflicts with the type here,
                 // tryCoercer -20-wrong-bean uses this
-                return convertDeeply(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
+                T result = convertDeeply(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
+                if (wrongTypeResult!=null) {
+                    if (result==null || !type.getRawType().isInstance(result)) {
+                        LOG.warn("Wrong type returned coercing "+mapOrListToSerializeThenDeserialize+" to "+type+"; got "+wrongTypeResult+" / "+result);
+                        // prefer the original if both get it wrong
+                        return wrongTypeResult;
+                    } else {
+                        LOG.warn("Wrong type returned coercing "+mapOrListToSerializeThenDeserialize+" to "+type+" shallow, but succeeded on deep; got "+wrongTypeResult+" / "+result);
+                        return result;
+                    }
+                }
+                return result;
             } catch (Exception e2) {
                 Exceptions.propagateIfFatal(e2);
                 if (wrongTypeResult!=null) return wrongTypeResult;

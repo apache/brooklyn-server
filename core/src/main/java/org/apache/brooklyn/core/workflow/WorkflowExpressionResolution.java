@@ -143,6 +143,25 @@ public class WorkflowExpressionResolution {
         return null;
     }
 
+    /** allow access to selected static things in a non-workflow context; e.g. time */
+    public static class WorkflowWithoutContextFreemarkerModel implements TemplateHashModel {
+        @Override
+        public TemplateModel get(String key) throws TemplateModelException {
+            if ("workflow".equals(key)) {
+                return new TemplateHashModel() {
+                    @Override
+                    public TemplateModel get(String key) throws TemplateModelException {
+                        if ("util".equals(key)) return new WorkflowStaticUtilModel();
+                        return null;
+                    }
+                    @Override public boolean isEmpty() throws TemplateModelException { return false; }
+                };
+            }
+            return null;
+        }
+        @Override public boolean isEmpty() throws TemplateModelException { return false; }
+    }
+
     public class WorkflowFreemarkerModel implements TemplateHashModel, TemplateProcessor.UnwrappableTemplateModel {
         @Override
         public Maybe<Object> unwrap() {
@@ -358,9 +377,9 @@ public class WorkflowExpressionResolution {
         }
     }
 
-    class WorkflowUtilModel implements TemplateHashModel {
+    static class WorkflowStaticUtilModel implements TemplateHashModel {
 
-        WorkflowUtilModel() {}
+        WorkflowStaticUtilModel() {}
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
 
@@ -373,12 +392,26 @@ public class WorkflowExpressionResolution {
             if ("now_nice".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Time.makeDateString(Instant.now()));
             if ("random".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Math.random());
 
-            return ifNoMatches();
+            return null;
         }
 
         @Override
         public boolean isEmpty() throws TemplateModelException {
             return false;
+        }
+    }
+
+    class WorkflowUtilModel extends WorkflowStaticUtilModel {
+
+        WorkflowUtilModel() {}
+        @Override
+        public TemplateModel get(String key) throws TemplateModelException {
+
+            // could put workflow-specific context things here
+
+            TemplateModel result = super.get(key);
+            if (result!=null) return result;
+            return ifNoMatches();
         }
     }
 
@@ -406,6 +439,7 @@ public class WorkflowExpressionResolution {
         return inResolveStackEntry("resolve-coercing", expression, () -> {
             boolean triedCoercion = false;
             List<Exception> exceptions = MutableList.of();
+            List<Exception> deferredExceptions = MutableList.of();
             if (expression instanceof String) {
                 try {
                     // prefer simple coercion if it's a string coming in
@@ -424,7 +458,7 @@ public class WorkflowExpressionResolution {
                             RegisteredTypes.getClassLoadingContext(context.getEntity()), true /* needed for wrapped resolved holders */);
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
-                    exceptions.add(e);
+                    deferredExceptions.add(e);
                 }
             }
 
@@ -439,6 +473,7 @@ public class WorkflowExpressionResolution {
                 }
             }
 
+            exceptions.addAll(deferredExceptions);
             throw Exceptions.propagate(exceptions.iterator().next());
         });
     }
@@ -660,6 +695,10 @@ public class WorkflowExpressionResolution {
         return new WorkflowFreemarkerModel();
     }
 
+    public static TemplateHashModel newWorkflowFreemarkerModel(WorkflowExpressionResolution context) {
+        return context==null ? new WorkflowWithoutContextFreemarkerModel() : context.newWorkflowFreemarkerModel();
+    }
+
     public WorkflowExecutionContext getWorkflowExecutionContext() {
         return context;
     }
@@ -689,7 +728,7 @@ public class WorkflowExpressionResolution {
             BiFunction<String, WorkflowExpressionResolution, Object> fn = context.getManagementContext().getScratchpad().get(WORKFLOW_CUSTOM_INTERPOLATION_FUNCTION);
             if (fn!=null) result = fn.apply(expression, this);
             else result = TemplateProcessor.processTemplateContentsForWorkflow("workflow", expression,
-                    newWorkflowFreemarkerModel(), true, false, errorMode);
+                    newWorkflowFreemarkerModel(this), true, false, errorMode);
 
         } finally {
             if (ourWait) interruptClear();

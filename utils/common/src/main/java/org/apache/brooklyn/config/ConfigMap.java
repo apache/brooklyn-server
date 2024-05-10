@@ -64,16 +64,6 @@ public interface ConfigMap {
     /** returns a read-only map of all local config keys with their raw (unresolved+uncoerced) contents */
     public Map<ConfigKey<?>,Object> getAllConfigLocalRaw();
 
-    /** @deprecated since 0.11.0 use {@link #findKeysDeclared(Predicate)} or {@link #findKeysPresent(Predicate)}
-     * <p>
-     * this method is like the above but it does not compare against reference keys in the container / type context.
-     * there are no known cases where that is the desired behaviour, so callers are being forced to migrate to
-     * one of the above other two methods. if keys in the map are needed and not the reference keys,
-     * let the brooklyn developers know to keep this functionality! */
-    @Deprecated
-    // XXX
-    public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter);
-
     /** returns all keys present in the map matching the given filter predicate; see ConfigPredicates for common predicates.
      * if the map is associated with a container or type context where reference keys are defined,
      * those keys are included in the result whether or not present in the map (unlike {@link #findKeysPresent(Predicate)}) */

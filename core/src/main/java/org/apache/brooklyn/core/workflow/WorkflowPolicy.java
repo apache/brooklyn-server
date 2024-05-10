@@ -153,7 +153,7 @@ public class WorkflowPolicy<T> extends AbstractPolicy implements WorkflowCommonC
     }
 
     protected WorkflowPollCallable newWorkflowPollCallable() {
-        return new WorkflowPollCallable(WorkflowContextType.POLICY, getDisplayName() + " (policy)", config().getBag(), this);
+        return new WorkflowPollCallable(WorkflowContextType.POLICY, getDisplayName() + " (policy)", this);
     }
 
     @Override

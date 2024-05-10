@@ -235,11 +235,6 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
         return new DeferredBrooklynProperties(submap, mgmt);
     }
 
-    @Override @Deprecated
-    public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
-        return delegate.findKeys(filter);
-    }
-
     @Override
     public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter) {
         return delegate.findKeysDeclared(filter);

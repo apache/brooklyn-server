@@ -80,8 +80,12 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
          * It does not identify the container where it is defined, meaning URLs and deferred config values 
          * cannot be resolved in the context of the appropriate ancestor.
          * <p>
+         * Also there is ambiguity about map subkeys (caller probably wants map = { key = val } but this gives map.key = val.
+         * <p>
          * For these reasons it is recommended to use a different accessor,
-         * and callers should be advised this beta method may be removed. 
+         * and callers should be advised this beta method may be removed.
+         * <p>
+         * Consider code such as WorkflowPollCallable.getFlatBag
          */
         @Beta
         // TODO deprecate. used fairly extensively, mostly in tests. a bit more care will be needed to refactor.

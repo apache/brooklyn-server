@@ -460,7 +460,9 @@ public class CommonTypesSerialization {
                     return super.convertStringToObject(value, p, ctxt);
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
-                    if (BrooklynObjectSerialization.this.mgmt instanceof NonDeploymentManagementContext) {
+                    if (BrooklynObjectSerialization.this.mgmt==null) {
+                        LOG.warn("Reference to BrooklynObject " + value + " outwith task context or without mgmt set; replacing with 'null': "+e);
+                    } else if (BrooklynObjectSerialization.this.mgmt instanceof NonDeploymentManagementContext) {
                         LOG.warn("Reference to BrooklynObject " + value + " which is unknown or not yet known, using NonDeployment context; replacing with 'null': "+e);
                     } else {
                         LOG.warn("Reference to BrooklynObject " + value + " which is unknown or no longer available; replacing with 'null': "+e);

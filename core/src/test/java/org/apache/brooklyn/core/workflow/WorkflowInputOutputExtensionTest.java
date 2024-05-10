@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -81,8 +82,14 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
-    public void testMapOutputAndInputFromLastStep() {
-        doTestMapOutputAndInput(cfg -> {
+    public void testMapOutputFromExplicitOutput() {
+        doTestMapOutput(cfg -> cfg.put(WorkflowEffector.OUTPUT,
+                MutableMap.of("c", "${c}", "d", "${d}", "e", "${e}") ));
+    }
+
+    @Test
+    public void testMapOutputFromLastStep() {
+        doTestMapOutput(cfg -> {
             List<Object> step = cfg.get(WorkflowEffector.STEPS);
             step.add("let map result = { c: ${c}, d: ${d}, e: ${e} }");
             cfg.put(WorkflowEffector.STEPS, step);
@@ -91,12 +98,27 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
-    public void testMapOutputAndInputFromExplicitOutput() {
-        doTestMapOutputAndInput(cfg -> cfg.put(WorkflowEffector.OUTPUT,
-                MutableMap.of("c", "${c}", "d", "${d}", "e", "${e}") ));
+    public void testMapOutputFromReturn() {
+        doTestMapOutput(cfg -> {
+            List<Object> step = cfg.get(WorkflowEffector.STEPS);
+            step.add("let map result = { c: ${c}, d: ${d}, e: ${e} }");
+            step.add("return ${result}");
+            cfg.put(WorkflowEffector.STEPS, step);
+        });
     }
 
-    public void doTestMapOutputAndInput(Consumer<ConfigBag> mod) {
+    @Test
+    public void testMapOutputFromExplicitInput() {
+        doTestMapOutput(cfg -> {
+            List<Object> step = cfg.get(WorkflowEffector.STEPS);
+            step.add("let map result = { c: ${c}, d: ${d}, e: ${E} }");
+            cfg.put(WorkflowEffector.STEPS, step);
+            cfg.put(WorkflowEffector.OUTPUT, "${result}");
+            cfg.put(WorkflowEffector.INPUT, MutableMap.of("E", "b"));
+        });
+    }
+
+    public void doTestMapOutput(Consumer<ConfigBag> mod) {
         loadTypes();
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
 
