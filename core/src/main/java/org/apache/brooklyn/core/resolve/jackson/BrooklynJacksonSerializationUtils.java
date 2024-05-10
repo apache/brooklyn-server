@@ -28,6 +28,12 @@ import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.DeserializerFactory;
 import com.fasterxml.jackson.databind.deser.ResolvableDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.type.ArrayType;
+import com.fasterxml.jackson.databind.type.CollectionLikeType;
+import com.fasterxml.jackson.databind.type.CollectionType;
+import com.fasterxml.jackson.databind.type.MapLikeType;
+import com.fasterxml.jackson.databind.type.MapType;
+import com.fasterxml.jackson.databind.type.ReferenceType;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.annotations.Beta;
 
@@ -126,8 +132,11 @@ public class BrooklynJacksonSerializationUtils {
     }
 
     public static class ConfigurableBeanDeserializerModifier extends BeanDeserializerModifier {
+        public static boolean DEFAULT_APPLY_ONLY_TO_BEAN_DESERIALIZERS = false;
+
         List<Function<JsonDeserializer<?>,JsonDeserializer<?>>> deserializerWrappers = MutableList.of();
         List<Function<Object,Object>> postConstructFunctions = MutableList.of();
+        public boolean applyOnlyToBeanDeserializers = DEFAULT_APPLY_ONLY_TO_BEAN_DESERIALIZERS;
 
         public ConfigurableBeanDeserializerModifier addDeserializerWrapper(Function<JsonDeserializer<?>,JsonDeserializer<?>> ...f) {
             for (Function<JsonDeserializer<?>,JsonDeserializer<?>> fi: f) deserializerWrappers.add(fi);
@@ -142,6 +151,10 @@ public class BrooklynJacksonSerializationUtils {
         public JsonDeserializer<?> modifyDeserializer(DeserializationConfig config,
                                                       BeanDescription beanDesc,
                                                       JsonDeserializer<?> deserializer) {
+            return applyOurModifiers(deserializer);
+        }
+
+        protected JsonDeserializer<?> applyOurModifiers(JsonDeserializer<?> deserializer) {
             for (Function<JsonDeserializer<?>,JsonDeserializer<?>> d: deserializerWrappers) {
                 deserializer = d.apply(deserializer);
             }
@@ -150,6 +163,56 @@ public class BrooklynJacksonSerializationUtils {
             }
             return deserializer;
         }
+
+        private JsonDeserializer<?> applyOurModifiersNonBean(JsonDeserializer<?> deserializer) {
+            if (applyOnlyToBeanDeserializers) {
+                // all the super's callers just return the input, so it is safe to do this, ignoring the supers of the calling method
+                return deserializer;
+            }
+            return applyOurModifiers(deserializer);
+        }
+
+        @Override
+        public JsonDeserializer<?> modifyMapDeserializer(DeserializationConfig config, MapType type, BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
+            return applyOurModifiersNonBean(deserializer);
+        }
+
+        @Override
+        public JsonDeserializer<?> modifyArrayDeserializer(DeserializationConfig config, ArrayType valueType, BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
+            return applyOurModifiersNonBean(deserializer);
+        }
+
+        @Override
+        public JsonDeserializer<?> modifyCollectionDeserializer(DeserializationConfig config, CollectionType type, BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
+            return applyOurModifiersNonBean(deserializer);
+        }
+
+        @Override
+        public JsonDeserializer<?> modifyCollectionLikeDeserializer(DeserializationConfig config, CollectionLikeType type, BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
+            return applyOurModifiersNonBean(deserializer);
+        }
+
+        @Override
+        public JsonDeserializer<?> modifyEnumDeserializer(DeserializationConfig config, JavaType type, BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
+            return applyOurModifiersNonBean(deserializer);
+        }
+
+        @Override
+        public JsonDeserializer<?> modifyMapLikeDeserializer(DeserializationConfig config, MapLikeType type, BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
+            return applyOurModifiersNonBean(deserializer);
+        }
+
+        @Override
+        public JsonDeserializer<?> modifyReferenceDeserializer(DeserializationConfig config, ReferenceType type, BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
+            return applyOurModifiersNonBean(deserializer);
+        }
+
+        // not supported at key because it is a different hierarchy; our deserializers probably don't apply; no known use case so NBD
+//        @Override
+//        public KeyDeserializer modifyKeyDeserializer(DeserializationConfig config, JavaType type, KeyDeserializer deserializer) {
+//            // super.modifyKeyDeserializer(config, type, deserializer);
+//            return applyOurModifiersNonBean(deserializer);
+//        }
 
         public <T extends ObjectMapper> T apply(T mapper) {
             SimpleModule module = new SimpleModule();

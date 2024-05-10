@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.resolve.jackson;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Iterables;
 import javassist.tools.rmi.Sample;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.ConfigurableBeanDeserializerModifier;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerializationTest.SampleBean;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -96,9 +97,11 @@ public class PerverseSerializationTest implements MapperTestFixture {
 
         // here, if it's an object we are reading, we get a list containing a map
         x = deser(LIST_MAP_TYPE_SAMPLE_BEAN, Object.class);
-        Asserts.assertInstanceOf(Iterables.getOnlyElement((List) x), Map.class);
+        // previously we did not deserialize types inside maps, but now we do
+        Class<?> expectedDeserializedTypedMapNested = ConfigurableBeanDeserializerModifier.DEFAULT_APPLY_ONLY_TO_BEAN_DESERIALIZERS ? Map.class : SampleBean.class;
+        Asserts.assertInstanceOf(Iterables.getOnlyElement((List) x), expectedDeserializedTypedMapNested);
 
-        // but if we know it's a list then we are more aggressive about reading type information
+        // if we know it's a list then we are more aggressive about reading type information, we do not need our bean deserializer to modify non-bean deserializers
         x = deser(LIST_MAP_TYPE_SAMPLE_BEAN, List.class);
         Asserts.assertInstanceOf(Iterables.getOnlyElement((List) x), SampleBean.class);
     }
@@ -122,8 +125,11 @@ public class PerverseSerializationTest implements MapperTestFixture {
         Asserts.assertInstanceOf(Iterables.getOnlyElement(o.ls), SampleBean.class);
         Asserts.assertInstanceOf(Iterables.getOnlyElement(o.lo), SampleBean.class);
         Asserts.assertInstanceOf(Iterables.getOnlyElement(o.lr), SampleBean.class);
-        Asserts.assertInstanceOf(Iterables.getOnlyElement((List)o.o), Map.class);
-        Asserts.assertInstanceOf(Iterables.getOnlyElement((List)Iterables.getOnlyElement(o.lo2)), Map.class);
+
+        // previously we did not deserialize types inside maps, but now we do
+        Class<?> expectedDeserializedTypedMapNested = ConfigurableBeanDeserializerModifier.DEFAULT_APPLY_ONLY_TO_BEAN_DESERIALIZERS ? Map.class : SampleBean.class;
+        Asserts.assertInstanceOf(Iterables.getOnlyElement((List)o.o), expectedDeserializedTypedMapNested);
+        Asserts.assertInstanceOf(Iterables.getOnlyElement((List)Iterables.getOnlyElement(o.lo2)), expectedDeserializedTypedMapNested);
     }
 
     /* arrays - no surprises - always read and written as lists, and coerced if context requires */

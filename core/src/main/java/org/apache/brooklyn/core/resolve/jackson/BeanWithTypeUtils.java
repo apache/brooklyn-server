@@ -164,6 +164,7 @@ public class BeanWithTypeUtils {
         // so the former calls the latter, and the latter calls the former. but stop at some point!
         if (stack.contains(mapOrListToSerializeThenDeserialize)) throw new IllegalStateException("Aborting recursive attempt to convert '"+mapOrListToSerializeThenDeserialize+"'");
 
+        T wrongTypeResult = null;
         try {
             stack.push(mapOrListToSerializeThenDeserialize);
 
@@ -184,14 +185,21 @@ public class BeanWithTypeUtils {
 //                return result2;
 //            }
 
-            return result;
+            if (result!=null && !type.getRawType().isInstance(result)) {
+                wrongTypeResult = result;
+                throw new IllegalStateException("Wrong type returned");  // will be ignored below
+            } else {
+                return result;
+            }
 
         } catch (Exception e) {
             try {
                 // needed for a few things, mainly where a bean has a type field that conflicts with the type here,
-                // tryCoercer 81-wrong-bean uses this
+                // tryCoercer -20-wrong-bean uses this
                 return convertDeeply(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
             } catch (Exception e2) {
+                Exceptions.propagateIfFatal(e2);
+                if (wrongTypeResult!=null) return wrongTypeResult;
                 throw Exceptions.propagate(Arrays.asList(e, e2));
             }
         } finally {

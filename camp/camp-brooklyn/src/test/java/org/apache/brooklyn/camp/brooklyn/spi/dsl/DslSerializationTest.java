@@ -29,9 +29,12 @@ import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.DslConfigSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.resolve.jackson.*;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.ConfigurableBeanDeserializerModifier;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerializationTest.SampleBean;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValuesSerializationTest.ObjectWithWrappedValueString;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
@@ -77,7 +80,8 @@ public class DslSerializationTest extends AbstractYamlTest implements MapperTest
 
         Object stuff2 = mapper.readValue(out, Object.class);
         Object stuff2I = ((Map<?, ?>) stuff2).get("stuff");
-        Asserts.assertInstanceOf(stuff2I, Map.class);
+        Class<?> expectedDeserializedTypedMapNested = ConfigurableBeanDeserializerModifier.DEFAULT_APPLY_ONLY_TO_BEAN_DESERIALIZERS ? Map.class : DslConfigSupplier.class;
+        Asserts.assertInstanceOf(stuff2I, expectedDeserializedTypedMapNested);
     }
 
     private ObjectMapper newMapper() {
