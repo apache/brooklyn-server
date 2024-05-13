@@ -93,7 +93,7 @@ public class ThreadLocalStack<T> implements Iterable<T> {
 
     public Maybe<T> peek() {
         Iterator<T> si = stream().iterator();
-        if (!si.hasNext()) return Maybe.absent("Nothing in local stack");
+        if (!si.hasNext()) return Maybe.absent(() -> new IllegalStateException("Nothing in local stack"));
         return Maybe.of( si.next() );
     }
 

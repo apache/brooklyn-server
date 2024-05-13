@@ -21,6 +21,7 @@ import java.util.Comparator;
 
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -46,7 +47,7 @@ public class VersionedName implements Comparable<VersionedName> {
     @Deprecated // since 0.12.0 - but null was not omitted in jackson serialization, so remove these fields after 1.2
     private final Version version = null;
 
-
+    private VersionedName() { name=null; v=null; } /* jackson, will sneakily set it as needed even though final */
     public VersionedName(Bundle b) {
         this(b.getSymbolicName(), b.getVersion().toString());
     }
@@ -85,6 +86,7 @@ public class VersionedName implements Comparable<VersionedName> {
     }
 
     private transient Version cachedOsgiVersion;
+    @JsonIgnore
     @Nullable
     public Version getOsgiVersion() {
         if (cachedOsgiVersion==null && v!=null) {
@@ -93,6 +95,7 @@ public class VersionedName implements Comparable<VersionedName> {
         return cachedOsgiVersion;
     }
 
+    @JsonIgnore
     @Nullable
     public String getOsgiVersionString() {
         Version ov = getOsgiVersion();
@@ -100,11 +103,13 @@ public class VersionedName implements Comparable<VersionedName> {
         return ov.toString();
     }
 
+    @JsonIgnore
     @Nullable
     public String getVersionString() {
         return v;
     }
-    
+
+    @JsonIgnore
     @Deprecated /** @deprecated since 0.12.0 use {@link #getVersionString()} or {@link #getOsgiVersion()} */
     public Version getVersion() {
         return getOsgiVersion();
