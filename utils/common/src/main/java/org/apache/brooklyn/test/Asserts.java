@@ -1188,6 +1188,18 @@ public class Asserts {
         fail(Strings.isBlank(message) ? "Failed "+condition+": "+object : message);
     }
 
+    public static <T> void assertPasses(T object, java.util.function.Consumer<T> condition) {
+        assertPasses(object, condition, null);
+    }
+    public static <T> void assertPasses(T object, java.util.function.Consumer<T> condition, String message) {
+        try {
+            condition.accept(object);
+        } catch (Throwable t) {
+            if (message!=null) throw new AssertionError(message, t);
+            else throw Exceptions.propagate(t);
+        }
+    }
+
     public static void assertStringContains(String input, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
         if (input==null) fail("Input is null.");
         if (phrase1ToContain!=null) {

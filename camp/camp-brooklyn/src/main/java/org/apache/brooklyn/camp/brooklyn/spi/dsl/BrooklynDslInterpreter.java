@@ -29,6 +29,7 @@ import org.apache.brooklyn.camp.spi.resolve.PlanInterpreter;
 import org.apache.brooklyn.camp.spi.resolve.PlanInterpreter.PlanInterpreterAdapter;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode.Role;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -159,6 +160,10 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
             return ((QuotedString)f).unwrapped();
         }
 
+        if (f instanceof PropertyAccess) {
+            return ((PropertyAccess)f).getSelector();
+        }
+
         throw new IllegalArgumentException("Unexpected element in parse tree: '"+f+"' (type "+(f!=null ? f.getClass() : null)+")");
     }
     
@@ -201,6 +206,9 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
         }
         try {
             Object index = propAccess.getSelector();
+            while (index instanceof PropertyAccess) {
+                index = ((PropertyAccess)index).getSelector();
+            }
             if (index instanceof QuotedString) {
                 index = ((QuotedString)index).unwrapped();
             }

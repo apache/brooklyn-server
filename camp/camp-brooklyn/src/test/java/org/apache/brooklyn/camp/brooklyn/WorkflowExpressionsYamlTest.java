@@ -367,8 +367,14 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
         app.config().set(ConfigKeys.newConfigKey(Object.class, "index"), 0);
         Asserts.assertEquals( get.apply(MutableList.of(42), "$brooklyn:config(\"index\")"), 42);
 
+        Asserts.assertEquals( get.apply(MutableMap.of("k", MutableList.of(42)), "k"), MutableList.of(42));
         Asserts.assertEquals( get.apply(MutableMap.of("k", MutableList.of(42)), ".k"), MutableList.of(42));
         Asserts.assertEquals( get.apply(MutableMap.of("k", MutableList.of(42)), "[\"k\"][0]"), 42);
         Asserts.assertEquals( get.apply(MutableMap.of("k", MutableList.of(42)), ".k[0]"), 42);
+
+        Asserts.assertEquals( get.apply(MutableMap.of("w-hyphen", 42), "w-hyphen"), 42);
+        Asserts.assertFailsWith(()->get.apply(MutableMap.of("w-hyphen", 42), ".w-hyphen"),
+                Asserts.expectedFailureContainsIgnoreCase("unexpected character", "position 30"));
+        Asserts.assertEquals( get.apply(MutableMap.of("w-hyphen", 42), "[\"w-hyphen\"]"), 42);
     }
 }

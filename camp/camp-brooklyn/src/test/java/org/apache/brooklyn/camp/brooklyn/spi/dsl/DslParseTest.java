@@ -24,11 +24,13 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.DslParser;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.FunctionWithArgs;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.PropertyAccess;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.QuotedString;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -55,11 +57,20 @@ public class DslParseTest {
     }
     
     public void testParseMultiArgMultiTypeFunction() {
-        // TODO Parsing "f(\"x\", 1)" fails, because it interprets 1 as a function rather than a number. Is that expected?
         Object fx = new DslParser("f(\"x\", \"y\")").parse();
         fx = Iterables.getOnlyElement( (List<?>)fx );
         assertEquals( ((FunctionWithArgs)fx).getFunction(), "f" );
         assertEquals( ((FunctionWithArgs)fx).getArgs(), ImmutableList.of(new QuotedString("\"x\""), new QuotedString("\"y\"")));
+
+        fx = new DslParser("f(\"x\", 1)").parse();
+        fx = Iterables.getOnlyElement( (List<?>)fx );
+        assertEquals( ((FunctionWithArgs)fx).getFunction(), "f" );
+        assertEquals( ((FunctionWithArgs)fx).getArgs(), ImmutableList.of(new QuotedString("\"x\""), new PropertyAccess("1")));
+
+        fx = new DslParser("$brooklyn:formatString(\"%s-%s\", parent().attributeWhenReady(\"host.address\"), $brooklyn:attributeWhenReady(\"host.address\"))").parse();
+        fx = Iterables.getOnlyElement( (List<?>)fx );
+        Asserts.assertInstanceOf(fx, FunctionWithArgs.class);
+        Asserts.assertPasses((FunctionWithArgs)fx, fx0 -> Asserts.assertSize(fx0.getArgs(), 3));
     }
 
     
@@ -161,6 +172,22 @@ public class DslParseTest {
     }
 
     @Test
+    public void testParseMapValueVariousWays() {
+        Function<String,Object> accessor = suffix -> ((List) new DslParser("$brooklyn:literal(\"ignored\")"+suffix).parse()).get(1);
+        Asserts.assertPasses(accessor.apply("[\"a-b\"]"), v -> Asserts.assertEquals( ((PropertyAccess)v).getSelector(), "a-b" ));
+        Asserts.assertPasses(accessor.apply(".[\"a-b\"]"), v -> Asserts.assertEquals( ((PropertyAccess)v).getSelector(), "a-b" ));
+
+        Asserts.assertPasses(accessor.apply(".a"), v -> Asserts.assertEquals( ((PropertyAccess)v).getSelector(), "a" ));
+        Asserts.assertPasses(accessor.apply("[\"a\"]"), v -> Asserts.assertEquals( ((PropertyAccess)v).getSelector(), "a" ));
+
+        Asserts.assertFailsWith(() -> accessor.apply("a"), Asserts.expectedFailureContainsIgnoreCase(
+                "unexpected character", " 28 ", ")a"));
+        Asserts.assertFailsWith(() -> accessor.apply(".a-b"), Asserts.expectedFailureContainsIgnoreCase(
+                "unexpected character", " 30 ", "a-b"));
+    }
+
+
+        @Test
     public void testParseFunctionExplicit() {
         List fx = (List) new DslParser("$brooklyn:function.foo()").parse();
         assertEquals( ((FunctionWithArgs)fx.get(0)).getFunction(), "$brooklyn:function.foo" );

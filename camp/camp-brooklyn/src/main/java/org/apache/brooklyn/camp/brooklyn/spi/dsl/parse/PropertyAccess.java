@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.parse;
 
+import java.util.Objects;
+
+/** access a property in a map, position in a list, or otherwise a non-string (simple) expression being passed to a function */
 public class PropertyAccess {
     private final Object selector;
 
@@ -32,5 +35,16 @@ public class PropertyAccess {
     @Override
     public String toString() {
         return "PropertyAccess[" +selector + "]";
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof PropertyAccess)) return false;
+        return Objects.equals(selector, ((PropertyAccess)obj).selector);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(selector);
     }
 }

@@ -50,35 +50,32 @@ public class DslParser {
     public Object next() {
         int start = index;
 
-        boolean isProperty = (index > 0 && (expression.charAt(index -1) == '[' )) || // for [x] syntax - indexes in lists
+        boolean isAlreadyInBracket = (index > 0 && (expression.charAt(index -1) == '[' )) || // for [x] syntax - indexes in lists
             (index > 1 && (expression.charAt(index -1) == '"' && expression.charAt(index -2) == '[')) ;  // for ["x"] syntax - string properties and map keys
-        if (!isProperty) {
+        if (!isAlreadyInBracket) {
+            // feel like this block shouldn't be used; not sure it is
             skipWhitespace();
             if (index >= expression.length())
                 throw new IllegalStateException("Unexpected end of expression to parse, looking for content since position " + start);
 
             if (expression.charAt(index) == '"') {
                 // assume a string, that is why for property syntax using [x] or ["x"], we skip this part
-                int stringStart = index;
-                index++;
-                do {
-                    if (index >= expression.length())
-                        throw new IllegalStateException("Unexpected end of expression to parse, looking for close quote since position " + stringStart);
-                    char c = expression.charAt(index);
-                    if (c == '"') break;
-                    if (c == '\\') index++;
-                    index++;
-                } while (true);
-                index++;
-                return new QuotedString(expression.substring(stringStart, index));
+                return nextAsQuotedString();
             }
         }
         // not a string, must be a function (or chain thereof)
         List<Object> result = new MutableList<Object>();
 
+        skipWhitespace();
         int fnStart = index;
-        isProperty =  expression.charAt(fnStart) == '[';
-        if(!isProperty) {
+        boolean isBracketed = expression.charAt(fnStart) == '[';
+        if (isBracketed) {
+            if (isAlreadyInBracket)
+                throw new IllegalStateException("Nested brackets not permitted, at position "+start);
+            // proceed to below
+
+        } else {
+            // non-bracketed property access, skip separators
             do {
                 if (index >= expression.length())
                     break;
@@ -93,39 +90,73 @@ public class DslParser {
                 index++;
             } while (true);
         }
-        String fn = isProperty ? "" : expression.substring(fnStart, index);
-        if (fn.length()==0 && !isProperty)
-            throw new IllegalStateException("Expected a function name or double-quoted string at position "+start);
-        skipWhitespace();
 
-        if (index < expression.length() && ( expression.charAt(index)=='(' || expression.charAt(index)=='[')) {
+        String fn = isBracketed ? "" : expression.substring(fnStart, index);
+        if (fn.length()==0 && !isBracketed)
+            throw new IllegalStateException("Expected a function name or double-quoted string at position "+start);
+
+        if (index < expression.length() && ( isBracketed || expression.charAt(index)=='(')) {
             // collect arguments
             int parenStart = index;
             List<Object> args = new MutableList<>();
-            if (expression.charAt(index)=='[') {
+            if (expression.charAt(index)=='[' && !isBracketed) {
                 if (!fn.isEmpty()) {
                     return new PropertyAccess(fn);
                 }
-                if (expression.charAt(index +1)=='"') { index ++;} // for ["x"] syntax needs to be increased to extract the name of the property correctly
+                // not sure comes here
+                if (isBracketed)
+                    throw new IllegalStateException("Nested brackets not permitted, at position "+start);
+                isBracketed = true;
             }
-            index ++;
+            index++;
+            boolean justAdded = false;
             do {
                 skipWhitespace();
                 if (index >= expression.length())
                     throw new IllegalStateException("Unexpected end of arguments to function '"+fn+"', no close parenthesis matching character at position "+parenStart);
                 char c = expression.charAt(index);
-                if(isProperty && c =='"') { index++; break; } // increasing the index for ["x"] syntax to account for the presence of the '"'
-                if (c==')'|| c == ']') break;
-                if (c==',') {
-                    if (args.isEmpty())
-                        throw new IllegalStateException("Invalid character at position"+index);
-                    index++;
-                } else {
-                    if (!args.isEmpty() && !isProperty)
-                        throw new IllegalStateException("Expected , before position"+index);
+
+                if (c=='"') {
+                    if (justAdded)
+                        throw new IllegalStateException("Expected , before quoted string at position "+index);
+
+                    QuotedString next = nextAsQuotedString();
+                    if (isBracketed) args.add(next.unwrapped());
+                    else args.add(next);
+                    justAdded = true;
+                    continue;
                 }
+
+                if (c == ']') {
+                    if (!isBracketed)
+                        throw new IllegalStateException("Mismatched close bracket at position "+index);
+                    justAdded = false;
+                    break;
+                }
+                if (c==')') {
+                    justAdded = false;
+                    break;
+                }
+                if (c==',') {
+                    if (!justAdded)
+                        throw new IllegalStateException("Invalid character at position "+index);
+                    justAdded = false;
+                    index++;
+                    continue;
+                }
+
+                if (justAdded)  // did have this but don't think need it?: && !isProperty)
+                    throw new IllegalStateException("Expected , before position "+index);
+
                 args.add(next()); // call with first letter of the property
+                justAdded = true;
             } while (true);
+
+            if (justAdded) {
+                if (isBracketed) {
+                    throw new IllegalStateException("Expected ] at position " + index);
+                }
+            }
 
             if (fn.isEmpty()) {
                 Object arg = args.get(0);
@@ -182,8 +213,25 @@ public class DslParser {
         } else {
             // previously we returned a null-arg function; now we treat as explicit property access,
             // and places that need it as a function with arguments from a map key convert it on to new FunctionWithArgs(selector, null)
+
+            // ideally we'd have richer types here; sometimes it is property access, but sometimes just a wrapped non-quoted constant
             return new PropertyAccess(fn);
         }
+    }
+
+    private QuotedString nextAsQuotedString() {
+        int stringStart = index;
+        index++;
+        do {
+            if (index >= expression.length())
+                throw new IllegalStateException("Unexpected end of expression to parse, looking for close quote since position " + stringStart);
+            char c = expression.charAt(index);
+            if (c == '"') break;
+            if (c == '\\') index++;
+            index++;
+        } while (true);
+        index++;
+        return new QuotedString(expression.substring(stringStart, index));
     }
 
     private void skipWhitespace() {
