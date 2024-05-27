@@ -18,9 +18,6 @@
  */
 package org.apache.brooklyn.util.http;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -40,10 +37,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLSession;
-
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.crypto.SslTrustUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -65,6 +64,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
+import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
@@ -87,12 +87,8 @@ import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
-import com.google.common.base.Throwables;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * A utility tool for HTTP operations.
@@ -530,7 +526,14 @@ public class HttpTool {
             this.uri(uri);
         }
     }
-    
+
+    public static class HttpPatchBuilder extends HttpRequestBuilder<HttpPatch> {
+        public HttpPatchBuilder(URI uri) {
+            super(HttpPatch.class);
+            this.uri(uri);
+        }
+    }
+
     public static HttpToolResponse httpGet(HttpClient httpClient, URI uri, Map<String,String> headers) {
         HttpGet req = new HttpGetBuilder(uri).headers(headers).build();
         return execAndConsume(httpClient, req);
@@ -555,7 +558,12 @@ public class HttpTool {
         HttpPut req = new HttpPutBuilder(uri).headers(headers).body(body).build();
         return execAndConsume(httpClient, req);
     }
-    
+
+    public static HttpToolResponse httpPatch(HttpClient httpClient, URI uri, Multimap<String, String> headers, byte[] body) {
+        HttpPatch req = new HttpPatchBuilder(uri).headers(headers).body(body).build();
+        return execAndConsume(httpClient, req);
+    }
+
     public static HttpToolResponse httpPut(HttpClient httpClient, URI uri, Map<String, String> headers, byte[] body) {
         HttpPut req = new HttpPutBuilder(uri).headers(headers).body(body).build();
         return execAndConsume(httpClient, req);

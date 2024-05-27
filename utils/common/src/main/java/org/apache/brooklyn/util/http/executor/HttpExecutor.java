@@ -34,6 +34,7 @@ public interface HttpExecutor {
     static final String POST = "POST";
 
     static final String PUT = "PUT";
+    static final String PATCH = "PATCH";
 
     static final String DELETE = "DELETE";
 

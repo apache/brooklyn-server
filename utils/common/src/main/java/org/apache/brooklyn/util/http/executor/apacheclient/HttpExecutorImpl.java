@@ -94,6 +94,9 @@ public class HttpExecutorImpl implements HttpExecutor {
         case HttpExecutor.PUT:
             response = HttpTool.httpPut(httpClient, request.uri(), request.headers(), orEmpty(request.body()));
             break;
+        case HttpExecutor.PATCH:
+            response = HttpTool.httpPatch(httpClient, request.uri(), request.headers(), orEmpty(request.body()));
+            break;
         case HttpExecutor.DELETE:
             response = HttpTool.httpDelete(httpClient, request.uri(), request.headers());
             break;
