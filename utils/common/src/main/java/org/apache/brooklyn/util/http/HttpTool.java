@@ -480,6 +480,8 @@ public class HttpTool {
                         ((HttpPost) request).setEntity(this.body);
                     } else if (request instanceof HttpPut) {
                         ((HttpPut) request).setEntity(this.body);
+                    } else if (request instanceof HttpPatch) {
+                        ((HttpPatch) request).setEntity(this.body);
                     } else {
                         throw new Exception(this.requestClass.getSimpleName() + " does not support a request body");
                     }
