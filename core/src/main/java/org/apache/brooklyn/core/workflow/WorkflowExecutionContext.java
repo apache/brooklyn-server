@@ -441,10 +441,18 @@ public class WorkflowExecutionContext {
         return MutableMap.copyOf(workflowScratchVariables).asUnmodifiable();
     }
 
+    public Object clearWorkflowScratchVariable(String s) {
+        if (workflowScratchVariables == null) getWorkflowScratchVariables();
+        Object old = workflowScratchVariables.remove(s);
+        if (workflowScratchVariablesUpdatedThisStep==null) workflowScratchVariablesUpdatedThisStep = MutableMap.of();
+        workflowScratchVariablesUpdatedThisStep.put(s, Entities.REMOVE);
+        return old;
+    }
+
     public Object updateWorkflowScratchVariable(String s, Object v) {
-        if (workflowScratchVariables ==null) getWorkflowScratchVariables();
+        if (workflowScratchVariables == null) getWorkflowScratchVariables();
         Object old = workflowScratchVariables.put(s, v);
-        if (v==null) workflowScratchVariables.remove(s);
+        if (Entities.REMOVE.equals(v)) workflowScratchVariables.remove(s);
         if (workflowScratchVariablesUpdatedThisStep==null) workflowScratchVariablesUpdatedThisStep = MutableMap.of();
         workflowScratchVariablesUpdatedThisStep.put(s, v);
         return old;
@@ -452,8 +460,9 @@ public class WorkflowExecutionContext {
 
     public void updateWorkflowScratchVariables(Map<String,Object> newValues) {
         if (newValues!=null && !newValues.isEmpty()) {
-            if (workflowScratchVariables ==null) getWorkflowScratchVariables();
+            if (workflowScratchVariables == null) getWorkflowScratchVariables();
             workflowScratchVariables.putAll(newValues);
+            newValues.forEach((k,v)->{ if (Entities.REMOVE.equals(v)) workflowScratchVariables.remove(k); });
             if (workflowScratchVariablesUpdatedThisStep==null) workflowScratchVariablesUpdatedThisStep = MutableMap.of();
             workflowScratchVariablesUpdatedThisStep.putAll(newValues);
         }
@@ -787,7 +796,7 @@ public class WorkflowExecutionContext {
             includeUpdates = true;
             if (last.workflowScratch !=null) {
                 result = MutableMap.copyOf(last.workflowScratch).add(result);
-                result.entrySet().stream().filter(e -> e.getValue()==null).map(Map.Entry::getKey).forEach(result::remove);
+                result.entrySet().stream().filter(e -> Entities.REMOVE.equals(e.getValue())).map(Map.Entry::getKey).forEach(result::remove);
                 break;
             }
             if (last.previous==null || last.previous.isEmpty()) break;
