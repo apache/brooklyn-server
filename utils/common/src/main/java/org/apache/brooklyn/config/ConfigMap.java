@@ -33,6 +33,7 @@ public interface ConfigMap {
     
     /** returns the config, resolved and inheritance rules applied, with default value as per the key, or null */
     public <T> T getConfig(ConfigKey<T> key);
+    public <T> Maybe<T> getConfigMaybe(ConfigKey<T> key);
     
     /** @see #getConfig(ConfigKey), with default value as per the key, or null */
     public <T> T getConfig(HasConfigKey<T> key);

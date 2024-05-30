@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Identifiers;
 
 /**
@@ -89,6 +90,9 @@ public class BasicConfigurableObject implements Configurable, Identifiable, Mana
         public <T> T get(ConfigKey<T> key) {
             return config.get(key);
         }
+
+        @Override
+        public <T> Maybe<T> getMaybe(ConfigKey<T> ck) { return config.getMaybe(ck); }
 
         @Override
         public <T> T get(HasConfigKey<T> key) {

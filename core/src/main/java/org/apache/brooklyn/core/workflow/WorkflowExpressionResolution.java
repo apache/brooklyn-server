@@ -190,22 +190,22 @@ public class WorkflowExpressionResolution {
                 return ifNoMatches();
             }
 
-            Object candidate = null;
+            Maybe candidate = Maybe.absent();
 
             if (stage.after(WorkflowExpressionStage.STEP_PRE_INPUT)) {
                 //somevar -> workflow.current_step.output.somevar
                 WorkflowStepInstanceExecutionContext currentStep = context.currentStepInstance;
                 if (currentStep != null && stage.after(WorkflowExpressionStage.STEP_OUTPUT)) {
                     if (currentStep.getOutput() instanceof Map) {
-                        candidate = ((Map) currentStep.getOutput()).get(key);
-                        if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+                        candidate = getMapMaybe((Map) currentStep.getOutput(), key);
+                        if (candidate.isPresent()) return TemplateProcessor.wrapAsTemplateModelAllowingNull(candidate);
                     }
                 }
 
                 //somevar -> workflow.current_step.input.somevar
                 try {
                     if (currentStep!=null) {
-                        candidate = currentStep.getInput(key, Object.class);
+                        candidate = currentStep.getInputMaybe(key, Object.class);
                     }
                 } catch (Throwable t) {
                     Exceptions.propagateIfFatal(t);
@@ -241,33 +241,33 @@ public class WorkflowExpressionResolution {
                         //
                         // settled on (d) effectively; we allow local references, and fail on recursive references, with exceptions.
                         // the main exception, handled here, is if we are setting an input
-                        candidate = null;
+                        candidate = Maybe.absent();
                         errors.add(t);
                     }
                 }
-                if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+                if (candidate.isPresent()) return TemplateProcessor.wrapAsTemplateModelAllowingNull(candidate);
             }
 
             //workflow.previous_step.output.somevar
             if (stage.after(WorkflowExpressionStage.WORKFLOW_INPUT)) {
                 Object prevStepOutput = context.getPreviousStepOutput();
                 if (prevStepOutput instanceof Map) {
-                    candidate = ((Map) prevStepOutput).get(key);
-                    if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+                    candidate = getMapMaybe((Map) prevStepOutput, key);
+                    if (candidate.isPresent()) return TemplateProcessor.wrapAsTemplateModelAllowingNull(candidate);
                 }
             }
 
             //workflow.scratch.somevar
             if (stage.after(WorkflowExpressionStage.WORKFLOW_INPUT)) {
-                candidate = context.getWorkflowScratchVariables().get(key);
-                if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+                candidate = getMapMaybe(context.getWorkflowScratchVariables(), key);
+                if (candidate.isPresent()) return TemplateProcessor.wrapAsTemplateModelAllowingNull(candidate);
             }
 
             //workflow.input.somevar
             if (context.input.containsKey(key)) {
-                candidate = context.getInput(key);
+                candidate = context.getInputMaybe(key, TypeToken.of(Object.class), candidate);
                 // the subtlety around step input above doesn't apply here as workflow inputs are not resolved with freemarker
-                if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+                if (candidate.isPresent()) return TemplateProcessor.wrapAsTemplateModelAllowingNull(candidate);
             }
 
             if (!errors.isEmpty()) Exceptions.propagate("Errors resolving "+key, errors);
@@ -279,6 +279,12 @@ public class WorkflowExpressionResolution {
         public boolean isEmpty() throws TemplateModelException {
             return false;
         }
+    }
+
+    public static <K,V> Maybe<V> getMapMaybe(Map<K,V> map, K key) {
+        if (map==null) return Maybe.absent();
+        if (map.containsKey(key)) return Maybe.ofAllowingNull(map.get(key));
+        return Maybe.absent();
     }
 
     class WorkflowExplicitModel implements TemplateHashModel, TemplateProcessor.UnwrappableTemplateModel {

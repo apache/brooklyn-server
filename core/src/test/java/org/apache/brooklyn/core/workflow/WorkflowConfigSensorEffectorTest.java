@@ -201,15 +201,13 @@ public class WorkflowConfigSensorEffectorTest extends RebindTestFixture<TestAppl
                         "let y = ${x} ?? missing",
                         "return ${y}"));
         Asserts.assertEquals(lastInvocation.getUnchecked(), "missing");
-        Asserts.assertFailsWith(() -> runWorkflow(MutableList.of("let entity x = chilldx",
-                        "return ${x}")),
-                // would be nice not to cast it to null if not found, and maybe for return null to be allowed (?);
-                // might want a different way to look up an entity (functional?)
-//                Asserts.expectedFailureContainsIgnoreCase("entity", "not known", "chilldx")
-//                        .and(Asserts.expectedFailureDoesNotContainIgnoreCase("${x}", "null"))
-                // but for now it is useful to be able to do lookups, and null lets us tell it wasn't found
-                Asserts.expectedFailureContainsIgnoreCase("${x}", "null")
-                    );
+
+        Asserts.assertEquals(runWorkflow(MutableList.of("let entity x = chilldx", "return ${x}")), null);
+        // previously the above failed; it set x as null, but couldn't return it.
+        // now it can return null, so it works.
+        // we might want to be stricter that entities not found throw an error,
+        // or have a cleaner way to find an entity (possibly with more search control?),
+        // at which point we can provide more semantics
     }
 
 }

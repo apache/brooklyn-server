@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.LossySerializingThrowable;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -163,6 +164,9 @@ public class WorkflowStepInstanceExecutionContext {
     public <T> T getInput(String key, Class<T> type) {
         return getInput(key, TypeToken.of(type));
     }
+    public <T> Maybe<T> getInputMaybe(String key, Class<T> type) {
+        return getInputMaybe(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, key, TypeToken.of(type));
+    }
     /** Returns the resolved value of the given key, converting to the given type.
      * Stores the resolved input so if re-resolved it returns the same.
      * (Input is not resolved until first access because some implementations, such as 'let', might handle errors in resolution.
@@ -177,23 +181,30 @@ public class WorkflowStepInstanceExecutionContext {
         return input.containsKey(key);
     }
     public <T> T getInput(WorkflowExpressionResolution.WorkflowExpressionStage stage, String key, TypeToken<T> type) {
-        if (inputResolved.containsKey(key)) return (T)inputResolved.get(key);
+        return getInputMaybe(stage, key, type).orNull();
+    }
+    public <T> Maybe<T> getInputMaybe(WorkflowExpressionResolution.WorkflowExpressionStage stage, String key, TypeToken<T> type) {
+        if (inputResolved.containsKey(key)) return Maybe.ofAllowingNull((T)inputResolved.get(key));
 
-        Object v = input.get(key);
+        Maybe<Object> vm = WorkflowExpressionResolution.getMapMaybe(input, key);
+        if (vm.isAbsent()) return Maybe.castAbsent(vm);
+
+        if (vm.isNull()) return Maybe.ofAllowingNull(null);
+        Object v = vm.get();
         T v2;
         try {
             v2 = WorkflowExpressionResolution.allowingRecursionWhenSetting(context, WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, key,
                     () -> context.resolve(stage, v, type));
         } catch (Exception e) {
-            throw Exceptions.propagateAnnotated("Cannot resolve input "+
-                    (Boxing.isPrimitiveOrStringOrBoxedObject(v) ? "'"+v+"'" : v.getClass().getName() + " ("+v+")"), e);
+            throw Exceptions.propagateAnnotated("Cannot resolve input " +
+                    (Boxing.isPrimitiveOrStringOrBoxedObject(v) ? "'" + v + "'" : v.getClass().getName() + " (" + v + ")"), e);
         }
         if (REMEMBER_RESOLVED_INPUT) {
             if (!Objects.equals(v, v2)) {
                 inputResolved.put(key, v2);
             }
         }
-        return v2;
+        return Maybe.of(v2);
     }
     /** Returns the unresolved value of the given key */
     public Object getInputRaw(String key) {

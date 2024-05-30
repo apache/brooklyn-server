@@ -37,6 +37,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.EffectorBase;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
@@ -85,6 +86,14 @@ public class TemplateProcessor {
 
     static BrooklynFreemarkerUnwrappableObjectWrapper BROOKLYN_WRAPPER = new BrooklynFreemarkerUnwrappableObjectWrapper();
     public static TemplateModel wrapAsTemplateModel(Object o) throws TemplateModelException { return BROOKLYN_WRAPPER.wrap(o); }
+    public static TemplateModel wrapAsTemplateModelAllowingNull(Maybe<?> m) throws TemplateModelException {
+        if (m.isPresent()) {
+            Object o = m.get();
+            if (o==null) return TemplateModel.NOTHING;
+            return BROOKLYN_WRAPPER.wrap(o);
+        }
+        return null;
+    }
     public static Maybe<Object> unwrapTemplateModelMaybe(TemplateModel templateModel) { return BROOKLYN_WRAPPER.unwrapMaybe(templateModel); }
 
     static ThreadLocalStack<Map<TemplateModel,Object>> TEMPLATE_MODEL_UNWRAP_CACHE = new ThreadLocalStack<>();
@@ -111,6 +120,8 @@ public class TemplateProcessor {
                 result = ((UnwrappableTemplateModel) model).unwrap();
                 if (result.isPresent()) return result;
             }
+            if (TemplateModel.NOTHING.getClass().isInstance(model)) return Maybe.ofAllowingNull(null);
+
             Maybe<Map<TemplateModel, Object>> unwrappingMapM = TEMPLATE_MODEL_UNWRAP_CACHE.peek();
             if (unwrappingMapM.isAbsent()) {
                 return Maybe.absent("This thread does not support unwrapping");
@@ -457,13 +468,14 @@ public class TemplateProcessor {
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
             try {
-                Object result = entity.getConfig(ConfigKeys.builder(Object.class).name(key).build());
+                BasicConfigKey<Object> ck = ConfigKeys.builder(Object.class).name(key).build();
+                Maybe<Object> result = entity.config().getMaybe(ck);
 
-                if (result==null)
-                    result = mgmt.getConfig().getConfig(ConfigKeys.builder(Object.class).name(key).build());
+                if (result.isAbsent())
+                    result = mgmt.getConfig().getConfigMaybe(ck);
 
-                if (result!=null)
-                    return wrapAsTemplateModel( result );
+                if (result.isPresent())
+                    return wrapAsTemplateModelAllowingNull( result );
 
             } catch (Exception e) {
                 throw handleModelError("Error accessing config '"+key+"' on "+entity, e);
@@ -496,10 +508,9 @@ public class TemplateProcessor {
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
             try {
-                Object result = mgmt.getConfig().getConfig(ConfigKeys.builder(Object.class).name(key).build());
+                Maybe<Object> result = mgmt.getConfig().getConfigMaybe(ConfigKeys.builder(Object.class).name(key).build());
 
-                if (result!=null)
-                    return wrapAsTemplateModel( result );
+                if (result.isPresent()) return wrapAsTemplateModelAllowingNull( result );
 
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
@@ -535,15 +546,14 @@ public class TemplateProcessor {
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
             try {
-                Object result = null;
+                Maybe<Object> result = null;
 
-                result = location.getConfig(ConfigKeys.builder(Object.class).name(key).build());
+                result = location.config().getMaybe(ConfigKeys.builder(Object.class).name(key).build());
 
-                if (result==null && mgmt!=null)
-                    result = mgmt.getConfig().getConfig(ConfigKeys.builder(Object.class).name(key).build());
+                if (result.isAbsent() && mgmt!=null)
+                    result = mgmt.getConfig().getConfigMaybe(ConfigKeys.builder(Object.class).name(key).build());
 
-                if (result!=null)
-                    return wrapAsTemplateModel( result );
+                if (result.isPresent()) return wrapAsTemplateModelAllowingNull( result );
 
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
@@ -617,6 +627,7 @@ public class TemplateProcessor {
 
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
+            // TODO could support null here, like we do for sensors and workflow
             Object result;
             try {
                 result =

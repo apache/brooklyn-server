@@ -130,8 +130,14 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
 
     @Override
     public <T> T getConfig(ConfigKey<T> key) {
-        T raw = delegate.getConfig(key);
-        return resolve(key, raw);
+        return getConfigMaybe(key).orNull();
+    }
+
+    @Override
+    public <T> Maybe<T> getConfigMaybe(ConfigKey<T> key) {
+        Maybe<T> raw = delegate.getConfigMaybe(key);
+        if (raw.isAbsent()) return Maybe.castAbsent(raw);
+        return Maybe.ofAllowingNull(resolve(key, raw.get()));
     }
 
     @Override

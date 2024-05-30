@@ -178,7 +178,11 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     @Override
     public <T> T get(ConfigKey<T> key) {
         // validation done by getConfig call below
-        return (T) getConfigsInternal().getConfig(key);
+        return getConfigsInternal().getConfig(key);
+    }
+
+    public <T> Maybe<T> getMaybe(ConfigKey<T> key) {
+        return getConfigsInternal().getConfigMaybe(key);
     }
 
     @SuppressWarnings("unchecked")

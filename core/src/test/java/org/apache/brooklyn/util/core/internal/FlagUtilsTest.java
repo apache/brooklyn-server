@@ -372,15 +372,9 @@ public class FlagUtilsTest {
         }
         
         private class BasicConfigurationSupport implements ConfigurationSupport {
-            @Override
-            public <T> T get(ConfigKey<T> key) {
-                return bag.get(key);
-            }
-
-            @Override
-            public <T> T get(HasConfigKey<T> key) {
-                return get(key.getConfigKey());
-            }
+            @Override public <T> T get(ConfigKey<T> key) { return bag.get(key); }
+            @Override public <T> Maybe<T> getMaybe(ConfigKey<T> ck) { return bag.getMaybe(ck); }
+            @Override public <T> T get(HasConfigKey<T> key) { return get(key.getConfigKey()); }
 
             @Override
             public <T> T set(ConfigKey<T> key, T val) {

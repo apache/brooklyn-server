@@ -18,7 +18,8 @@
  */
 package org.apache.brooklyn.util.exceptions;
 
-import org.apache.brooklyn.util.text.Strings;
+import java.util.function.Supplier;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,6 +77,15 @@ public class PropagatedRuntimeException extends RuntimeException {
 
     public boolean isCauseEmbeddedInMessage() {
         return causeEmbeddedInMessage;
+    }
+
+    public static RuntimeException asRuntimeException(Throwable t) {
+        return asRuntimeException(t, null);
+    }
+    public static RuntimeException asRuntimeException(Throwable t, Supplier<RuntimeException> ifNull) {
+        if (t==null) return ifNull==null ? null : ifNull.get();
+        if (t instanceof RuntimeException) return (RuntimeException) t;
+        return new PropagatedRuntimeException(t);
     }
 
 }

@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Future;
@@ -58,6 +59,7 @@ import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.MaybeSupplier;
@@ -108,7 +110,17 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
 
     @Override
     public <T> T getConfig(ConfigKey<T> key) {
-        return getConfigImpl(key, false).getWithoutError().get();
+//        return getConfigImpl(key, false).getWithoutError().get();
+        return getConfigMaybe(key).orNull();
+    }
+
+    @Override
+    public <T> Maybe<T> getConfigMaybe(ConfigKey<T> key) {
+        ReferenceWithError<ConfigValueAtContainer<TContainer, T>> vo = getConfigImpl(key, false);
+        ConfigValueAtContainer<TContainer, T> v = vo.getWithoutError();
+        if (v.isValueExplicitlySet()) return Maybe.of(v.get());
+        if (v.getDefaultValue()!=null) return v.getDefaultValue();
+        return Maybe.absent(() -> PropagatedRuntimeException.asRuntimeException(vo.getError(), () -> new NoSuchElementException("No value or default for '"+key.getName()+"'")));
     }
     
     @Override

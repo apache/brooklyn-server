@@ -464,16 +464,25 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
     }
 
     @Override
+    public <T> Maybe<T> getConfigMaybe(ConfigKey<T> key) {
+        return getConfigMaybe(key, null,Maybe.absent("Key not present and no default value"));
+    }
+
+    @Override
     public <T> T getConfig(ConfigKey<T> key, T defaultValue) {
+        return getConfigMaybe(key, defaultValue==null ? null : Maybe.of(defaultValue), null).orNull();
+    }
+    public <T> Maybe<T> getConfigMaybe(ConfigKey<T> key, Maybe<T> defaultValueForceOverrideIfPresent,
+            Maybe<T> defaultValueIfNoKeyDefault) {
         // TODO does not support MapConfigKey etc where entries use subkey notation; for now, access using submap
         if (!containsKey(key.getName())) {
-            if (defaultValue!=null) return defaultValue;
-            return key.getDefaultValue();
+            if (defaultValueForceOverrideIfPresent!=null && defaultValueForceOverrideIfPresent.isPresent()) return defaultValueForceOverrideIfPresent;
+            return Maybe.ofDisallowingNull(key.getDefaultValue()).or(defaultValueIfNoKeyDefault!=null ? defaultValueIfNoKeyDefault : Maybe.absent());
         }
-        Object value = get(key.getName());
-        if (value==null) return null;
+        Maybe<Object> value = getMaybe(key.getName());
+        if (value.isAbsent()) return Maybe.castAbsent(value); // shouldn't happen
         // no evaluation / key extraction here
-        return TypeCoercions.coerce(value, key.getTypeToken());
+        return Maybe.ofAllowingNull(TypeCoercions.coerce(value.get(), key.getTypeToken()));
     }
 
     @Override
@@ -604,6 +613,13 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
     protected Object get(String key) {
         synchronized (contents) {
             return contents.get(key);
+        }
+    }
+
+    protected Maybe<Object> getMaybe(String key) {
+        synchronized (contents) {
+            if (!contents.containsKey(key)) return Maybe.absent();
+            return Maybe.ofAllowingNull(contents.get(key));
         }
     }
     

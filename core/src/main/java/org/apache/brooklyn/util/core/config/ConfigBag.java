@@ -371,10 +371,15 @@ public class ConfigBag {
     }
 
     /** returns the value of this config key, falling back to its default (use containsKey to see whether it was contained);
+     * and null if not found;
      * also marks it as having been used (use peek to prevent marking as used)
      */
     public <T> T get(ConfigKey<T> key) {
         return get(key, true);
+    }
+    /** as get, but wrapped as a maybe so explicit null can be investigated */
+    public <T> Maybe<T> getMaybe(ConfigKey<T> key) {
+        return getMaybe(key, true);
     }
 
     /** gets a value from a string-valued key or null; ConfigKey is preferred, but this is useful in some contexts (e.g. setting from flags) */
@@ -535,33 +540,40 @@ public class ConfigBag {
     }
 
     protected <T> T get(ConfigKey<T> key, boolean markUsed) {
+        return getMaybe(key, markUsed).orNull();
+    }
+    protected <T> Maybe<T> getMaybe(ConfigKey<T> key, boolean markUsed) {
         // TODO for now, no evaluation -- maps / closure content / other smart (self-extracting) keys are NOT supported
         // (need a clean way to inject that behaviour, as well as desired TypeCoercions)
         // this method, and the coercion, is not synchronized, nor does it need to be, because the "get" is synchronized.
         Maybe<Object> val = getKeyMaybeUncoercedIfPresent(key, markUsed);
-        return coerceFirstNonNullKeyValue(key, val.orNull());
+        if (val.isNull()) return Maybe.ofAllowingNull(null);
+        return coerceFirstNonNullKeyValueMaybe(key, val.orNull());
     }
 
     /** If the key is set, return the type-correct (coerced) value, but not any default; otherwise returns absent */
     public <T> Maybe<T> ifPresent(ConfigKey<T> key) {
         Maybe<Object> val = getKeyMaybeUncoercedIfPresent(key, true);
-        if (val.isAbsent()) return ((Maybe<T>)val);
-        return Maybe.of(coerceFirstNonNullKeyValue(key, val.get()));
+        if (val.isAbsent() || val.isNull()) return ((Maybe<T>)val); // don't allow default, and do allow null
+        return coerceFirstNonNullKeyValueMaybe(key, val.orNull());
     }
 
     /** returns the first non-null value to be the type indicated by the key, or the keys default value if no non-null values are supplied */
     public static <T> T coerceFirstNonNullKeyValue(ConfigKey<T> key, Object ...values) {
+        return coerceFirstNonNullKeyValueMaybe(key, values).orNull();
+    }
+    public static <T> Maybe<T> coerceFirstNonNullKeyValueMaybe(ConfigKey<T> key, Object ...values) {
         for (Object o: values) {
             if (o != null) {
                 try {
-                    return TypeCoercions.coerce(o, key.getTypeToken());
+                    return Maybe.ofAllowingNull(TypeCoercions.coerce(o, key.getTypeToken()));
                 } catch (Exception e) {
                     throw Exceptions.propagate("Error resolving "+key.getName()+" value "+o+" as "+key.getTypeToken()+": "+e, e);
                 }
             }
         }
         try {
-            return TypeCoercions.coerce(key.getDefaultValue(), key.getTypeToken());
+            return Maybe.ofDisallowingNull(TypeCoercions.coerce(key.getDefaultValue(), key.getTypeToken()));
         } catch (Exception e) {
             throw Exceptions.propagate("Error resolving "+key.getName()+" default value "+key.getDefaultValue()+" as "+key.getTypeToken()+": "+e, e);
         }

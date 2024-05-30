@@ -44,6 +44,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -158,13 +159,11 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         private class BasicConfigurationSupport implements ConfigurationSupport {
             private final ConfigBag bag = new ConfigBag();
             
-            @Override
-            public <T> T get(ConfigKey<T> key) {
+            @Override public <T> T get(ConfigKey<T> key) {
                 return bag.get(key);
             }
-
-            @Override
-            public <T> T get(HasConfigKey<T> key) {
+            @Override public <T> Maybe<T> getMaybe(ConfigKey<T> ck) { return bag.getMaybe(ck); }
+            @Override public <T> T get(HasConfigKey<T> key) {
                 return get(key.getConfigKey());
             }
 

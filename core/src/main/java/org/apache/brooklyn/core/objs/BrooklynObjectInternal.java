@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.config.ConfigMap.ConfigMapWithInheritance;
+import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupportedException;

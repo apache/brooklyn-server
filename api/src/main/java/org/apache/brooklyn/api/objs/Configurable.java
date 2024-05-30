@@ -27,6 +27,7 @@ import org.apache.brooklyn.config.ConfigMap;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
+import org.apache.brooklyn.util.guava.Maybe;
 
 /**
  * Something that has mutable config, such as an entity or policy.
@@ -101,5 +102,7 @@ public interface Configurable {
 
         /** see {@link ConfigMap#findKeysPresent(Predicate)}  */
         public Set<ConfigKey<?>> findKeysPresent(Predicate<? super ConfigKey<?>> filter);
+
+        public <T> Maybe<T> getMaybe(ConfigKey<T> ck);
     }
 }
