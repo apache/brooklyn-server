@@ -18,6 +18,25 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -42,6 +61,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext.SubworkflowLocality;
 import org.apache.brooklyn.core.workflow.store.WorkflowRetentionAndExpiration;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.core.workflow.utils.WorkflowRetentionParser;
@@ -66,20 +86,6 @@ import org.apache.brooklyn.util.time.Time;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static org.apache.brooklyn.core.workflow.WorkflowReplayUtils.ReplayResumeDepthCheck.RESUMABLE_WHENEVER_NESTED_WORKFLOWS_PRESENT;
 
@@ -1600,10 +1606,17 @@ public class WorkflowExecutionContext {
                     log.debug(prefix + "no further steps: Workflow completed");
                 }
             } else if (specialNext instanceof String) {
-                boolean isInLocalSubworkflow = getParent()!=null && getParent().currentStepInstance!=null && Boolean.TRUE.equals(getParent().currentStepInstance.isLocalSubworkflow);
-                if (isInLocalSubworkflow && Boolean.TRUE.equals(currentStepInstance.nextIsReturn)) {
+                SubworkflowLocality subworkflowLocality = getParent() != null && getParent().currentStepInstance != null ? getParent().currentStepInstance.subworkflowLocality : null;
+                boolean isInLocalSubworkflow = subworkflowLocality!=null && subworkflowLocality.ordinal()>=SubworkflowLocality.LOCAL_STEPS_SHARED_CONTEXT.ordinal();
+                if (isInLocalSubworkflow && STEP_TARGET_NAME_FOR_END.equals(specialNext)) {
                     // parent of local subworkflow should return also
-                    getParent().currentStepInstance.next = specialNext;
+                    if (Boolean.TRUE.equals(currentStepInstance.nextIsReturn)) {
+                        getParent().currentStepInstance.next = specialNext;
+                        getParent().currentStepInstance.nextIsReturn = true;
+                    } else if (SubworkflowLocality.INLINE_SHARED_CONTEXT.equals(subworkflowLocality)) {
+                        // if statement as shorthand should go to end of calling workflow
+                        getParent().currentStepInstance.next = specialNext;
+                    }
                 }
 
                 String explicitNext = (String)specialNext;

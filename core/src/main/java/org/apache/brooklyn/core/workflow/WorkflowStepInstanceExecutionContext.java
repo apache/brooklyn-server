@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.reflect.TypeToken;
 import com.thoughtworks.xstream.annotations.XStreamAlias;
+import com.thoughtworks.xstream.annotations.XStreamOmitField;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
@@ -42,6 +43,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class WorkflowStepInstanceExecutionContext {
@@ -84,7 +86,20 @@ public class WorkflowStepInstanceExecutionContext {
     // replay instructions or a string explicit next step identifier
     public Object next;
     public Boolean nextIsReturn;
-    public Boolean isLocalSubworkflow;
+    @XStreamAlias("isLocalSubworkflow") @XStreamOmitField @JsonIgnore
+    private Boolean _isLocalSubworkflow_KeptForLegacyRebind;  // remove after Brooklyn 1.2 released; replaced by subworkflowLocality
+
+    public enum SubworkflowLocality {
+        /** least local; workflow is a separate saved type */
+        ENCAPSULATED,
+        /** defined in same context, but in such a way it should run in a separate context eg foreach */
+        LOCAL_SEPARATE_CONTEXT,
+        /** defined in same context, in such a way it shares context with parent, but as steps */
+        LOCAL_STEPS_SHARED_CONTEXT,
+        /** defined in same context, in such a way it shares context with parent, and inline so it should feel like outer context */
+        INLINE_SHARED_CONTEXT,
+    }
+    @Nullable public SubworkflowLocality subworkflowLocality;
 
     /** Return any error we are handling, if the step is in an error handler,
      * or an unhandled error if the step is not in an error handler,

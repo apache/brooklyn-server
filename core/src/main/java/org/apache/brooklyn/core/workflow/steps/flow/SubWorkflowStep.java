@@ -18,20 +18,15 @@
  */
 package org.apache.brooklyn.core.workflow.steps.flow;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-import com.google.common.base.MoreObjects;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.workflow.WorkflowCommonConfig;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
-import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext.SubworkflowLocality;
 import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -41,8 +36,12 @@ public class SubWorkflowStep extends CustomWorkflowStep {
 
     public static final String SHORTHAND_TYPE_NAME_DEFAULT = "subworkflow";
 
-    protected static final Set<String> FORBIDDEN_IN_SUBWORKFLOW_STEP_ALWAYS = MutableSet.copyOf(FORBIDDEN_IN_REGISTERED_TYPE_EXTENSIONS)
-            .putAll(MutableSet.of("target", "concurrency")).asUnmodifiable();
+    protected static MutableSet<String> X = MutableSet.of("target", "concurrency");
+    protected static final Set<String> FORBIDDEN_ON_SUBWORKFLOW_STEP_FIELDS = MutableSet.<String>of()
+            .putAll(X).asUnmodifiable();
+    protected static final Set<String> FORBIDDEN_ON_SUBWORKFLOW_STEP_MAP = MutableSet.copyOf(FORBIDDEN_ON_NORMAL_WORKFLOW_STEP_MAP)
+                .putAll(FORBIDDEN_ON_ALL_WORKFLOW_STEP_TYPES_MAP)
+                .putAll(X).asUnmodifiable();
 
     public SubWorkflowStep() {}
 
@@ -54,15 +53,20 @@ public class SubWorkflowStep extends CustomWorkflowStep {
         return !isRegisteredTypeExtensionToClass(SubWorkflowStep.class, SHORTHAND_TYPE_NAME_DEFAULT, typeBestGuess);
     }
 
+    protected SubworkflowLocality getSubworkflowLocality() {
+        if (subworkflowLocality!=null) return subworkflowLocality;
+        return SubworkflowLocality.LOCAL_STEPS_SHARED_CONTEXT;
+    }
+
     protected void checkCallerSuppliedDefinition(String typeBestGuess, Map m) {
         if (!isInternalClassNotExtendedAndUserAllowedToSetMostThings(typeBestGuess)) {
             throw new IllegalArgumentException("Not permitted to define a custom subworkflow step with this supertype");
         }
         // these can't be set by user or registered type for subworkflow
-        FORBIDDEN_IN_SUBWORKFLOW_STEP_ALWAYS.stream().filter(m::containsKey).forEach(forbiddenKey -> {
+        FORBIDDEN_ON_SUBWORKFLOW_STEP_MAP.stream().filter(m::containsKey).forEach(forbiddenKey -> {
             throw new IllegalArgumentException("Not permitted to set '" + forbiddenKey + "' when using a subworkflow step");
         });
-        FORBIDDEN_IN_SUBWORKFLOW_STEP_ALWAYS.stream().filter(k -> (Reflections.getFieldValueMaybe(this, k).isPresentAndNonNull())).forEach(forbiddenKey -> {
+        FORBIDDEN_ON_SUBWORKFLOW_STEP_FIELDS.stream().filter(k -> (Reflections.getFieldValueMaybe(this, k).isPresentAndNonNull())).forEach(forbiddenKey -> {
             throw new IllegalArgumentException("Not permitted for a subworkflow step to use '" + forbiddenKey + "'");
         });
     }
@@ -75,7 +79,6 @@ public class SubWorkflowStep extends CustomWorkflowStep {
 
     @Override
     protected Map initializeReducingVariables(WorkflowStepInstanceExecutionContext context, Map<String, Object> reducing) {
-        context.isLocalSubworkflow = true;
         MutableMap<String, Object> allVarsInScope = MutableMap.copyOf(context.getWorkflowExectionContext().getWorkflowScratchVariables());
         // make output visible
         allVarsInScope.add("output", context.getWorkflowExectionContext().getPreviousStepOutput());

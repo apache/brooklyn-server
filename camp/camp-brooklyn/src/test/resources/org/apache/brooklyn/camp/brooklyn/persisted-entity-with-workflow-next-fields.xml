@@ -1,0 +1,678 @@
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+
+<entity>
+    <brooklynVersion>1.2.0-SNAPSHOT</brooklynVersion>
+    <type>org.apache.brooklyn.entity.stock.BasicApplicationImpl</type>
+    <id>zxg2xnpxur</id>
+    <displayName>Application (zxg2xnpxur)</displayName>
+    <searchPath class="ImmutableList"/>
+    <attributes>
+        <service.notUp.indicators>
+            <MutableMap>
+                <service.state>Application created but not yet started, at 2024-05-31 13:27:34.488</service.state>
+            </MutableMap>
+        </service.notUp.indicators>
+        <entity.id>zxg2xnpxur</entity.id>
+        <application.id>zxg2xnpxur</application.id>
+        <catalog.id>
+            <null/>
+        </catalog.id>
+        <service.isUp type="boolean">false</service.isUp>
+        <internals.brooklyn.workflow>
+            <MutableMap>
+                <wLJtGOKE>
+                    <org.apache.brooklyn.core.workflow.WorkflowExecutionContext>
+                        <name>test</name>
+                        <entity>zxg2xnpxur</entity>
+                        <status>SUCCESS</status>
+                        <lastStatusChangeTime>2024-05-31T12:27:34.994Z</lastStatusChangeTime>
+                        <stepsDefinition>
+                            <string>let x = 1</string>
+                            <map>
+                                <steps>
+                                    <list>
+                                        <string>if ${x} == 1 then goto end</string>
+                                        <string>let x = 2</string>
+                                        <string>goto end</string>
+                                        <string>let x = no1</string>
+                                    </list>
+                                </steps>
+                            </map>
+                            <map>
+                                <steps>
+                                    <list>
+                                        <string>return ${x}</string>
+                                    </list>
+                                </steps>
+                            </map>
+                        </stepsDefinition>
+                        <input class="MutableMap"/>
+                        <inputResolved class="MutableMap"/>
+                        <output class="string">2</output>
+                        <onError class="MutableList"/>
+                        <workflowId>wLJtGOKE</workflowId>
+                        <taskId>wLJtGOKE</taskId>
+                        <retention>
+                            <expiryResolved>parent</expiryResolved>
+                            <softExpiryResolved>parent</softExpiryResolved>
+                        </retention>
+                        <replays class="MutableSet">
+                            <org.apache.brooklyn.core.workflow.WorkflowReplayUtils_-WorkflowReplayRecord>
+                                <taskId>wLJtGOKE</taskId>
+                                <reasonForReplay>initial run</reasonForReplay>
+                                <submitTimeUtc>1717158454664</submitTimeUtc>
+                                <startTimeUtc>1717158454664</startTimeUtc>
+                                <endTimeUtc>1717158454994</endTimeUtc>
+                                <status>Completed</status>
+                                <isError>false</isError>
+                                <result class="string">2</result>
+                            </org.apache.brooklyn.core.workflow.WorkflowReplayUtils_-WorkflowReplayRecord>
+                        </replays>
+                        <replayableLastStep>-2</replayableLastStep>
+                        <currentStepIndex>3</currentStepIndex>
+                        <previousStepIndex>2</previousStepIndex>
+                        <previousStepTaskId>cFQn0u52</previousStepTaskId>
+                        <currentStepInstance>
+                            <stepIndex>2</stepIndex>
+                            <taskId>cFQn0u52</taskId>
+                            <input class="MutableMap"/>
+                            <inputResolved class="MutableMap"/>
+                            <next class="string">end</next>
+                            <nextIsReturn>true</nextIsReturn>
+                            <isLocalSubworkflow>true</isLocalSubworkflow>
+                            <stepState class="org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep$StepState">
+                                <wasList>false</wasList>
+                                <reducing>
+                                    <x>2</x>
+                                </reducing>
+                            </stepState>
+                            <subWorkflows class="MutableSet">
+                                <org.apache.brooklyn.core.mgmt.BrooklynTaskTags_-WorkflowTaskTag>
+                                    <applicationId>zxg2xnpxur</applicationId>
+                                    <entityId>zxg2xnpxur</entityId>
+                                    <workflowId>Z13KmPUw</workflowId>
+                                    <workflowName>subworkflow (sub-workflow)</workflowName>
+                                </org.apache.brooklyn.core.mgmt.BrooklynTaskTags_-WorkflowTaskTag>
+                            </subWorkflows>
+                            <output class="string">2</output>
+                            <otherMetadata class="MutableMap"/>
+                        </currentStepInstance>
+                        <oldStepInfo class="MutableMap">
+                            <entry>
+                                <int>0</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>1</countStarted>
+                                    <countCompleted>1</countCompleted>
+                                    <context>
+                                        <stepIndex>0</stepIndex>
+                                        <taskId>bD5oq3Mc</taskId>
+                                        <input class="MutableMap">
+                                            <variable>
+                                                <MutableMap>
+                                                    <name>x</name>
+                                                </MutableMap>
+                                            </variable>
+                                            <value>1</value>
+                                            <interpolation__mode type="org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep$InterpolationMode">WORDS</interpolation__mode>
+                                        </input>
+                                        <inputResolved class="MutableMap">
+                                            <variable>
+                                                <org.apache.brooklyn.core.workflow.steps.variables.TypedValueToSet>
+                                                    <name>x</name>
+                                                </org.apache.brooklyn.core.workflow.steps.variables.TypedValueToSet>
+                                            </variable>
+                                        </inputResolved>
+                                        <subWorkflows class="MutableSet"/>
+                                        <otherMetadata class="MutableMap"/>
+                                    </context>
+                                    <workflowScratchUpdates class="MutableMap">
+                                        <x>1</x>
+                                    </workflowScratchUpdates>
+                                    <previous class="MutableSet">
+                                        <int>-1</int>
+                                    </previous>
+                                    <next class="MutableSet">
+                                        <int>1</int>
+                                    </next>
+                                    <nextTaskId>pLDBANkQ</nextTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>-1</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>0</countStarted>
+                                    <countCompleted>0</countCompleted>
+                                    <next class="MutableSet">
+                                        <int>0</int>
+                                    </next>
+                                    <nextTaskId>bD5oq3Mc</nextTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>1</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>1</countStarted>
+                                    <countCompleted>1</countCompleted>
+                                    <context>
+                                        <stepIndex>1</stepIndex>
+                                        <taskId>pLDBANkQ</taskId>
+                                        <input class="MutableMap"/>
+                                        <inputResolved class="MutableMap"/>
+                                        <isLocalSubworkflow>true</isLocalSubworkflow>
+                                        <stepState class="org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep$StepState">
+                                            <wasList>false</wasList>
+                                            <reducing>
+                                                <x>1</x>
+                                            </reducing>
+                                        </stepState>
+                                        <subWorkflows class="MutableSet">
+                                            <org.apache.brooklyn.core.mgmt.BrooklynTaskTags_-WorkflowTaskTag>
+                                                <applicationId>zxg2xnpxur</applicationId>
+                                                <entityId>zxg2xnpxur</entityId>
+                                                <workflowId>VSXPiHV0</workflowId>
+                                                <workflowName>subworkflow (sub-workflow)</workflowName>
+                                            </org.apache.brooklyn.core.mgmt.BrooklynTaskTags_-WorkflowTaskTag>
+                                        </subWorkflows>
+                                        <otherMetadata class="MutableMap"/>
+                                    </context>
+                                    <workflowScratchUpdates class="MutableMap">
+                                        <target>
+                                            <null/>
+                                        </target>
+                                        <x>2</x>
+                                    </workflowScratchUpdates>
+                                    <previous class="MutableSet">
+                                        <int>0</int>
+                                    </previous>
+                                    <next class="MutableSet">
+                                        <int>2</int>
+                                    </next>
+                                    <previousTaskId>bD5oq3Mc</previousTaskId>
+                                    <nextTaskId>cFQn0u52</nextTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>2</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>1</countStarted>
+                                    <countCompleted>1</countCompleted>
+                                    <context reference="../../../../currentStepInstance"/>
+                                    <workflowScratchUpdates class="MutableMap">
+                                        <target>
+                                            <null/>
+                                        </target>
+                                        <x>2</x>
+                                    </workflowScratchUpdates>
+                                    <previous class="MutableSet">
+                                        <int>1</int>
+                                    </previous>
+                                    <next class="MutableSet">
+                                        <int>-2</int>
+                                    </next>
+                                    <previousTaskId>pLDBANkQ</previousTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>-2</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>0</countStarted>
+                                    <countCompleted>0</countCompleted>
+                                    <previous class="MutableSet">
+                                        <int>2</int>
+                                    </previous>
+                                    <previousTaskId>cFQn0u52</previousTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                        </oldStepInfo>
+                        <retryRecords class="MutableMap"/>
+                    </org.apache.brooklyn.core.workflow.WorkflowExecutionContext>
+                </wLJtGOKE>
+                <VSXPiHV0>
+                    <org.apache.brooklyn.core.workflow.WorkflowExecutionContext>
+                        <name>subworkflow (sub-workflow)</name>
+                        <entity reference="../../../wLJtGOKE/org.apache.brooklyn.core.workflow.WorkflowExecutionContext/entity"/>
+                        <status>SUCCESS</status>
+                        <lastStatusChangeTime>2024-05-31T12:27:34.969Z</lastStatusChangeTime>
+                        <parentTag>
+                            <applicationId>zxg2xnpxur</applicationId>
+                            <entityId>zxg2xnpxur</entityId>
+                            <workflowId>wLJtGOKE</workflowId>
+                            <workflowName>test</workflowName>
+                        </parentTag>
+                        <stepsDefinition>
+                            <string>if ${x} == 1 then goto end</string>
+                            <string>let x = 2</string>
+                            <string>goto end</string>
+                            <string>let x = no1</string>
+                        </stepsDefinition>
+                        <input class="MutableMap"/>
+                        <inputResolved class="MutableMap"/>
+                        <onError class="MutableList"/>
+                        <workflowId>VSXPiHV0</workflowId>
+                        <taskId>VSXPiHV0</taskId>
+                        <retention>
+                            <expiryResolved>parent</expiryResolved>
+                            <softExpiryResolved>parent</softExpiryResolved>
+                        </retention>
+                        <replays class="MutableSet">
+                            <org.apache.brooklyn.core.workflow.WorkflowReplayUtils_-WorkflowReplayRecord>
+                                <taskId>VSXPiHV0</taskId>
+                                <reasonForReplay>initial run</reasonForReplay>
+                                <submittedByTaskId>pLDBANkQ</submittedByTaskId>
+                                <submitTimeUtc>1717158454846</submitTimeUtc>
+                                <startTimeUtc>1717158454846</startTimeUtc>
+                                <endTimeUtc>1717158454969</endTimeUtc>
+                                <status>Completed</status>
+                                <isError>false</isError>
+                            </org.apache.brooklyn.core.workflow.WorkflowReplayUtils_-WorkflowReplayRecord>
+                        </replays>
+                        <replayableLastStep>-2</replayableLastStep>
+                        <currentStepIndex>4</currentStepIndex>
+                        <previousStepIndex>2</previousStepIndex>
+                        <previousStepTaskId>ZLsgFVKo</previousStepTaskId>
+                        <currentStepInstance>
+                            <stepIndex>2</stepIndex>
+                            <taskId>ZLsgFVKo</taskId>
+                            <input class="MutableMap"/>
+                            <inputResolved class="MutableMap"/>
+                            <next class="string">end</next>
+                            <subWorkflows class="MutableSet"/>
+                            <otherMetadata class="MutableMap"/>
+                        </currentStepInstance>
+                        <oldStepInfo class="MutableMap">
+                            <entry>
+                                <int>0</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>1</countStarted>
+                                    <countCompleted>1</countCompleted>
+                                    <context>
+                                        <stepIndex>0</stepIndex>
+                                        <taskId>hG8llNey</taskId>
+                                        <input class="MutableMap"/>
+                                        <inputResolved class="MutableMap"/>
+                                        <isLocalSubworkflow>true</isLocalSubworkflow>
+                                        <stepState class="org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep$StepState">
+                                            <wasList>false</wasList>
+                                            <reducing>
+                                                <x>1</x>
+                                            </reducing>
+                                        </stepState>
+                                        <subWorkflows class="MutableSet">
+                                            <org.apache.brooklyn.core.mgmt.BrooklynTaskTags_-WorkflowTaskTag>
+                                                <applicationId>zxg2xnpxur</applicationId>
+                                                <entityId>zxg2xnpxur</entityId>
+                                                <workflowId>S3LzIy3C</workflowId>
+                                                <workflowName>if (sub-workflow)</workflowName>
+                                            </org.apache.brooklyn.core.mgmt.BrooklynTaskTags_-WorkflowTaskTag>
+                                        </subWorkflows>
+                                        <otherMetadata class="MutableMap"/>
+                                    </context>
+                                    <workflowScratchUpdates class="MutableMap">
+                                        <target>
+                                            <null/>
+                                        </target>
+                                        <x>1</x>
+                                    </workflowScratchUpdates>
+                                    <previous class="MutableSet">
+                                        <int>-1</int>
+                                    </previous>
+                                    <next class="MutableSet">
+                                        <int>1</int>
+                                    </next>
+                                    <nextTaskId>tMQjSI9g</nextTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>-1</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>0</countStarted>
+                                    <countCompleted>0</countCompleted>
+                                    <workflowScratch class="MutableMap">
+                                        <target>
+                                            <null/>
+                                        </target>
+                                        <x>1</x>
+                                    </workflowScratch>
+                                    <next class="MutableSet">
+                                        <int>0</int>
+                                    </next>
+                                    <nextTaskId>hG8llNey</nextTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>1</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>1</countStarted>
+                                    <countCompleted>1</countCompleted>
+                                    <context>
+                                        <stepIndex>1</stepIndex>
+                                        <taskId>tMQjSI9g</taskId>
+                                        <input class="MutableMap">
+                                            <variable>
+                                                <MutableMap>
+                                                    <name>x</name>
+                                                </MutableMap>
+                                            </variable>
+                                            <value>2</value>
+                                            <interpolation__mode type="org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep$InterpolationMode">WORDS</interpolation__mode>
+                                        </input>
+                                        <inputResolved class="MutableMap">
+                                            <variable>
+                                                <org.apache.brooklyn.core.workflow.steps.variables.TypedValueToSet>
+                                                    <name>x</name>
+                                                </org.apache.brooklyn.core.workflow.steps.variables.TypedValueToSet>
+                                            </variable>
+                                        </inputResolved>
+                                        <subWorkflows class="MutableSet"/>
+                                        <otherMetadata class="MutableMap"/>
+                                    </context>
+                                    <workflowScratchUpdates class="MutableMap">
+                                        <x>2</x>
+                                    </workflowScratchUpdates>
+                                    <previous class="MutableSet">
+                                        <int>0</int>
+                                    </previous>
+                                    <next class="MutableSet">
+                                        <int>2</int>
+                                    </next>
+                                    <previousTaskId>hG8llNey</previousTaskId>
+                                    <nextTaskId>ZLsgFVKo</nextTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>2</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>1</countStarted>
+                                    <countCompleted>1</countCompleted>
+                                    <context reference="../../../../currentStepInstance"/>
+                                    <previous class="MutableSet">
+                                        <int>1</int>
+                                    </previous>
+                                    <next class="MutableSet">
+                                        <int>-2</int>
+                                    </next>
+                                    <previousTaskId>tMQjSI9g</previousTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>-2</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>0</countStarted>
+                                    <countCompleted>0</countCompleted>
+                                    <previous class="MutableSet">
+                                        <int>2</int>
+                                    </previous>
+                                    <previousTaskId>ZLsgFVKo</previousTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                        </oldStepInfo>
+                        <retryRecords class="MutableMap"/>
+                    </org.apache.brooklyn.core.workflow.WorkflowExecutionContext>
+                </VSXPiHV0>
+                <S3LzIy3C>
+                    <org.apache.brooklyn.core.workflow.WorkflowExecutionContext>
+                        <name>if (sub-workflow)</name>
+                        <entity reference="../../../wLJtGOKE/org.apache.brooklyn.core.workflow.WorkflowExecutionContext/entity"/>
+                        <status>SUCCESS</status>
+                        <lastStatusChangeTime>2024-05-31T12:27:34.952Z</lastStatusChangeTime>
+                        <parentTag>
+                            <applicationId>zxg2xnpxur</applicationId>
+                            <entityId>zxg2xnpxur</entityId>
+                            <workflowId>VSXPiHV0</workflowId>
+                            <workflowName>subworkflow (sub-workflow)</workflowName>
+                        </parentTag>
+                        <stepsDefinition>
+                            <string>goto end</string>
+                        </stepsDefinition>
+                        <input class="MutableMap"/>
+                        <inputResolved class="MutableMap"/>
+                        <onError class="MutableList"/>
+                        <workflowId>S3LzIy3C</workflowId>
+                        <taskId>S3LzIy3C</taskId>
+                        <retention>
+                            <expiryResolved>parent</expiryResolved>
+                            <softExpiryResolved>parent</softExpiryResolved>
+                        </retention>
+                        <replays class="MutableSet">
+                            <org.apache.brooklyn.core.workflow.WorkflowReplayUtils_-WorkflowReplayRecord>
+                                <taskId>S3LzIy3C</taskId>
+                                <reasonForReplay>initial run</reasonForReplay>
+                                <submittedByTaskId>hG8llNey</submittedByTaskId>
+                                <submitTimeUtc>1717158454948</submitTimeUtc>
+                                <startTimeUtc>1717158454949</startTimeUtc>
+                                <endTimeUtc>1717158454954</endTimeUtc>
+                                <status>Completed</status>
+                                <isError>false</isError>
+                            </org.apache.brooklyn.core.workflow.WorkflowReplayUtils_-WorkflowReplayRecord>
+                        </replays>
+                        <replayableLastStep>-2</replayableLastStep>
+                        <currentStepIndex>1</currentStepIndex>
+                        <previousStepIndex>0</previousStepIndex>
+                        <previousStepTaskId>KkS9BhqU</previousStepTaskId>
+                        <currentStepInstance>
+                            <stepIndex>0</stepIndex>
+                            <taskId>KkS9BhqU</taskId>
+                            <input class="MutableMap"/>
+                            <inputResolved class="MutableMap"/>
+                            <next class="string">end</next>
+                            <subWorkflows class="MutableSet"/>
+                            <otherMetadata class="MutableMap"/>
+                        </currentStepInstance>
+                        <oldStepInfo class="MutableMap">
+                            <entry>
+                                <int>0</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>1</countStarted>
+                                    <countCompleted>1</countCompleted>
+                                    <context reference="../../../../currentStepInstance"/>
+                                    <workflowScratchUpdates class="MutableMap">
+                                        <target>
+                                            <null/>
+                                        </target>
+                                        <x>1</x>
+                                    </workflowScratchUpdates>
+                                    <previous class="MutableSet">
+                                        <int>-1</int>
+                                    </previous>
+                                    <next class="MutableSet">
+                                        <int>-2</int>
+                                    </next>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>-1</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>0</countStarted>
+                                    <countCompleted>0</countCompleted>
+                                    <workflowScratch class="MutableMap">
+                                        <target>
+                                            <null/>
+                                        </target>
+                                        <x>1</x>
+                                    </workflowScratch>
+                                    <next class="MutableSet">
+                                        <int>0</int>
+                                    </next>
+                                    <nextTaskId>KkS9BhqU</nextTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>-2</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>0</countStarted>
+                                    <countCompleted>0</countCompleted>
+                                    <previous class="MutableSet">
+                                        <int>0</int>
+                                    </previous>
+                                    <previousTaskId>KkS9BhqU</previousTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                        </oldStepInfo>
+                        <retryRecords class="MutableMap"/>
+                    </org.apache.brooklyn.core.workflow.WorkflowExecutionContext>
+                </S3LzIy3C>
+                <Z13KmPUw>
+                    <org.apache.brooklyn.core.workflow.WorkflowExecutionContext>
+                        <name>subworkflow (sub-workflow)</name>
+                        <entity reference="../../../wLJtGOKE/org.apache.brooklyn.core.workflow.WorkflowExecutionContext/entity"/>
+                        <status>SUCCESS</status>
+                        <lastStatusChangeTime>2024-05-31T12:27:34.991Z</lastStatusChangeTime>
+                        <parentTag>
+                            <applicationId>zxg2xnpxur</applicationId>
+                            <entityId>zxg2xnpxur</entityId>
+                            <workflowId>wLJtGOKE</workflowId>
+                            <workflowName>test</workflowName>
+                        </parentTag>
+                        <stepsDefinition>
+                            <string>return ${x}</string>
+                        </stepsDefinition>
+                        <input class="MutableMap"/>
+                        <inputResolved class="MutableMap"/>
+                        <output class="string">2</output>
+                        <onError class="MutableList"/>
+                        <workflowId>Z13KmPUw</workflowId>
+                        <taskId>Z13KmPUw</taskId>
+                        <retention>
+                            <expiryResolved>parent</expiryResolved>
+                            <softExpiryResolved>parent</softExpiryResolved>
+                        </retention>
+                        <replays class="MutableSet">
+                            <org.apache.brooklyn.core.workflow.WorkflowReplayUtils_-WorkflowReplayRecord>
+                                <taskId>Z13KmPUw</taskId>
+                                <reasonForReplay>initial run</reasonForReplay>
+                                <submittedByTaskId>cFQn0u52</submittedByTaskId>
+                                <submitTimeUtc>1717158454987</submitTimeUtc>
+                                <startTimeUtc>1717158454987</startTimeUtc>
+                                <endTimeUtc>1717158454991</endTimeUtc>
+                                <status>Completed</status>
+                                <isError>false</isError>
+                                <result class="string">2</result>
+                            </org.apache.brooklyn.core.workflow.WorkflowReplayUtils_-WorkflowReplayRecord>
+                        </replays>
+                        <replayableLastStep>-2</replayableLastStep>
+                        <currentStepIndex>1</currentStepIndex>
+                        <previousStepIndex>0</previousStepIndex>
+                        <previousStepTaskId>i0CXCnCH</previousStepTaskId>
+                        <currentStepInstance>
+                            <stepIndex>0</stepIndex>
+                            <taskId>i0CXCnCH</taskId>
+                            <input class="MutableMap">
+                                <value>${x}</value>
+                            </input>
+                            <inputResolved class="MutableMap">
+                                <value>2</value>
+                            </inputResolved>
+                            <next class="string">end</next>
+                            <nextIsReturn>true</nextIsReturn>
+                            <subWorkflows class="MutableSet"/>
+                            <output class="string">2</output>
+                            <otherMetadata class="MutableMap"/>
+                        </currentStepInstance>
+                        <oldStepInfo class="MutableMap">
+                            <entry>
+                                <int>0</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>1</countStarted>
+                                    <countCompleted>1</countCompleted>
+                                    <context reference="../../../../currentStepInstance"/>
+                                    <workflowScratchUpdates class="MutableMap">
+                                        <target>
+                                            <null/>
+                                        </target>
+                                        <x>2</x>
+                                    </workflowScratchUpdates>
+                                    <previous class="MutableSet">
+                                        <int>-1</int>
+                                    </previous>
+                                    <next class="MutableSet">
+                                        <int>-2</int>
+                                    </next>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>-1</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>0</countStarted>
+                                    <countCompleted>0</countCompleted>
+                                    <workflowScratch class="MutableMap">
+                                        <target>
+                                            <null/>
+                                        </target>
+                                        <x>2</x>
+                                    </workflowScratch>
+                                    <next class="MutableSet">
+                                        <int>0</int>
+                                    </next>
+                                    <nextTaskId>i0CXCnCH</nextTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                            <entry>
+                                <int>-2</int>
+                                <org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                                    <countStarted>0</countStarted>
+                                    <countCompleted>0</countCompleted>
+                                    <previous class="MutableSet">
+                                        <int>0</int>
+                                    </previous>
+                                    <previousTaskId>i0CXCnCH</previousTaskId>
+                                </org.apache.brooklyn.core.workflow.WorkflowExecutionContext_-OldStepRecord>
+                            </entry>
+                        </oldStepInfo>
+                        <retryRecords class="MutableMap"/>
+                    </org.apache.brooklyn.core.workflow.WorkflowExecutionContext>
+                </Z13KmPUw>
+            </MutableMap>
+        </internals.brooklyn.workflow>
+    </attributes>
+    <attributeKeys>
+        <service.notUp.indicators>
+            <attributeSensor>
+                <typeToken class="org.apache.brooklyn.core.entity.Attributes$1" resolves-to="com.google.common.reflect.TypeToken$SimpleTypeToken">
+                    <runtimeType class="com.google.common.reflect.Types$ParameterizedTypeImpl">
+                        <argumentsList>
+                            <java-class>java.lang.String</java-class>
+                            <java-class>java.lang.Object</java-class>
+                        </argumentsList>
+                        <rawType>java.util.Map</rawType>
+                    </runtimeType>
+                </typeToken>
+                <name>service.notUp.indicators</name>
+                <description>A map of namespaced indicators that the service is not up</description>
+                <persistence>REQUIRED</persistence>
+            </attributeSensor>
+        </service.notUp.indicators>
+        <internals.brooklyn.workflow>
+            <attributeSensor>
+                <typeToken class="org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors$1" resolves-to="com.google.common.reflect.TypeToken$SimpleTypeToken">
+                    <runtimeType class="com.google.common.reflect.Types$ParameterizedTypeImpl">
+                        <argumentsList>
+                            <java-class>java.lang.String</java-class>
+                            <java-class>org.apache.brooklyn.core.workflow.WorkflowExecutionContext</java-class>
+                        </argumentsList>
+                        <rawType>java.util.Map</rawType>
+                    </runtimeType>
+                </typeToken>
+                <name>internals.brooklyn.workflow</name>
+                <description>internals.brooklyn.workflow</description>
+                <persistence>REQUIRED</persistence>
+            </attributeSensor>
+        </internals.brooklyn.workflow>
+    </attributeKeys>
+</entity>

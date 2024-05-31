@@ -729,11 +729,11 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                                             MutableMap.of("step", "log Step created-but-not-logged because of bad variable ${not_available}",
                                                     "on-error", MutableList.of(
                                                             MutableMap.of("step", "log Error handler 1-5-1", "output", "from 1-5-1"),
-                                                            "goto exit",
+                                                            "goto "+WorkflowExecutionContext.STEP_TARGET_NAME_FOR_EXIT,
                                                             "log NOT shown after inner exit")
                                                     ),
                                             "log Error handler 1-6",
-                                            "goto exit",
+                                            "goto "+WorkflowExecutionContext.STEP_TARGET_NAME_FOR_EXIT,
                                             "log NOT shown because of earlier exit")
                                     ),
                             "log Step 2 has output ${output}"

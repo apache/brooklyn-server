@@ -145,17 +145,17 @@ public class WorkflowSubIfAndCustomExtensionEdgeTest extends RebindTestFixture<T
 
     @Test
     public void testSubWorkflowStep() throws Exception {
-        Function<Boolean,Object> test = (explicitSubworkflow) ->
-            runWorkflow(MutableList.of(
-                            "let v1 = V1",
-                            "let v2 = V2",
-                            MutableMap.<String,Object>of("steps", MutableList.of(
-                                            "let v0 = ${v0}B",
-                                            "let v1 = ${v1}B",
-                                            "let v3 = V3B"))
-                                    .add(explicitSubworkflow ? MutableMap.of("step", "subworkflow") : null),
-                            "return ${v0}-${v1}-${v2}-${v3}"),
-                    ConfigBag.newInstance().configure(WorkflowCommonConfig.INPUT, MutableMap.of("v0", "V0")) );
+        Function<Boolean, Object> test = (explicitSubworkflow) ->
+                runWorkflow(MutableList.of(
+                                "let v1 = V1",
+                                "let v2 = V2",
+                                MutableMap.<String, Object>of("steps", MutableList.of(
+                                                "let v0 = ${v0}B",
+                                                "let v1 = ${v1}B",
+                                                "let v3 = V3B"))
+                                        .add(explicitSubworkflow ? MutableMap.of("step", "subworkflow") : null),
+                                "return ${v0}-${v1}-${v2}-${v3}"),
+                        ConfigBag.newInstance().configure(WorkflowCommonConfig.INPUT, MutableMap.of("v0", "V0")));
         Asserts.assertEquals(test.apply(true), "V0B-V1B-V2-V3B");
 
         // subworkflow is chosen implicitly if step is omitted
@@ -166,7 +166,7 @@ public class WorkflowSubIfAndCustomExtensionEdgeTest extends RebindTestFixture<T
                         "let v1 = V1",
                         "goto marker",  // prefers inner id 'marker'
                         "let v1 = NOT_V1_1",
-                        MutableMap.of("id", "marker", "step", "goto end"), // goes to end of this subworkflow
+                        MutableMap.of("id", "marker", "step", "goto " + WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END), // goes to end of this subworkflow
                         "let v1 = NOT_V1_2")),
                 "let v2 = V2",
                 MutableMap.of("steps", MutableList.of(
@@ -178,6 +178,73 @@ public class WorkflowSubIfAndCustomExtensionEdgeTest extends RebindTestFixture<T
                         "return ${v1}-${v2}-${v3}-${v4}")), // returns from outer workflow
                 "let v4 = NOT_V4"));
         Asserts.assertEquals(lastInvocation.getUnchecked(), "V1-V2-V3-V4");
+    }
+    @Test
+    public void testSubworkflowReturnsAndGotoEndsAndLabel() {
+        runWorkflow(MutableList.of(
+                "let x = 1",
+                "if ${x} == 1 then return yes_if_returns",
+                "return no_if_exited with ${yes_if_returns}"));
+        Asserts.assertEquals(lastInvocation.getUnchecked(), "yes_if_returns");
+
+        runWorkflow(MutableList.of(
+                "let y = 0",
+                "let x = 1",
+                MutableMap.of("steps", MutableList.of(
+                    "let x = ${x} + 1",
+                    "goto "+WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END,  // goes to end of this subworkflow, but not outer
+                    "let x = 3"  // shouldn't run
+                )),
+                "let y = ${x}_1",
+                "if ${x} == 2 then let y = ${x}_2",
+                "let output = ${y}",
+                "goto "+WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END,
+                "return should_skip_this"));
+        Asserts.assertEquals(lastInvocation.getUnchecked(), "2_2");
+
+        // return ends all local workflows, but not nested
+        addBeanWithType("step-with-return", "1-SNAPSHOT", Strings.lines(
+                "type: workflow",
+                "steps:",
+                "  - return inner"
+        ));
+        runWorkflow(MutableList.of(
+                MutableMap.of("steps", MutableList.of(
+                        MutableMap.of("steps", MutableList.of(
+                                "step-with-return",
+                                "return ${output}-then-1"
+                        )),
+                        "return no-2")),
+                "return no-3"));
+        Asserts.assertEquals(lastInvocation.getUnchecked(), "inner-then-1");
+
+        // end means local workflow
+        runWorkflow(MutableList.of(
+                "let x = 1",
+                "let output = not_expected",
+                MutableMap.of("step", "if ${x} == 1", "steps", MutableList.of("goto "+WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END)),
+                "return last_step_should_run"));
+        Asserts.assertEquals(lastInvocation.getUnchecked(), "last_step_should_run");
+        // but if inline, local workflow is the parent
+        runWorkflow(MutableList.of(
+                "let x = 1",
+                "let output = expected",
+                "if ${x} == 1 then goto "+WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END,
+                "return last_step_should_not_run_when_inline"));
+        Asserts.assertEquals(lastInvocation.getUnchecked(), "expected");
+
+        // explicit label available from local subworkflow
+        runWorkflow(MutableList.of(
+                "let x = A",
+                MutableMap.of(
+                        "steps", MutableList.of(
+                                "goto l1",  // better explicit flow
+                                "let x = ${x}_no1"
+                        )),
+                "let x = ${x}_no2",
+                "label l1",
+                "return ${x}_B"));
+        Asserts.assertEquals(lastInvocation.getUnchecked(), "A_B");
     }
 
     @Test

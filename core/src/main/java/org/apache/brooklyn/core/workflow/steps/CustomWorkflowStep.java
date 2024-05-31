@@ -53,6 +53,7 @@ import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowReplayUtils;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext.SubworkflowLocality;
 import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.core.workflow.utils.WorkflowConcurrencyParser;
 import org.apache.brooklyn.core.workflow.utils.WorkflowRetentionParser;
@@ -85,15 +86,23 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     private static final String WORKFLOW_SETTING_SHORTHAND = "[ \"replayable\" ${replayable...} ] [ \"retention\" ${retention...} ] ";
 
     /* fields which are only permitted in the registered type definition */
-    protected static final Set<String> FORBIDDEN_IN_WORKFLOW_STEP = MutableSet.copyOf(Arrays.asList(WorkflowCommonConfig.PARAMETER_DEFS)
-            .stream().map(ConfigKey::getName).collect(Collectors.toSet())).asUnmodifiable();
-
-    protected static final Set<String> FORBIDDEN_IN_WORKFLOW_STEP_IN_SUBCLASSES = MutableSet.copyOf(Arrays.asList(WorkflowCommonConfig.STEPS)
-            .stream().map(ConfigKey::getName).collect(Collectors.toSet())).put("target").asUnmodifiable();
+    protected static final Set<String> FORBIDDEN_ON_ALL_WORKFLOW_STEP_TYPES_MAP = MutableSet.of(
+            "subworkflowLocality")
+            .asUnmodifiable();
+    protected static final Set<String> FORBIDDEN_ON_NORMAL_WORKFLOW_STEP_MAP = MutableSet.copyOf(FORBIDDEN_ON_ALL_WORKFLOW_STEP_TYPES_MAP)
+            .putAll(Arrays.asList(WorkflowCommonConfig.PARAMETER_DEFS).stream().map(ConfigKey::getName).collect(Collectors.toSet()))
+            .asUnmodifiable();
 
     public static final boolean CUSTOM_WORKFLOW_STEP_REGISTERED_TYPE_EXTENSIONS_CAN_REDUCE = false;
-    protected static final Set<String> FORBIDDEN_IN_REGISTERED_TYPE_EXTENSIONS =
-            (CUSTOM_WORKFLOW_STEP_REGISTERED_TYPE_EXTENSIONS_CAN_REDUCE ? MutableSet.<String>of() : MutableSet.of("reducing")).asUnmodifiable();
+    protected static final Set<String> FORBIDDEN_ON_REGISTERED_TYPE_EXTENSIONS_MAP = MutableSet.<String>of()
+            .putAll(CUSTOM_WORKFLOW_STEP_REGISTERED_TYPE_EXTENSIONS_CAN_REDUCE ? MutableSet.<String>of() : MutableSet.of("reducing"))
+            .put("target")
+            .put(WorkflowCommonConfig.STEPS.getName())
+            .asUnmodifiable();
+    protected static final Set<String> FORBIDDEN_ON_REGISTERED_TYPE_EXTENSIONS_FIELDS = MutableSet.<String>of()
+            .putAll(CUSTOM_WORKFLOW_STEP_REGISTERED_TYPE_EXTENSIONS_CAN_REDUCE ? MutableSet.<String>of() : MutableSet.of("reducing"))
+            .put("target")
+            .asUnmodifiable();
 
     public CustomWorkflowStep() {}
     public CustomWorkflowStep(String name, List<Object> steps) {
@@ -250,6 +259,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         if (retention!=null) {
             context.getWorkflowExectionContext().updateRetentionFrom(WorkflowRetentionParser.parse(retention, context.getWorkflowExectionContext()).init(context.getWorkflowExectionContext()));
         }
+        context.subworkflowLocality = getSubworkflowLocality();
 
         if (steps==null) {
             return context.getPreviousStepOutput();
@@ -577,23 +587,21 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     protected void checkCallerSuppliedDefinition(String typeBestGuess, Map m) {
         // caller (workflow author) cannot set parameters, that makes no sense
-        FORBIDDEN_IN_WORKFLOW_STEP.stream().filter(m::containsKey).forEach(forbiddenKey -> {
+        FORBIDDEN_ON_NORMAL_WORKFLOW_STEP_MAP.stream().filter(m::containsKey).forEach(forbiddenKey -> {
             throw new IllegalArgumentException("Not permitted to override '" + forbiddenKey + "' when using a workflow step");
         });
 
-        if (!CUSTOM_WORKFLOW_STEP_REGISTERED_TYPE_EXTENSIONS_CAN_REDUCE && !isInternalClassNotExtendedAndUserAllowedToSetMostThings(typeBestGuess)) {
+        boolean isInternalClassNotRegisteredBeanSubtype = isInternalClassNotExtendedAndUserAllowedToSetMostThings(typeBestGuess);
+        if (!isInternalClassNotRegisteredBeanSubtype) {
+            subworkflowLocality = SubworkflowLocality.ENCAPSULATED;
+
             // caller can't specify these
-            FORBIDDEN_IN_REGISTERED_TYPE_EXTENSIONS.stream().filter(m::containsKey).forEach(forbiddenKey -> {
+            FORBIDDEN_ON_REGISTERED_TYPE_EXTENSIONS_MAP.stream().filter(m::containsKey).forEach(forbiddenKey -> {
                 throw new IllegalArgumentException("Not permitted to set '" + forbiddenKey + "' when using a custom workflow step");
             });
             // neither should the custom registered type itself!
-            FORBIDDEN_IN_REGISTERED_TYPE_EXTENSIONS.stream().filter(k -> (Reflections.getFieldValueMaybe(this, k).isPresentAndNonNull())).forEach(forbiddenKey -> {
+            FORBIDDEN_ON_REGISTERED_TYPE_EXTENSIONS_FIELDS.stream().filter(k -> (Reflections.getFieldValueMaybe(this, k).isPresentAndNonNull())).forEach(forbiddenKey -> {
                 throw new IllegalArgumentException("Not permitted for a custom workflow step to use '" + forbiddenKey + "'");
-            });
-        }
-        if (!isInternalClassNotExtendedAndUserAllowedToSetMostThings(typeBestGuess)) {
-            FORBIDDEN_IN_WORKFLOW_STEP_IN_SUBCLASSES.stream().filter(m::containsKey).forEach(forbiddenKey -> {
-                throw new IllegalArgumentException("Not permitted to override '" + forbiddenKey + "' when using a custom workflow step");
             });
         }
     }
@@ -603,6 +611,12 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     }
     protected boolean isRegisteredTypeExtensionToClass(Class<? extends CustomWorkflowStep> clazz, String shorthandDefault, String typeBestGuess) {
         return typeBestGuess!=null && !shorthandDefault.equals(typeBestGuess) && !clazz.getName().equals(typeBestGuess);
+    }
+
+    protected SubworkflowLocality subworkflowLocality;
+    protected SubworkflowLocality getSubworkflowLocality() {
+        if (subworkflowLocality!=null) return subworkflowLocality;
+        return SubworkflowLocality.LOCAL_SEPARATE_CONTEXT;
     }
 
     protected WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target, Integer targetIndexOrNullIfNotList) {

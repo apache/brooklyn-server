@@ -25,6 +25,7 @@ import java.util.Set;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -45,6 +46,8 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -54,9 +57,11 @@ import org.apache.brooklyn.tasks.kubectl.ContainerWorkflowStep;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
@@ -194,7 +199,7 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
     }
 
     @Test
-    void testWorkflowSensorRebind() throws Exception {
+    public void testWorkflowSensorRebind() throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: " + BasicEntity.class.getName(),
@@ -242,7 +247,7 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
     }
 
     @Test
-    void testWorkflowSensorWithMutexRebind() throws Exception {
+    public void testWorkflowSensorWithMutexRebind() throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: " + BasicEntity.class.getName(),
@@ -293,6 +298,34 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
 
         tt = BrooklynTaskTags.getTasksInAdjunctContext(mgmt().getExecutionManager(), Iterables.getOnlyElement(((EntityInternal) child).feeds().getFeeds()));
         Asserts.assertThat(tt, ts -> ts.stream().anyMatch(ti -> ti.getDisplayName().contains("Workflow for sensor")));
+    }
+
+    @Test
+    public void testRebindsHistoricNextIsReturnLocalWorkflow() throws Exception {
+        Application app;
+//        app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+//        WorkflowExecutionContext wc1 = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+//                "steps:",
+//                "- let x = 1",
+//                "- steps:",
+//                "  - if ${x} == 1 then goto " + WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END,  // used to not go to end of workflow
+//                "  - let x = 2",
+//                "  - goto end",
+//                "  - let x = no1",
+//                "- steps:",
+//                "  - return ${x}"), "test");
+//        Asserts.assertEquals(wc1.getTask(true).get().getUnchecked(), "2");
+
+        ResourceUtils resourceUtils = ResourceUtils.create(this);
+        String persistedXmlForAbove = resourceUtils.getResourceAsString("classpath://org/apache/brooklyn/camp/brooklyn/persisted-entity-with-workflow-next-fields.xml");
+        /* We used to store nextIsReturn and isLocalSubWorkflow; these are migrating, but we want to make sure persistence/rebind works.
+         * It is mapped to the right place.
+         */
+        FileUtils.write(new File(mementoDir, "entities/zxg2xnpxur"), persistedXmlForAbove);
+
+        app = rebind();
+        WorkflowExecutionContext wc2 = WorkflowStatePersistenceViaSensors.get(mgmt()).getWorkflows(app).values().iterator().next();
+        Asserts.assertEquals(wc2.getOutput(), "2");
     }
 
 }

@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.workflow.steps.flow;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;

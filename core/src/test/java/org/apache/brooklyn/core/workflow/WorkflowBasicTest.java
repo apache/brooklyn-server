@@ -73,6 +73,7 @@ import org.apache.brooklyn.core.workflow.steps.flow.FailWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.ForeachWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.GotoWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.IfWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.LabelWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.NoOpWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.flow.RetryWorkflowStep;
@@ -142,6 +143,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "clear-workflow-variable", ClearVariableWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "wait", WaitWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "return", ReturnWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "label", LabelWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "if", IfWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "goto", GotoWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "switch", SwitchWorkflowStep.class);

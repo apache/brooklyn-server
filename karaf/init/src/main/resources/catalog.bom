@@ -158,6 +158,11 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.flow.ReturnWorkflowStep
+  - id: label
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.flow.LabelWorkflowStep
   - id: if
     format: java-type-name
     itemType: bean

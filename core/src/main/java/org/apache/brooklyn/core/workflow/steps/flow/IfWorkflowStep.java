@@ -27,6 +27,7 @@ import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution.WorkflowEx
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution.WrappedResolvedExpression;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution.WrappingMode;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext.SubworkflowLocality;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.predicates.DslPredicates.DslEntityPredicateDefault;
@@ -48,16 +49,18 @@ public class IfWorkflowStep extends SubWorkflowStep {
 
     Object condition_target;
     Object condition_equals;
+    Boolean shorthand_step;
 
     @Override
     public void populateFromShorthand(String value) {
-        if (input==null) input = MutableMap.of();
         populateFromShorthandTemplate(SHORTHAND, value, true, true);
 
         if (input.containsKey("step")) {
+            if (subworkflowLocality==null) subworkflowLocality = SubworkflowLocality.INLINE_SHARED_CONTEXT;
             Object step = input.remove("step");
             if (this.steps!=null) throw new IllegalArgumentException("Cannot set step in shorthand and steps in body");
             this.steps = MutableList.of(step);
+            shorthand_step = true;
         } else if (steps==null) throw new IllegalArgumentException("'if' step requires a step or steps");
 
         if (input.containsKey("condition_target")) {
