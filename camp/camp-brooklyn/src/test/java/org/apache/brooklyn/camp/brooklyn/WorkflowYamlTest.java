@@ -1639,4 +1639,20 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(((Map)result).get("exit_code"), 0);
     }
 
+    @Test
+    public void testOutputAccessibleInSubWorkflow() throws Exception {
+        Application app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  id: child");
+
+        WorkflowExecutionContext x = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "steps:",
+                "  - transform value { a: 1 } | type map",
+                "  - type: subworkflow",
+                "    steps:",
+                "      - return ${output.a}-${a}"
+        ), "test");
+        Asserts.assertEquals(x.getTask(true).get().getUnchecked(), "1-1");
+    }
 }

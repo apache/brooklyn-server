@@ -462,6 +462,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         return returnValue;
     }
 
+    /** resolves the variables to be reduced, and returns them; stored by the caller and returned at end if appropriate */
     protected Map initializeReducingVariables(WorkflowStepInstanceExecutionContext context, Map<String, Object> reducing) {
         return context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, reducing, Map.class);
     }

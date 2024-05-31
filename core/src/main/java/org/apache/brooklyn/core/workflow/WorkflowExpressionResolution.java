@@ -187,7 +187,8 @@ public class WorkflowExpressionResolution {
                 if (context.currentStepInstance!=null && context.currentStepInstance.getOutput() !=null) return TemplateProcessor.wrapAsTemplateModel(context.currentStepInstance.getOutput());
                 Object previousStepOutput = context.getPreviousStepOutput();
                 if (previousStepOutput!=null) return TemplateProcessor.wrapAsTemplateModel(previousStepOutput);
-                return ifNoMatches();
+                ////if no output in scope then continue to items below, eg consider variables
+                // return ifNoMatches();
             }
 
             Maybe candidate = Maybe.absent();

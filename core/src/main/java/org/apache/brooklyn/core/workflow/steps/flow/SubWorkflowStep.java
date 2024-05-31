@@ -76,7 +76,15 @@ public class SubWorkflowStep extends CustomWorkflowStep {
     @Override
     protected Map initializeReducingVariables(WorkflowStepInstanceExecutionContext context, Map<String, Object> reducing) {
         context.isLocalSubworkflow = true;
-        return super.initializeReducingVariables(context, context.getWorkflowExectionContext().getWorkflowScratchVariables());
+        MutableMap<String, Object> allVarsInScope = MutableMap.copyOf(context.getWorkflowExectionContext().getWorkflowScratchVariables());
+        // make output visible
+        allVarsInScope.add("output", context.getWorkflowExectionContext().getPreviousStepOutput());
+        if (context.getWorkflowExectionContext().getPreviousStepOutput() instanceof Map) {
+            allVarsInScope.add((Map)context.getWorkflowExectionContext().getPreviousStepOutput());
+        }
+        allVarsInScope.add(reducing);
+        // but see getReducingWorkflowVarsFromLastStep -- note that for a subworkflow, reduced vars are not returned
+        return super.initializeReducingVariables(context, allVarsInScope);
     }
 
     @Override
