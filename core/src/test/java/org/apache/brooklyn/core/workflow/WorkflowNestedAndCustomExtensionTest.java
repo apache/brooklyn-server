@@ -571,6 +571,7 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
     }
 
     @Test // a bit slow, but a good test of many things
+    // intermittent failures observed at jenkins 2024-05, line 751; increased COMPLETION_TIMEOUT to 30s in case that helps
     public void testCustomWorkflowLockInterrupted() throws Exception {
         CustomWorkflowLockInterruptedFixture fixture = new CustomWorkflowLockInterruptedFixture();
         fixture.run();
@@ -634,7 +635,7 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
         boolean INNER_ON_ERROR_REPLAY = true;
         boolean OPEN_GATE_EARLY = false;
         Consumer<String> waitABit = (phase) -> Time.sleep((long) (10 * Math.random()));
-        Duration COMPLETION_TIMEOUT = Duration.seconds(20);
+        Duration COMPLETION_TIMEOUT = Duration.seconds(30);
 
         public void run() throws Exception {
             // based on WorkflowInputOutputTest.testSetSensorAtomicRequire
