@@ -32,7 +32,9 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.time.Duration;
@@ -58,9 +60,15 @@ public class EntityAsserts {
     public static <T> void assertAttributeEquals(Entity entity, AttributeSensor<T> attribute, T expected) {
         assertEquals(entity.getAttribute(attribute), expected, "entity=" + entity + "; attribute=" + attribute);
     }
+    public static <T> void assertAttributeEquals(Entity entity, String attributeName, T expected) {
+        assertAttributeEquals(entity, Sensors.newSensor(Object.class, attributeName), expected);
+    }
 
     public static <T> void assertConfigEquals(Entity entity, ConfigKey<T> configKey, T expected) {
         assertEquals(entity.getConfig(configKey), expected, "entity=" + entity + "; configKey=" + configKey);
+    }
+    public static <T> void assertConfigEquals(Entity entity, String configKeyName, T expected) {
+        assertConfigEquals(entity, ConfigKeys.newConfigKey(Object.class, configKeyName), expected);
     }
 
     public static <T> void assertAttributeEqualsEventually(final Entity entity, final AttributeSensor<T> attribute, final T expected) {
