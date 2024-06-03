@@ -19,14 +19,19 @@
 package org.apache.brooklyn.util.core.task;
 
 import java.util.Collection;
+import java.util.ConcurrentModificationException;
 import java.util.WeakHashMap;
 import java.util.stream.Stream;
 
 import com.google.common.collect.Streams;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.util.collections.ThreadLocalStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CrossTaskThreadLocalStack<T> extends ThreadLocalStack<T> {
+
+    private static final Logger log = LoggerFactory.getLogger(CrossTaskThreadLocalStack.class);
 
     public CrossTaskThreadLocalStack(boolean acceptDuplicates) {
         super(acceptDuplicates);
@@ -52,7 +57,17 @@ public class CrossTaskThreadLocalStack<T> extends ThreadLocalStack<T> {
         return getCopyReversed(Thread.currentThread());
     }
     protected Collection<T> getCopyReversed(Thread t) {
-        synchronized (backingOverride) { return copyReversed(get(t)); }
+        int retries = 0;
+        while (true) {
+            try {
+                synchronized (backingOverride) {return copyReversed(get(t));}
+            } catch (ConcurrentModificationException cme) {
+                // can happen as the collections within the map are not synchronized. simply retry.
+                // unusual if it loops
+                if (retries++ >= 10) throw cme;
+                log.debug("CME checking cross-thread local stack; retrying (#" + retries + "): " + cme);
+            }
+        }
     }
 
     public Stream<T> stream() {
