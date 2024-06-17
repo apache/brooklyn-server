@@ -23,11 +23,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.Serializable;
 import java.util.Objects;
 
+import javax.annotation.Nullable;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -209,5 +212,17 @@ public class ApiError implements Serializable {
                 ", details='" + details + '\'' +
                 ", error=" + error +
                 '}';
+    }
+
+    public WebApplicationException throwWebApplicationException() {
+        throw throwWebApplicationException(null);
+    }
+
+    public WebApplicationException throwWebApplicationException(@Nullable Throwable exception) {
+        throw new WebApplicationException(
+                exception==null ? new Throwable(this.toString()) :
+                        message==null ? exception :
+                                new PropagatedRuntimeException(message, exception),
+                this.asJsonResponse());
     }
 }

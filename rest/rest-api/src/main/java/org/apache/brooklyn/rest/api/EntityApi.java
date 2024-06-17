@@ -114,7 +114,7 @@ public interface EntityApi {
             "text/yaml", "text/x-yaml", "application/yaml", MediaType.APPLICATION_JSON})
     @Path("/{entity}/children")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 201, message = "Created"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application or entity missing"),
@@ -166,7 +166,7 @@ public interface EntityApi {
     @Path("/{entity}/activities/{task}")
     @ApiOperation(value = "Fetch task details", response = org.apache.brooklyn.rest.domain.TaskSummary.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Could not find application, entity or task"),
@@ -224,7 +224,7 @@ public interface EntityApi {
     @Path("/{entity}/tag/add")
     @ApiOperation(value = "Add a tag on this entity")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 204, message = "No Content"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application or entity missing"),
@@ -239,7 +239,7 @@ public interface EntityApi {
     @Path("/{entity}/tag/delete")
     @ApiOperation(value = "Delete a tag on this entity, returning whether the tag was found (and deleted)")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application or entity missing"),
@@ -254,7 +254,7 @@ public interface EntityApi {
     @Path("/{entity}/tag/upsert/{tagKey}")
     @ApiOperation(value = "Inserts a tag which is a single-key map with the given key (path parameter) and value (post body), removing any existing tag matching the key")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 204, message = "No Content"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application or entity missing"),
@@ -286,7 +286,7 @@ public interface EntityApi {
             value = "Rename an entity"
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Undefined application or entity"),
@@ -304,7 +304,7 @@ public interface EntityApi {
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 202, message = "Accepted. The entity is submitted for expunging."),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application or entity missing"),
@@ -476,7 +476,7 @@ public interface EntityApi {
             "text/yaml", "text/x-yaml", "application/yaml", MediaType.APPLICATION_JSON})
     @Path("/{entity}/workflows")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application or entity missing"),

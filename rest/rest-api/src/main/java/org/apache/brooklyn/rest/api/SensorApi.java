@@ -91,7 +91,8 @@ public interface SensorApi {
     @ApiOperation(value = "Fetch sensor value (json)", response = Object.class)
     @Produces({MediaType.APPLICATION_JSON})
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 200, message = "OK. The sensor value is returned."),
+            @ApiResponse(code = 204, message = "No Content. The sensor is known, but unset."),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
@@ -142,7 +143,7 @@ public interface SensorApi {
     @POST
     @ApiOperation(value = "Manually set multiple sensor values")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 204, message = "No Content"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
@@ -161,7 +162,7 @@ public interface SensorApi {
     @Path("/{sensor}")
     @ApiOperation(value = "Manually set a sensor value")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
@@ -181,7 +182,7 @@ public interface SensorApi {
     @Path("/{sensor}")
     @ApiOperation(value = "Manually clear a sensor value")
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),

@@ -68,11 +68,12 @@ public interface EffectorApi {
     @ApiOperation(value = "Trigger an effector",
             notes="Returns the return value (status 200) if it completes, or an activity task ID (status 202) if it times out", response = String.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 202, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK. The effector run. The result is returned."),
+            @ApiResponse(code = 202, message = "Accepted. The effector is running. The task object is returned."),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Could not find application, entity or effector"),
-            @ApiResponse(code = 500, message = "Internal Server Error")
+            @ApiResponse(code = 500, message = "Internal Server Error. The effector may have returned an error.")
     })
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_FORM_URLENCODED})
     public Response invoke(

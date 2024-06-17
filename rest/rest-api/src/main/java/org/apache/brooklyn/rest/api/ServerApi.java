@@ -59,7 +59,7 @@ public interface ServerApi {
     @Path("/properties/reload")
     @ApiOperation(value = "Reload brooklyn.properties")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 204, message = "No Content"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 500, message = "Internal Server Error")
@@ -71,7 +71,7 @@ public interface ServerApi {
     @ApiOperation(value = "Terminate this Brooklyn server instance")
     @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 204, message = "No Content"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 500, message = "Internal Server Error")
@@ -204,7 +204,7 @@ public interface ServerApi {
     @ApiOperation(value = "Changes the HA state of this management node")
     @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 500, message = "Internal Server Error")
@@ -229,7 +229,7 @@ public interface ServerApi {
     @Path("/ha/states/clear")
     @ApiOperation(value = "Clears HA node information for non-master nodes; active nodes will repopulate and other records will be erased")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 500, message = "Internal Server Error")
@@ -242,7 +242,7 @@ public interface ServerApi {
     @ApiOperation(value = "Clears HA node information for a particular non-master node; other nodes will repopulate and selected node will be erased",
             consumes = MediaType.APPLICATION_FORM_URLENCODED)
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 500, message = "Internal Server Error")
@@ -267,7 +267,7 @@ public interface ServerApi {
     @ApiOperation(value = "Sets the HA node priority for MASTER failover")
     @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 500, message = "Internal Server Error")
@@ -296,7 +296,7 @@ public interface ServerApi {
     @Consumes
     @ApiOperation(value = "Imports a persistence export to a file-based store, moving catalog items, locations and managed applications (merged with the current persistence).")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 500, message = "Internal Server Error")

@@ -384,7 +384,7 @@ public interface ApplicationApi {
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 202, message = "Accepted. The application is submitted for deletion."),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application not found"),

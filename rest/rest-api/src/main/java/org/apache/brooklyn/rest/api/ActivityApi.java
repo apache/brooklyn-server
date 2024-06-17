@@ -44,7 +44,8 @@ public interface ActivityApi {
     @Path("/{task}")
     @ApiOperation(value = "Fetch task details", response = org.apache.brooklyn.rest.domain.TaskSummary.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 200, message = "OK. The task is completed and details are returned."),
+            @ApiResponse(code = 202, message = "Accepted. The task is still running but it is not permitted to wait any longer so current details are returned."),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Could not find task"),

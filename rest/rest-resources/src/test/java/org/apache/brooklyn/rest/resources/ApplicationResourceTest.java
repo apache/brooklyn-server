@@ -609,7 +609,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
                 .type(MediaType.APPLICATION_JSON_TYPE)
                 .post(ImmutableMap.of("param1", "foo", "param2", 4));
 
-        assertEquals(response.getStatus(), Response.Status.ACCEPTED.getStatusCode());
+        assertEquals(response.getStatus(), Response.Status.OK.getStatusCode());
 
         String result = response.readEntity(String.class);
         assertEquals(result, "foo4");
@@ -625,7 +625,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
                 .type(MediaType.APPLICATION_FORM_URLENCODED_TYPE)
                 .post(data);
 
-        assertEquals(response.getStatus(), Response.Status.ACCEPTED.getStatusCode());
+        assertEquals(response.getStatus(), Response.Status.OK.getStatusCode());
 
         String result = response.readEntity(String.class);
         assertEquals(result, "foo4");

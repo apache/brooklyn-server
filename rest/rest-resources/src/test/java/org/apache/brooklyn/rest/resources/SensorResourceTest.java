@@ -313,8 +313,11 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
                 .delete();
             assertEquals(response.getStatus(), Response.Status.NO_CONTENT.getStatusCode());
 
-            String value = client().path(SENSORS_ENDPOINT + "/" + SENSOR_NAME).accept(MediaType.TEXT_PLAIN_TYPE).get(String.class);
-            assertEquals(value, "");
+            Response r = client().path(SENSORS_ENDPOINT + "/" + SENSOR_NAME).accept(MediaType.TEXT_PLAIN_TYPE).get();
+            assertEquals(r.getStatus(), 404);  // not defined
+
+            r = client().path(SENSORS_ENDPOINT + "/" + RestMockSimpleEntity.SAMPLE_SENSOR.getName()).accept(MediaType.TEXT_PLAIN_TYPE).get();
+            assertEquals(r.getStatus(), 204);  // defined but no value
 
         } finally { addAmphibianSensor(entity); }
     }

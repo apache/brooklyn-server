@@ -96,10 +96,11 @@ public interface EntityConfigApi {
     @Path("/{config}")
     @ApiOperation(value = "Fetch config value (json)", response = Object.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 200, message = "OK. The sensor value is returned."),
+            @ApiResponse(code = 204, message = "No Content. The sensor is known, but unset."),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
-            @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
+            @ApiResponse(code = 404, message = "Application, entity, or config not found"),
             @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @Produces(MediaType.APPLICATION_JSON)
@@ -128,6 +129,7 @@ public interface EntityConfigApi {
     @ApiOperation(value = "Fetch config value (text/plain)", response = String.class)
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 204, message = "No Content. The config is known, but unset."),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
@@ -156,7 +158,7 @@ public interface EntityConfigApi {
     @POST
     @ApiOperation(value = "Manually set multiple config values")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 204, message = "No Content"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Could not find application or entity"),
@@ -177,7 +179,7 @@ public interface EntityConfigApi {
     @Path("/{config}")
     @ApiOperation(value = "Manually set a config value")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 204, message = "No Content"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Could not find application, entity or config key"),

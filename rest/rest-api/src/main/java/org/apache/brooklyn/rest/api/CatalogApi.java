@@ -155,8 +155,8 @@ public interface CatalogApi {
                     + "with a message, bundle, and code.",
             response = String.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "OK"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully"),
+            @ApiResponse(code = 200, message = "OK. The bundle is already installed."),
+            @ApiResponse(code = 201, message = "Created. The bundle has been installed."),
             @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application or entity missing"),

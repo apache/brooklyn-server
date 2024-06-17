@@ -33,7 +33,7 @@ public interface LogoutApi {
     @POST
     @ApiOperation(value = "Logout and clean session")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 500, message = "Internal Server Error")
@@ -56,9 +56,8 @@ public interface LogoutApi {
     @Path("/unauthorize")
     @ApiOperation(value = "Return UNAUTHORIZED 401 response, but without disabling the session [deprecated in favour of /logout query parameter]")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
             @ApiResponse(code = 400, message = "Bad Request"),
-            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 401, message = "Unauthorized. Normal response."),
             @ApiResponse(code = 500, message = "Internal Server Error")
     })
     Response unAuthorize();
@@ -69,7 +68,7 @@ public interface LogoutApi {
     @Path("/{user}")
     @ApiOperation(value = "Logout and clean session if matching user logged in (deprecated; username should now be omitted)")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 500, message = "Internal Server Error")

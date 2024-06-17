@@ -21,6 +21,7 @@ package org.apache.brooklyn.rest.resources;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
+import javax.ws.rs.core.Response.Status;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -96,18 +97,22 @@ public class EffectorResource extends AbstractBrooklynRestResource implements Ef
 
         try {
             Object result;
+            boolean stillRunning;
             if (timeout == null || timeout.isEmpty() || "never".equalsIgnoreCase(timeout)) {
                 result = t.get();
+                stillRunning = false;
             } else {
                 long timeoutMillis = "always".equalsIgnoreCase(timeout) ? 0 : Time.parseElapsedTime(timeout);
                 try {
                     if (timeoutMillis == 0) throw new TimeoutException();
                     result = t.get(timeoutMillis, TimeUnit.MILLISECONDS);
+                    stillRunning = false;
                 } catch (TimeoutException e) {
                     result = TaskTransformer.taskSummary(t, ui.getBaseUriBuilder(), resolving(null), null);
+                    stillRunning = true;
                 }
             }
-            return Response.status(Response.Status.ACCEPTED).entity(result).build();
+            return Response.status(stillRunning ? Response.Status.ACCEPTED : Status.OK).entity(result).build();
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }

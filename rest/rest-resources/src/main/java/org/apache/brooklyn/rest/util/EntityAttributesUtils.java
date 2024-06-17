@@ -21,6 +21,7 @@ package org.apache.brooklyn.rest.util;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,5 +46,25 @@ public class EntityAttributesUtils {
             LOG.warn("Error retrieving sensor " + sensor + " for " + entity + " (ignoring): " + exception);
         }
         return attribute;
+    }
+
+    public static final Maybe SENSOR_NOT_SET = Maybe.absent("Sensor is unset");
+
+    /** returns {@link #SENSOR_NOT_SET} if not defined; equals check can be done to compare that with a different error */
+    public static <T> Maybe<T> getAttributeMaybe(Entity entity, AttributeSensor<T> sensor) {
+        T attribute = null;
+        try {
+            attribute = entity.getAttribute(sensor);
+            if (attribute==null) {
+                if (!entity.sensors().getAll().keySet().stream().anyMatch(sn -> sn.getName().equals(sensor.getName()))) {
+                    return SENSOR_NOT_SET;
+                }
+            }
+        } catch (Exception exception) {
+            Exceptions.propagateIfFatal(exception);
+            LOG.warn("Error retrieving sensor " + sensor + " for " + entity + " (ignoring): " + exception);
+            return Maybe.absent(exception);
+        }
+        return Maybe.ofAllowingNull(attribute);
     }
 }

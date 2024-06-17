@@ -76,7 +76,7 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
         Response response = client().path(path)
                 .accept(MediaType.APPLICATION_JSON)
                 .post(null);
-        assertEquals(response.getStatus(), 202);
+        assertEquals(response.getStatus(), 200);
         Asserts.succeedsEventually(() -> assertTrue(entity.getCallHistory().contains("myEffector")));
     }
     
@@ -100,7 +100,7 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
                 .accept(MediaType.APPLICATION_JSON)
                 .header("Content-Type", MediaType.APPLICATION_JSON)
                 .post("{\"arg\": \"myval\"}");
-        assertEquals(response.getStatus(), 202);
+        assertEquals(response.getStatus(), 200);
         
         String responseBody = response.readEntity(String.class);
         assertTrue(entity.getCallHistory().contains("identityEffector"));
@@ -118,7 +118,7 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
                 .header("Content-Type", MediaType.APPLICATION_JSON)
                 .post("{\"duration\": \"50ms\"}");
         Duration runDuration = Duration.of(stopwatch);
-        assertEquals(response.getStatus(), 202);
+        assertEquals(response.getStatus(), 200);
         
         assertTrue(entity.getCallHistory().contains("sleepEffector"));
         assertTrue(runDuration.isLongerThan(Duration.millis(40)), "runDuration="+runDuration);

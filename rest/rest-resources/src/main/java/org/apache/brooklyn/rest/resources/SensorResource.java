@@ -38,6 +38,7 @@ import org.apache.brooklyn.rest.util.EntityAttributesUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -120,9 +121,30 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s' sensor '%s'",
                     Entitlements.getEntitlementContext().user(), entity, sensor.getName());
         }
-        
-        Object value = EntityAttributesUtils.tryGetAttribute(entity, sensor);
-        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).useDisplayHints(useDisplayHints).raw(raw).context(entity).immediately(true).renderAs(sensor)
+
+        Maybe<?> vm = EntityAttributesUtils.getAttributeMaybe(entity, sensor);
+        if (vm.isAbsent()) {
+             Sensor<?> sensorDefinition = ((EntityInternal) entity).getMutableEntityType().getSensor(sensorName);
+
+//            boolean sensorInMap = ((EntityInternal) entity).sensors().getAll().keySet().stream().anyMatch(k -> k.getName().equals(sensorName));
+            // if sensor is defined, but value unavailable, return 424
+
+            // if sensor defined, but not set, retun 204
+            if (vm!=EntityAttributesUtils.SENSOR_NOT_SET) {
+//                // could support 424, but that would probably be done below; this is raw, so any error is low level
+//                return WebResourceUtils.dependencyFailed("Value specified but not resolvable.");
+                vm.get();
+            }
+
+            if (sensorDefinition!=null && vm==EntityAttributesUtils.SENSOR_NOT_SET) {
+                 return WebResourceUtils.noContent("No value for sensor");
+            }
+
+            // if sensor is not defined, return 404
+            throw WebResourceUtils.notFound("Sensor '%s' not known", sensorName);
+
+        }
+        return resolving(vm.get()).preferJson(preferJson).asJerseyOutermostReturnValue(true).useDisplayHints(useDisplayHints).raw(raw).context(entity).immediately(true).renderAs(sensor)
                 .suppressIfSecret(sensorName, suppressSecrets).resolve();
     }
 
@@ -190,6 +212,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
         if (log.isDebugEnabled())
             log.debug("REST user "+Entitlements.getEntitlementContext()+" deleting sensor "+sensorName);
         ((EntityInternal)entity).sensors().remove(sensor);
+        ((EntityInternal)entity).getMutableEntityType().removeSensor(sensor);
     }
     
 }

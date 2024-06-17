@@ -86,11 +86,7 @@ public class WebResourceUtils {
                 : ApiError.builder().message(fullMsg==null ? "" : fullMsg))
             .errorCode(status).build();
         // including a Throwable is the only way to include a message with the WebApplicationException - ugly!
-        throw new WebApplicationException(
-            exception==null ? new Throwable(apiError.toString()) :
-                suppliedMsg==null ? exception :
-                new PropagatedRuntimeException(suppliedMsg, exception), 
-            apiError.asJsonResponse());
+        throw apiError.throwWebApplicationException(exception);
     }
 
     /** @throws WebApplicationException With code 500 internal server error */
@@ -131,6 +127,14 @@ public class WebResourceUtils {
     /** @throws WebApplicationException With code 412 precondition failed */
     public static WebApplicationException preconditionFailed(String format, Object... args) {
         return throwWebApplicationException(Response.Status.PRECONDITION_FAILED, format, args);
+    }
+
+    public static WebApplicationException dependencyFailed(String message) {
+        return ApiError.builder().message(message).errorCode(424).build().throwWebApplicationException();
+    }
+
+    public static WebApplicationException noContent(String message) {
+        return ApiError.builder().message(message).errorCode(204).build().throwWebApplicationException();
     }
 
     public final static Map<String,com.google.common.net.MediaType> IMAGE_FORMAT_MIME_TYPES = ImmutableMap.<String, com.google.common.net.MediaType>builder()

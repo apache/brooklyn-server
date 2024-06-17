@@ -247,7 +247,8 @@ public interface BundleApi {
     @Consumes("application/deprecated-yaml")
     @ApiOperation(value = "(deprecated; use same endpoint accepting optional format)", hidden = true, response = BundleInstallationRestResult.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK. The bundle is already installed."),
+            @ApiResponse(code = 201, message = "Created. The bundle has been installed."),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
@@ -266,7 +267,8 @@ public interface BundleApi {
     @Consumes({"application/deprecated-zip"})
     @ApiOperation(value = "(deprecated; use same endpoint accepting optional format)", hidden = true, response = BundleInstallationRestResult.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK. The bundle is already installed."),
+            @ApiResponse(code = 201, message = "Created. The bundle has been installed."),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
@@ -291,7 +293,8 @@ public interface BundleApi {
                     + "a ZIP/JAR containing a catalog.bom and optional other items",
             response = BundleInstallationRestResult.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Catalog items added successfully"),
+            @ApiResponse(code = 200, message = "OK. The bundle is already installed."),
+            @ApiResponse(code = 201, message = "Created. The bundle has been installed."),
             @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 500, message = "Internal Server Error")

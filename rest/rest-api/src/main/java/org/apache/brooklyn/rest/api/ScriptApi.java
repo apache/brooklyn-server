@@ -48,7 +48,7 @@ public interface ScriptApi {
     @ApiOperation(value = "Execute a groovy script",
             response = org.apache.brooklyn.rest.domain.SensorSummary.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
             @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 500, message = "Internal Server Error")

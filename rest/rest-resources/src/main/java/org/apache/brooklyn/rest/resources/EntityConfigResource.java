@@ -21,12 +21,14 @@ package org.apache.brooklyn.rest.resources;
 import io.swagger.annotations.ApiParam;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.QueryParam;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.Sanitizer;
@@ -44,6 +46,7 @@ import org.apache.brooklyn.rest.transform.ConfigTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -191,8 +194,21 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
                     Entitlements.getEntitlementContext().user(), entity, ck.getName());
         }
         
-        Object value = ((EntityInternal)entity).config().getRaw(ck).orNull();
-        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true)
+        Maybe<Object> valueM = ((EntityInternal)entity).config().getRaw(ck);
+        if (valueM.isAbsent()) {
+            Set<ConfigKey<?>> configDefinition = ((EntityInternal) entity).config().findKeysDeclared(x -> x.getName().equals(configKeyName));
+
+            // could do this...
+//            // if sensor is defined, but value unavailable, return 424
+//            if (sensorInMap) return WebResourceUtils.dependencyFailed("Value specified but not resolvable.");
+            // cf sensors
+
+            if (!configDefinition.isEmpty()) return WebResourceUtils.noContent("Value specified but not resolvable.");
+            // if sensor is not defined, return 404
+            throw WebResourceUtils.notFound("Config '%s' not known", configKeyName);
+
+        }
+        return resolving(valueM.get()).preferJson(preferJson).asJerseyOutermostReturnValue(true)
                 .useDisplayHints(useDisplayHints)
                 .skipResolution(skipResolution)
                 .suppressIfSecret(ck.getName(), suppressSecrets)
