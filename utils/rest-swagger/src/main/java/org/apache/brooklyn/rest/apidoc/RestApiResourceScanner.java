@@ -15,17 +15,6 @@
  */
 package org.apache.brooklyn.rest.apidoc;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.WeakHashMap;
-
-import javax.servlet.ServletConfig;
-import javax.ws.rs.core.Application;
-
 import io.swagger.annotations.Api;
 import io.swagger.config.Scanner;
 import io.swagger.config.ScannerFactory;
@@ -35,6 +24,7 @@ import io.swagger.jaxrs.config.JaxrsScanner;
 import io.swagger.jaxrs.config.SwaggerContextService;
 import io.swagger.jaxrs.config.SwaggerScannerLocator;
 import io.swagger.models.Info;
+import io.swagger.models.Path;
 import io.swagger.models.Scheme;
 import io.swagger.models.Swagger;
 import io.swagger.models.auth.ApiKeyAuthDefinition;
@@ -44,6 +34,18 @@ import io.swagger.models.properties.ArrayProperty;
 import io.swagger.models.properties.Property;
 import io.swagger.models.properties.RefProperty;
 import io.swagger.models.refs.RefFormat;
+import io.swagger.util.ReflectionUtils;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.WeakHashMap;
+import javax.servlet.ServletConfig;
+import javax.ws.rs.core.Application;
 
 /**
  * Scans resources for Swagger API resources. Makes them available to the Swagger scanner.
@@ -64,6 +66,7 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
     private boolean scannerDirty = true;
 
     private final Set<Class<?>> globalClasses = new HashSet<>();
+    private final Map<Class<?>,String> classExtraPrefixes = new LinkedHashMap<>();
 
     private final Map<Application,Set<Class<?>>> appCache = new WeakHashMap<>();
 
@@ -157,6 +160,27 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
                 arrayProp.setItems(new RefProperty("#/definitions/TypeToken", RefFormat.INTERNAL));
             }
         }
+
+        if (!classExtraPrefixes.isEmpty()) {
+            Map<String, String> extraPrefixesByTag = new LinkedHashMap<>();
+            classExtraPrefixes.forEach((clazz, prefix) -> {
+                Api api = ReflectionUtils.getAnnotation(clazz, Api.class);
+                if (api==null) throw new IllegalStateException("Cannot install "+clazz+" to REST API doc because it does not define an @Api tag for Swagger.");
+                extraPrefixesByTag.put(api.value(), prefix);
+            });
+            Map<String, Path> oldPaths = swagger.getPaths();
+            Map<String, Path> newPaths = new LinkedHashMap<>();
+            oldPaths.forEach((k, v) -> {
+                Optional<String> prefix = v.getOperations().stream().filter(op -> op != null).flatMap(op -> op.getTags().stream().map(extraPrefixesByTag::get).filter(x -> x != null))
+                        .findFirst();
+                if (prefix.isPresent()) {
+                    newPaths.put("/" + prefix.get() + k, v);
+                } else {
+                    newPaths.put(k,v);
+                }
+            });
+            swagger.setPaths(newPaths);
+        }
     }
 
     private Info getSwaggerInfo() {
@@ -188,6 +212,14 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
         SwaggerScannerLocator.getInstance().putScanner(SwaggerContextService.SCANNER_ID_DEFAULT, scanner);
 
         ((RestApiResourceScanner)ScannerFactory.getScanner()).scannerDirty = true;
+    }
+
+    /** as {@link #install(Collection)} but for one resource class, with an extra prefix prepended by Swagger.
+     * this is required because extension REST endpoints usin gan OSGi blueprint.xml need to specify the subpath relative to the basepath,
+     * so the @Path annotation which Swagger relies upon is not set. */
+    public static synchronized void install(Class<?> resourceClass, String prefixForClass) {
+        install(Arrays.asList(resourceClass));
+        ((RestApiResourceScanner)ScannerFactory.getScanner()).classExtraPrefixes.put(resourceClass, prefixForClass);
     }
 
     public static void rescanIfNeeded(Runnable r) {
