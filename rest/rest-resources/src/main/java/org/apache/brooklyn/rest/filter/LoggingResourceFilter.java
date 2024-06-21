@@ -176,7 +176,7 @@ public class LoggingResourceFilter implements ContainerRequestFilter, ContainerR
         
         SecurityContext securityContext = requestContext.getSecurityContext();
         Principal userPrincipal = (securityContext != null) ? requestContext.getSecurityContext().getUserPrincipal() : null;
-        String userName = (userPrincipal != null) ? userPrincipal.getName() : "<no-user>";
+        String userName = (userPrincipal != null) ? userPrincipal.getName() : tryFindUserName();
         String remoteAddr = servletRequest.getRemoteAddr();
         
         boolean includeHeaders = (responseContext.getStatus() / 100 == 5) || LOG.isTraceEnabled();
