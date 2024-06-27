@@ -36,6 +36,7 @@ import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -280,7 +281,8 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
             // paths (ie non-protocol) and
             // NB, for security, file URL's are NOT served
             MediaType mime = WebResourceUtils.getImageMediaTypeFromExtension(Files.getFileExtension(url));
-            Object content = ResourceUtils.create(b).getResourceFromUrl(url);
+            OsgiBrooklynClassLoadingContext cl = new OsgiBrooklynClassLoadingContext(mgmt(), null, MutableList.of(b));
+            Object content = ResourceUtils.create(cl).getResourceFromUrl(url);
             return Response.ok(content, mime).build();
         }
 

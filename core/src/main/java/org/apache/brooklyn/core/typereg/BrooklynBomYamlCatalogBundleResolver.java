@@ -25,6 +25,8 @@ import java.util.function.Supplier;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
+
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
@@ -131,15 +133,7 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
             BasicManagedBundle basicManagedBundle = new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(),
                     null, BrooklynBomBundleCatalogBundleResolver.FORMAT,
                     null, null, options.getDeleteable(), options.getFromInitialCatalog());
-            // if the submitted blueprint contains tags, we set them on the bundle, so they can be picked up and used to tag the plan.
-            if( cm.containsKey("tags") && cm.get("tags") instanceof Iterable) {
-                basicManagedBundle.tags().addTags((Iterable<?>)cm.get("tags"));
-            }
-            // Store the bundleIconUrl as an ICON_URL tag
-            Maybe<String> bundleIconUrl = ConfigUtils.getFirstAs(cm, String.class, "bundleIconUrl");
-            if (bundleIconUrl.isPresentAndNonNull()) {
-                basicManagedBundle.tags().addTag(BrooklynTags.newIconUrlTag(bundleIconUrl.get()));
-            }
+            setTagsAndIconUrl(cm, basicManagedBundle);
             result = ((ManagementContextInternal)mgmt).getOsgiManager().get().installBrooklynBomBundle(
                     basicManagedBundle, InputStreamSource.of("ZIP generated for "+vn+": "+bf, bf), options.isStart(), options.isLoadCatalogBom(), options.isForceUpdateOfNonSnapshots(),
                     options.isValidateTypes(), options.isDeferredStart()).get();
@@ -152,5 +146,19 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
         }
         ((BasicBrooklynCatalog)mgmt.getCatalog()).uninstallEmptyWrapperBundles();
         return ReferenceWithError.newInstanceWithoutError(result);
+    }
+
+    public static void setTagsAndIconUrl(Map<?, ?> properties, ManagedBundle managedBundle) {
+        if (properties==null) return;
+
+        // if the submitted blueprint contains tags, we set them on the bundle, so they can be picked up and used to tag the plan.
+        if( properties.containsKey("tags") && properties.get("tags") instanceof Iterable) {
+            managedBundle.tags().addTags((Iterable<?>) properties.get("tags"));
+        }
+        // Store the bundleIconUrl as an ICON_URL tag
+        Maybe<String> bundleIconUrl = ConfigUtils.getFirstAs(properties, String.class, "bundleIconUrl", "bundle_icon_url", "iconUrl", "icon_url");
+        if (bundleIconUrl.isPresentAndNonNull()) {
+            managedBundle.tags().addTag(BrooklynTags.newIconUrlTag(bundleIconUrl.get()));
+        }
     }
 }

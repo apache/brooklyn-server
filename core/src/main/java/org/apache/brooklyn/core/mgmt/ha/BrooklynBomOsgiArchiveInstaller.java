@@ -389,38 +389,39 @@ public class BrooklynBomOsgiArchiveInstaller {
     private void discoverManifestFromCatalogBom(boolean isCatalogBomRequired) {
         discoveredManifest = new BundleMaker(mgmt()).getManifest(zipFile.getFile());
 
-        if (Strings.isNonBlank(bomText)) {
-            discoveredBomVersionedName = BasicBrooklynCatalog.getVersionedName(BasicBrooklynCatalog.getCatalogMetadata(bomText), false );
-            return;
+        Map<?, ?> catalogMetadata = null;
+        if (Strings.isBlank(bomText)) {
+            ZipFile zf = null;
+            try {
+                try {
+                    zf = new ZipFile(zipFile.getFile());
+                } catch (IOException e) {
+                    throw new IllegalArgumentException("Invalid ZIP/JAR archive: " + e);
+                }
+                ZipEntry bom = zf.getEntry(BasicBrooklynCatalog.CATALOG_BOM);
+                if (bom == null) {
+                    bom = zf.getEntry("/" + BasicBrooklynCatalog.CATALOG_BOM);
+                }
+                if (bom == null) {
+                    if (isCatalogBomRequired) {
+                        throw new IllegalArgumentException("Archive must contain a catalog.bom file in the root");
+                    } else {
+                        return;
+                    }
+                }
+                try {
+                    bomText = Streams.readFullyString(zf.getInputStream(bom));
+                } catch (IOException e) {
+                    throw new IllegalArgumentException("Error reading catalog.bom from ZIP/JAR archive: " + e);
+                }
+            } finally {
+                Streams.closeQuietly(zf);
+            }
         }
 
-        ZipFile zf = null;
-        try {
-            try {
-                zf = new ZipFile(zipFile.getFile());
-            } catch (IOException e) {
-                throw new IllegalArgumentException("Invalid ZIP/JAR archive: "+e);
-            }
-            ZipEntry bom = zf.getEntry(BasicBrooklynCatalog.CATALOG_BOM);
-            if (bom==null) {
-                bom = zf.getEntry("/"+BasicBrooklynCatalog.CATALOG_BOM);
-            }
-            if (bom==null) {
-                if (isCatalogBomRequired) {
-                    throw new IllegalArgumentException("Archive must contain a catalog.bom file in the root");
-                } else {
-                    return;
-                }
-            }
-            try {
-                bomText = Streams.readFullyString(zf.getInputStream(bom));
-            } catch (IOException e) {
-                throw new IllegalArgumentException("Error reading catalog.bom from ZIP/JAR archive: "+e);
-            }
-            discoveredBomVersionedName = BasicBrooklynCatalog.getVersionedName( BasicBrooklynCatalog.getCatalogMetadata(bomText), false );
-        } finally {
-            Streams.closeQuietly(zf);
-        }
+        catalogMetadata = BasicBrooklynCatalog.getCatalogMetadata(bomText);
+        discoveredBomVersionedName = BasicBrooklynCatalog.getVersionedName(catalogMetadata, false );
+        BrooklynBomYamlCatalogBundleResolver.setTagsAndIconUrl(catalogMetadata, inferredMetadata);
     }
     
     private void updateManifestFromAllSourceInformation() {

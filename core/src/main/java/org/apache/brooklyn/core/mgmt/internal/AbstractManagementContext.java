@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.mgmt.internal;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Predicates;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
 
@@ -132,10 +133,15 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                         return seqLoader;
                     }
 
-                    return apply(internal.getManagementSupport());
+                    if (internal.getManagementSupport()==null) return null;
+                    return apply(internal.getManagementSupport().getManagementContext());
                 }
-                
+
                 if (input instanceof EntityManagementSupport) {
+                    // i think was only used by above, when there is no entity bundle; and now goes directly to mgmt context;
+                    // but just in case let's continue to support this, and prefer the entity if available
+                    if (((EntityManagementSupport) input).entity instanceof EntityInternal)
+                        return apply(((EntityManagementSupport) input).entity);
                     return apply(((EntityManagementSupport) input).getManagementContext());
                 }
 
