@@ -307,14 +307,26 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
     }
 
     private LoadingCache<Map<String, ?>, Pool<SshTool>> buildSshToolPoolCacheLoader() {
-        // TODO: Appropriate numbers for maximum size and expire after access
-        // At the moment every SshMachineLocation instance creates its own pool.
-        // It might make more sense to create one pool and inject it into all SshMachineLocations.
+        // Every SshMachineLocation instance creates its own pool.
+        // Expiry is configurable, but max size is not.
+
+        CacheBuilder<Object, Object> db = CacheBuilder.newBuilder();
+
         Duration expiryDuration = getConfig(SSH_CACHE_EXPIRY_DURATION);
-        
-        LoadingCache<Map<String, ?>, Pool<SshTool>> delegate = CacheBuilder.newBuilder()
+        if (expiryDuration!=null) {
+            // has a default, so shouldn't normally be null
+            if (!expiryDuration.isPositive()) {
+                // non-positive duration is an error, as it disables cache
+                throw new IllegalArgumentException("Expiry duration must be positive if specified. " +
+                        "To trigger an immediate close after use, set " +
+                        ConfigUtils.prefixedKey(SshTool.BROOKLYN_CONFIG_KEY_PREFIX, CLOSE_CONNECTION).getName() + "=true instead.");
+            } else if (expiryDuration.isShorterThan(Duration.PRACTICALLY_FOREVER)){
+                db = db.expireAfterAccess(expiryDuration.toNanoseconds(), TimeUnit.NANOSECONDS);
+            }
+        }
+
+        LoadingCache<Map<String, ?>, Pool<SshTool>> delegate = db
                 .maximumSize(10)
-                .expireAfterAccess(expiryDuration.toMilliseconds(), TimeUnit.MILLISECONDS)
                 .recordStats()
                 .removalListener(new RemovalListener<Map<String, ?>, Pool<SshTool>>() {
                     // TODO: Does it matter that this is synchronous? - Can closing pools cause long delays?
