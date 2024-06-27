@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.filter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -63,6 +64,8 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
     @Context
     private ContextResolver<ManagementContext> mgmtC;
 
+    private static boolean LOGGED_LOGIN_FORM_WITH_INCOMPATIBLE_AUTH_WARNING = false;
+
     @SuppressWarnings("resource")
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
@@ -85,10 +88,7 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
                     rin = Response.status(Status.UNAUTHORIZED).entity("Authentication is required").build();
                 }
             }
-            if (rin.getStatus()==Status.UNAUTHORIZED.getStatusCode() &&
-                    Strings.isNonBlank(mgmt.getConfig().getConfig(BrooklynSecurityProviderFilterJavax.LOGIN_FORM))) {
-                rin = Response.status(Status.UNAUTHORIZED).entity("Authentication is required").header(LOGIN_PAGE_HEADER, mgmt.getConfig().getConfig(BrooklynSecurityProviderFilterJavax.LOGIN_FORM)).build();
-            }
+
             // adding headers in `headersToForward` if they are present in the original response
             MultivaluedMap<String, Object> responseHeaders = e.getResponse().getHeaders();
             if(responseHeaders != null && !responseHeaders.isEmpty()){
@@ -98,6 +98,26 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
                     }
                 };
             }
+
+            // if form is being used, we must NOT forward the WWW-Auth header
+            if (rin.getStatus()==Status.UNAUTHORIZED.getStatusCode()) {
+                String form = mgmt.getConfig().getConfig(BrooklynSecurityProviderFilterJavax.LOGIN_FORM);
+                if (Strings.isNonBlank(form)) {
+                    if (!LOGGED_LOGIN_FORM_WITH_INCOMPATIBLE_AUTH_WARNING) {
+                        List<Object> existingAuthHeaders = rin.getHeaders().get(HttpHeader.WWW_AUTHENTICATE);
+                        if (!existingAuthHeaders.isEmpty() && existingAuthHeaders.stream().noneMatch(x -> ("" + x).toLowerCase().startsWith("basic "))) {
+                            LOGGED_LOGIN_FORM_WITH_INCOMPATIBLE_AUTH_WARNING = true;
+                            log.warn(BrooklynSecurityProviderFilterJavax.LOGIN_FORM.getName() + " " + form + " being used with incompatible auth scheme (logging once only): " + existingAuthHeaders);
+                        }
+                    }
+                    rin = Response.fromResponse(rin).status(Status.UNAUTHORIZED).entity("Authentication is required using form at "+form)
+                            .header(LOGIN_PAGE_HEADER, form)
+                            .header(HttpHeaders.WWW_AUTHENTICATE, null)  // clear the previous, so we don't return basic as browsers interecept that
+                            .header(HttpHeaders.WWW_AUTHENTICATE, "X-Basic realm=\"login-form\"")  // then add our custom one
+                            .build();
+                }
+            }
+
             requestContext.abortWith(rin);
         }
     }
