@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
+import org.slf4j.MDC;
 
 /**
  * Logs inbound REST api calls, and their responses.
@@ -96,7 +97,7 @@ public class LoggingResourceFilter implements ContainerRequestFilter, ContainerR
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
         requestTimestamps.put(servletRequest, System.nanoTime());
-        
+
         String method = requestContext.getMethod();
         boolean isInteresting = !UNINTERESTING_METHODS.contains(method.toUpperCase());
         LogLevel logLevel = isInteresting ? LogLevel.DEBUG : LogLevel.TRACE;
@@ -143,6 +144,8 @@ public class LoggingResourceFilter implements ContainerRequestFilter, ContainerR
                 .append(remoteAddr);
 
         log(LOG, level, message.toString());
+
+        MDC.put("username", userName);
     }
 
     private String tryFindUserName(){
@@ -176,7 +179,7 @@ public class LoggingResourceFilter implements ContainerRequestFilter, ContainerR
         
         SecurityContext securityContext = requestContext.getSecurityContext();
         Principal userPrincipal = (securityContext != null) ? requestContext.getSecurityContext().getUserPrincipal() : null;
-        String userName = (userPrincipal != null) ? userPrincipal.getName() : "<no-user>";
+        String userName = (userPrincipal != null) ? userPrincipal.getName() : tryFindUserName();
         String remoteAddr = servletRequest.getRemoteAddr();
         
         boolean includeHeaders = (responseContext.getStatus() / 100 == 5) || LOG.isTraceEnabled();
@@ -230,6 +233,7 @@ public class LoggingResourceFilter implements ContainerRequestFilter, ContainerR
         }
 
         log(LOG, level, message.toString());
+        MDC.clear();
     }
     
     private boolean isLogEnabled(Logger logger, LogLevel level) {
