@@ -28,6 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
+import com.google.common.base.*;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -52,8 +54,10 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.enricher.stock.AbstractMultipleSensorAggregator;
 import org.apache.brooklyn.enricher.stock.Enrichers;
+import org.apache.brooklyn.enricher.stock.Transformer;
 import org.apache.brooklyn.enricher.stock.UpdatingMap;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -62,6 +66,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.repeat.Repeater;
@@ -70,11 +75,6 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -186,19 +186,45 @@ public class ServiceStateLogic {
         if (state==Lifecycle.RUNNING) {
             Boolean up = entity.getAttribute(Attributes.SERVICE_UP);
             if (!Boolean.TRUE.equals(up) && Entities.isManagedActive(entity)) {
-                // pause briefly to allow any recent problem-clearing processing to complete
-                Stopwatch timer = Stopwatch.createStarted();
-                boolean nowUp = Repeater.create()
-                        .every(ValueResolver.REAL_QUICK_PERIOD)
-                        .limitTimeTo(ValueResolver.PRETTY_QUICK_WAIT)
-                        .until(entity, EntityPredicates.attributeEqualTo(Attributes.SERVICE_UP, true))
-                        .run();
-                if (nowUp) {
-                    log.debug("Had to wait "+Duration.of(timer)+" for "+entity+" "+Attributes.SERVICE_UP+" to be true before setting "+state);
-                } else {
-                    if (Entities.isManagedActive(entity)) {
-                        log.warn("Service is not up when setting " + state + " on " + entity + "; delayed " + Duration.of(timer) + " "
-                                + "but " + Attributes.SERVICE_UP + " did not recover from " + up + "; not-up-indicators=" + entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS));
+                try {
+                    Iterables.filter(entity.enrichers(), x -> x instanceof ComputeServiceIndicatorsFromChildrenAndMembers).forEach(
+                            x -> {
+                                ComputeServiceIndicatorsFromChildrenAndMembers mx = (ComputeServiceIndicatorsFromChildrenAndMembers) x;
+                                if (mx.isRunning()) mx.onUpdated();
+                            }
+                    );
+
+                    Map<String, Object> notUpIndicators = entity.sensors().get(Attributes.SERVICE_NOT_UP_INDICATORS);
+                    if (notUpIndicators != null && notUpIndicators.isEmpty()) {
+                        Optional<Enricher> css = Iterables.tryFind(entity.enrichers(), x -> ServiceNotUpLogic.DEFAULT_ENRICHER_UNIQUE_TAG.equals(x.getUniqueTag()));
+                        if (css.isPresent()) {
+                            SensorEvent<Map<String, Object>> pseudoEvent = new BasicSensorEvent<>(Attributes.SERVICE_NOT_UP_INDICATORS, entity, notUpIndicators);
+                            ((SensorEventListener) css.get()).onEvent(pseudoEvent);
+                            up = entity.getAttribute(Attributes.SERVICE_UP);
+                        }
+                    }
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    log.debug("Service is not up when setting "+ state +" on " + entity+", and attempt to run standard prep workflows failed with exception; will wait and see if service up clears, but for reference the error is: "+e);
+                    if (log.isTraceEnabled()) log.trace("Exception trace", e);
+                }
+
+                if (!Boolean.TRUE.equals(up) && Entities.isManagedActive(entity)) {
+                    // pause briefly to allow any recent problem-clearing processing to complete;
+                    // should be less necessary now that the code above explicitly triggers any not-up indicators
+                    Stopwatch timer = Stopwatch.createStarted();
+                    boolean nowUp = Repeater.create()
+                            .every(ValueResolver.REAL_QUICK_PERIOD)
+                            .limitTimeTo(ValueResolver.PRETTY_QUICK_WAIT)
+                            .until(entity, EntityPredicates.attributeEqualTo(Attributes.SERVICE_UP, true))
+                            .run();
+                    if (nowUp) {
+                        log.debug("Had to wait " + Duration.of(timer) + " for " + entity + " " + Attributes.SERVICE_UP + " to be true before setting " + state);
+                    } else {
+                        if (Entities.isManagedActive(entity)) {
+                            log.warn("Service is not up when setting " + state + " on " + entity + "; delayed " + Duration.of(timer) + " "
+                                    + "but " + Attributes.SERVICE_UP + " did not recover from " + up + "; not-up-indicators=" + entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS));
+                        }
                     }
                 }
             }
@@ -541,7 +567,7 @@ public class ServiceStateLogic {
         }
 
         @Override
-        protected void onUpdated() {
+        public void onUpdated() {
             if (entity==null || !Entities.isManagedActive(entity)) {
                 // either invoked during setup or entity has become unmanaged; just ignore
                 BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
