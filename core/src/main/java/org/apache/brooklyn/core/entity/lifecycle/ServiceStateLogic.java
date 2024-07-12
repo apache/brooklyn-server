@@ -293,9 +293,9 @@ public class ServiceStateLogic {
     /** Enricher which sets {@link Attributes#SERVICE_STATE_ACTUAL} on changes to
      * {@link Attributes#SERVICE_STATE_EXPECTED}, {@link Attributes#SERVICE_PROBLEMS}, and {@link Attributes#SERVICE_UP}
      * <p>
-     * The default implementation uses {@link #computeActualStateWhenExpectedRunning(Map, Boolean)} if the last expected transition
+     * The default implementation uses {@link #computeActualStateWhenExpectedRunning()} if the last expected transition
      * was to {@link Lifecycle#RUNNING} and
-     * {@link #computeActualStateWhenNotExpectedRunning(Map, Boolean, org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition)} otherwise.
+     * {@link #computeActualStateWhenNotExpectedRunning(org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition)} otherwise.
      * If these methods return null, the {@link Attributes#SERVICE_STATE_ACTUAL} sensor will be cleared (removed).
      * Either of these methods can be overridden for custom logic, and that custom enricher can be created using
      * {@link ServiceStateLogic#newEnricherForServiceState(Class)} and added to an entity.
@@ -335,37 +335,50 @@ public class ServiceStateLogic {
         public void onEvent(@Nullable SensorEvent<Object> event) {
             Preconditions.checkNotNull(entity, "Cannot handle subscriptions or compute state until associated with an entity");
 
-            Map<String, Object> serviceProblems = entity.getAttribute(SERVICE_PROBLEMS);
-            Boolean serviceUp = entity.getAttribute(SERVICE_UP);
             Lifecycle.Transition serviceExpected = entity.getAttribute(SERVICE_STATE_EXPECTED);
 
             if (serviceExpected!=null && serviceExpected.getState()==Lifecycle.RUNNING) {
-                setActualState( computeActualStateWhenExpectedRunning(serviceProblems, serviceUp) );
+                setActualState( computeActualStateWhenExpectedRunning() );
             } else {
-                setActualState( computeActualStateWhenNotExpectedRunning(serviceProblems, serviceUp, serviceExpected) );
+                setActualState( computeActualStateWhenNotExpectedRunning(serviceExpected) );
             }
         }
 
-        protected Maybe<Lifecycle> computeActualStateWhenExpectedRunning(Map<String, Object> problems, Boolean serviceUp) {
-            if (Boolean.TRUE.equals(serviceUp) && (problems==null || problems.isEmpty())) {
-                return Maybe.of(Lifecycle.RUNNING);
-            } else {
-                if (!Entities.isManagedActive(entity)) {
-                    return Maybe.absent("entity not managed active");
+        protected Maybe<Lifecycle> computeActualStateWhenExpectedRunning() {
+            int count=0;
+            while (true) {
+                Map<String, Object> problems = entity.getAttribute(SERVICE_PROBLEMS);
+                Boolean serviceUp = entity.getAttribute(SERVICE_UP);
+
+                if (Boolean.TRUE.equals(serviceUp) && (problems == null || problems.isEmpty())) {
+                    return Maybe.of(Lifecycle.RUNNING);
+                } else {
+                    if (!Entities.isManagedActive(entity)) {
+                        return Maybe.absent("entity not managed active");
+                    }
+                    if (!Lifecycle.ON_FIRE.equals(entity.getAttribute(SERVICE_STATE_ACTUAL))) {
+                        if (count==0) {
+                            // very occasional race here; might want to give a grace period if entity has just transitioned; allow children to catch up
+                            // we probably did the wait when expected running, but possibly in some cases we don't (seen once, 2024-07, not reproduced)
+                            log.debug("Entity "+entity+" would be on-fire duet to problems (up="+serviceUp+", problems="+problems+"), will attempt one re-check");
+                            waitBrieflyForServiceUpIfStateIsRunning(entity, Lifecycle.RUNNING);
+                            count++;
+                            continue;
+                        }
+
+                        BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(entity, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.DEBUG),
+                                "Setting " + entity + " " + Lifecycle.ON_FIRE + " due to problems when expected running, up=" + serviceUp + ", " +
+                                        (problems == null || problems.isEmpty() ? "not-up-indicators: " + entity.getAttribute(SERVICE_NOT_UP_INDICATORS) : "problems: " + problems));
+                    }
+                    return Maybe.of(Lifecycle.ON_FIRE);
                 }
-                if (!Lifecycle.ON_FIRE.equals(entity.getAttribute(SERVICE_STATE_ACTUAL))) {
-                    Lifecycle.Transition serviceExpected = entity.getAttribute(SERVICE_STATE_EXPECTED);
-                    // very occasional race here; might want to give a grace period if entity has just transitioned,
-                    // allow children to catch up
-                    BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(entity, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.DEBUG),
-                        "Setting "+entity+" "+Lifecycle.ON_FIRE+" due to problems when expected running, up="+serviceUp+", "+
-                            (problems==null || problems.isEmpty() ? "not-up-indicators: "+entity.getAttribute(SERVICE_NOT_UP_INDICATORS) : "problems: "+problems));
-                }
-                return Maybe.of(Lifecycle.ON_FIRE);
             }
         }
 
-        protected Maybe<Lifecycle> computeActualStateWhenNotExpectedRunning(Map<String, Object> problems, Boolean up, Lifecycle.Transition stateTransition) {
+        protected Maybe<Lifecycle> computeActualStateWhenNotExpectedRunning(Lifecycle.Transition stateTransition) {
+            Map<String, Object> problems = entity.getAttribute(SERVICE_PROBLEMS);
+            Boolean up = entity.getAttribute(SERVICE_UP);
+
             if (stateTransition!=null) {
                 // if expected state is present but not running, just echo the expected state (ignore problems and up-ness)
                 return Maybe.of(stateTransition.getState());
