@@ -68,6 +68,7 @@ import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
+import org.apache.brooklyn.util.guava.IfFunctions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Strings;
@@ -166,7 +167,7 @@ public class ServiceStateLogic {
     
     private static void setExpectedState(Entity entity, Lifecycle state, boolean waitBrieflyForServiceUpIfRunning) {
         if (waitBrieflyForServiceUpIfRunning) {
-            waitBrieflyForServiceUpIfStateIsRunning(entity, state);
+            waitBrieflyForServiceUpIfStateIsRunning("setting expected state", entity, state);
         }
         ((EntityInternal)entity).sensors().set(Attributes.SERVICE_STATE_EXPECTED, new Lifecycle.Transition(state, new Date()));
 
@@ -182,26 +183,34 @@ public class ServiceStateLogic {
         return expected.getState();
     }
 
-    private static void waitBrieflyForServiceUpIfStateIsRunning(Entity entity, Lifecycle state) {
+    private static void waitBrieflyForServiceUpIfStateIsRunning(String when, Entity entity, Lifecycle state) {
         if (state==Lifecycle.RUNNING) {
+            log.debug("Service is not up when setting "+ state +" when "+when+" on " + entity+", but possibly just needs a recompute; doing recompute now");
+
             Boolean up = entity.getAttribute(Attributes.SERVICE_UP);
             if (!Boolean.TRUE.equals(up) && Entities.isManagedActive(entity)) {
                 try {
                     Iterables.filter(entity.enrichers(), x -> x instanceof ComputeServiceIndicatorsFromChildrenAndMembers).forEach(
                             x -> {
                                 ComputeServiceIndicatorsFromChildrenAndMembers mx = (ComputeServiceIndicatorsFromChildrenAndMembers) x;
-                                if (mx.isRunning()) mx.onUpdated();
+                                if (mx.isRunning()) {
+                                    log.debug("Service not up pre-check recompute rerunning "+mx);
+                                    mx.onUpdated();
+                                }
                             }
                     );
 
                     Map<String, Object> notUpIndicators = entity.sensors().get(Attributes.SERVICE_NOT_UP_INDICATORS);
-                    if (notUpIndicators != null && notUpIndicators.isEmpty()) {
-                        Optional<Enricher> css = Iterables.tryFind(entity.enrichers(), x -> ServiceNotUpLogic.DEFAULT_ENRICHER_UNIQUE_TAG.equals(x.getUniqueTag()));
+                    if (notUpIndicators == null || notUpIndicators.isEmpty()) {
+                        Maybe<Enricher> css = EntityAdjuncts.tryFindWithUniqueTag(entity.enrichers(), ServiceNotUpLogic.DEFAULT_ENRICHER_UNIQUE_TAG);
                         if (css.isPresent()) {
+                            log.debug("Service not up pre-check recompute rerunning "+css);
                             SensorEvent<Map<String, Object>> pseudoEvent = new BasicSensorEvent<>(Attributes.SERVICE_NOT_UP_INDICATORS, entity, notUpIndicators);
                             ((SensorEventListener) css.get()).onEvent(pseudoEvent);
                             up = entity.getAttribute(Attributes.SERVICE_UP);
                         }
+                    } else {
+                        log.debug("Service not up pre-check recompute not running because not up indicators are: " + notUpIndicators);
                     }
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
@@ -222,7 +231,7 @@ public class ServiceStateLogic {
                         log.debug("Had to wait " + Duration.of(timer) + " for " + entity + " " + Attributes.SERVICE_UP + " to be true before setting " + state);
                     } else {
                         if (Entities.isManagedActive(entity)) {
-                            log.warn("Service is not up when setting " + state + " on " + entity + "; delayed " + Duration.of(timer) + " "
+                            log.warn("Service is not up when "+when+" on " + entity + "; delayed " + Duration.of(timer) + " "
                                     + "but " + Attributes.SERVICE_UP + " did not recover from " + up + "; not-up-indicators=" + entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS));
                         }
                     }
@@ -239,10 +248,9 @@ public class ServiceStateLogic {
         return getExpectedState(entity)==state;
     }
 
-    public static class ServiceNotUpLogic {
+    public static class ServiceNotUpLogic implements Function<SensorEvent<Map<String, Object>>, Object> {
         public static final String DEFAULT_ENRICHER_UNIQUE_TAG = "service.isUp if no service.notUp.indicators";
 
-        /** static only; not for instantiation */
         private ServiceNotUpLogic() {}
 
         public static final EnricherSpec<?> newEnricherForServiceUpIfNotUpIndicatorsEmpty() {
@@ -251,10 +259,7 @@ public class ServiceStateLogic {
             return Enrichers.builder()
                 .transforming(SERVICE_NOT_UP_INDICATORS).<Object>publishing(Attributes.SERVICE_UP)
                 .suppressDuplicates(true)
-                .computing(
-                    Functionals.<Map<String,?>>
-                        ifNotEquals(null).<Object>apply(Functions.forPredicate(CollectionFunctionals.<String>mapSizeEquals(0)))
-                        .defaultValue(Entities.UNCHANGED) )
+                .computingFromEvent(new ServiceNotUpLogic())
                 .uniqueTag(DEFAULT_ENRICHER_UNIQUE_TAG)
                 .build();
         }
@@ -288,6 +293,24 @@ public class ServiceStateLogic {
             else ServiceNotUpLogic.clearNotUpIndicator(entity, mapSensor);
         }
 
+        @Override
+        public Object apply(SensorEvent<Map<String, Object>> input) {
+            Entity entity = input.getSource();
+            Map<String, Object> currentInput = entity.sensors().get(SERVICE_NOT_UP_INDICATORS);
+            if (!Objects.equal(input.getValue(), currentInput)) {
+                log.debug("Skipping computation of '"+DEFAULT_ENRICHER_UNIQUE_TAG+"' for "+entity+" because indicators are stale: received "+input+", but current is "+currentInput);
+                return Entities.UNCHANGED;
+            }
+            Object result = Functionals.<Map<String, ?>>ifNotEquals(null).<Object>apply(Functions.forPredicate(CollectionFunctionals.<String>mapSizeEquals(0)))
+                    .defaultValue(Entities.UNCHANGED).apply(input.getValue());
+            if (!Objects.equal(result, Entities.UNCHANGED)) {
+                Boolean prevValue = entity.sensors().get(SERVICE_UP);
+                if (!Objects.equal(result, prevValue)) {
+                    log.debug("Enricher '" + DEFAULT_ENRICHER_UNIQUE_TAG + "' for " + entity + " determined service up changed from " + prevValue + " to " + result + " due to indicators: " + input);
+                }
+            }
+            return result;
+        }
     }
 
     /** Enricher which sets {@link Attributes#SERVICE_STATE_ACTUAL} on changes to
@@ -298,7 +321,7 @@ public class ServiceStateLogic {
      * {@link #computeActualStateWhenNotExpectedRunning(org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition)} otherwise.
      * If these methods return null, the {@link Attributes#SERVICE_STATE_ACTUAL} sensor will be cleared (removed).
      * Either of these methods can be overridden for custom logic, and that custom enricher can be created using
-     * {@link ServiceStateLogic#newEnricherForServiceState(Class)} and added to an entity.
+     * newEnricher... methods on this class, and added to an entity.
      */
     public static class ComputeServiceState extends AbstractEnricher implements SensorEventListener<Object> {
         private static final Logger log = LoggerFactory.getLogger(ComputeServiceState.class);
@@ -348,27 +371,29 @@ public class ServiceStateLogic {
             int count=0;
             while (true) {
                 Map<String, Object> problems = entity.getAttribute(SERVICE_PROBLEMS);
+                boolean noProblems = problems == null || problems.isEmpty();
+
                 Boolean serviceUp = entity.getAttribute(SERVICE_UP);
 
-                if (Boolean.TRUE.equals(serviceUp) && (problems == null || problems.isEmpty())) {
+                if (Boolean.TRUE.equals(serviceUp) && noProblems) {
                     return Maybe.of(Lifecycle.RUNNING);
                 } else {
                     if (!Entities.isManagedActive(entity)) {
                         return Maybe.absent("entity not managed active");
                     }
-                    if (!Lifecycle.ON_FIRE.equals(entity.getAttribute(SERVICE_STATE_ACTUAL))) {
+                    if (!Lifecycle.ON_FIRE.equals(entity.getAttribute(SERVICE_STATE_ACTUAL)) && noProblems) {
                         if (count==0) {
                             // very occasional race here; might want to give a grace period if entity has just transitioned; allow children to catch up
                             // we probably did the wait when expected running, but possibly in some cases we don't (seen once, 2024-07, not reproduced)
-                            log.debug("Entity "+entity+" would be on-fire duet to problems (up="+serviceUp+", problems="+problems+"), will attempt one re-check");
-                            waitBrieflyForServiceUpIfStateIsRunning(entity, Lifecycle.RUNNING);
+                            log.debug("Entity "+entity+" would be on-fire due to problems (up="+serviceUp+", problems="+problems+"), will attempt re-check");
+                            waitBrieflyForServiceUpIfStateIsRunning("computing actual state", entity, Lifecycle.RUNNING);
                             count++;
                             continue;
                         }
 
                         BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(entity, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.DEBUG),
                                 "Setting " + entity + " " + Lifecycle.ON_FIRE + " due to problems when expected running, up=" + serviceUp + ", " +
-                                        (problems == null || problems.isEmpty() ? "not-up-indicators: " + entity.getAttribute(SERVICE_NOT_UP_INDICATORS) : "problems: " + problems));
+                                        (noProblems ? "not-up-indicators: " + entity.getAttribute(SERVICE_NOT_UP_INDICATORS) : "problems: " + problems));
                     }
                     return Maybe.of(Lifecycle.ON_FIRE);
                 }

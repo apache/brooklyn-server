@@ -205,7 +205,6 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
             ServiceStateLogic.ServiceNotUpLogic.clearNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL);
         }
         
-        ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
         setExpectedStateAndRecordLifecycleEvent(Lifecycle.RUNNING);
 
         logApplicationLifecycle("Started");
