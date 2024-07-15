@@ -21,6 +21,8 @@ package org.apache.brooklyn.camp.brooklyn;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -38,7 +40,7 @@ import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,6 +97,72 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
                 SshMachineLocation.PASSWORD.getName(), "mypassword",
                 "mykey", "myval"));
         assertEquals(machine.getPrivateAddresses(), ImmutableSet.of("10.0.0.1"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testByonMachineResolvesDependentConfigForHost() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "location:",
+                "  byon:",
+                "    hosts:",
+                "    - $brooklyn:config(\"ip_address\")",
+                "services:",
+                "- type: org.apache.brooklyn.entity.stock.BasicApplication",
+                "  brooklyn.config:",
+                "    ip_address: 1.2.3.4"
+                );
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        FixedListMachineProvisioningLocation<SshMachineLocation> loc = (FixedListMachineProvisioningLocation<SshMachineLocation>) Iterables.get(app.getLocations(), 0);
+
+        Set<SshMachineLocation> machines = loc.getAvailable();
+        SshMachineLocation machine = Iterables.getOnlyElement(machines);
+        assertMachine(machine, UserAndHostAndPort.fromParts(machine.getUser(), "1.2.3.4",  22), Collections.emptyMap());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testByonMachineResolvesDependentConfigForHosts() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "location:",
+                "  byon:",
+                "    hosts: $brooklyn:config(\"ip_addresses\")",
+                "services:",
+                "- type: org.apache.brooklyn.entity.stock.BasicApplication",
+                "  brooklyn.config:",
+                "    ip_addresses: [ 1.2.3.4, { ssh: 1.2.3.5, user: Beth } ]"
+        );
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        FixedListMachineProvisioningLocation<SshMachineLocation> loc = (FixedListMachineProvisioningLocation<SshMachineLocation>) Iterables.get(app.getLocations(), 0);
+
+        List<SshMachineLocation> machines = MutableList.copyOf(loc.getAvailable());
+        Asserts.assertSize(machines, 2);
+        assertMachine(machines.get(0), UserAndHostAndPort.fromParts(machines.get(0).getUser(), "1.2.3.4",  22), Collections.emptyMap());
+        assertMachine(machines.get(1), UserAndHostAndPort.fromParts("Beth", "1.2.3.5",  22), Collections.emptyMap());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testByonMachineResolvesDependentConfigForUser() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "location:",
+                "  byon:",
+                "    user: $brooklyn:config(\"uzer\")",
+                "    hosts: [ 1.2.3.4 ]",
+                "services:",
+                "- type: org.apache.brooklyn.entity.stock.BasicApplication",
+                "  brooklyn.config:",
+                "    uzer: Beth"
+        );
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        FixedListMachineProvisioningLocation<SshMachineLocation> loc = (FixedListMachineProvisioningLocation<SshMachineLocation>) Iterables.get(app.getLocations(), 0);
+
+        Set<SshMachineLocation> machines = loc.getAvailable();
+        SshMachineLocation machine = Iterables.getOnlyElement(machines);
+        assertMachine(machine, UserAndHostAndPort.fromParts("Beth", "1.2.3.4",  22), Collections.emptyMap());
     }
 
     @Test
