@@ -24,7 +24,6 @@ import java.net.InetAddress;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.function.Supplier;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -45,11 +44,9 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.apache.brooklyn.util.text.WildcardGlobs.PhraseTreatment;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -154,6 +151,11 @@ public class ByonLocationResolver extends AbstractLocationResolver {
             v = resolveOrThrow(dynamicAllowed, v);
             return TypeCoercions.coerce(v, type);
         }
+        protected <T> T resolveRemoveOrThrow(boolean dynamicAllowed, Map<String, Object> map, String key, Class<T> type) {
+            Object v = map.remove(key);
+            v = resolveOrThrow(dynamicAllowed, v);
+            return TypeCoercions.coerce(v, type);
+        }
         protected Object resolveOrThrow(boolean dynamicAllowed, Object v) {
             if (v instanceof DeferredSupplier) {
                 if (dynamicAllowed) throw new UsesDeferredSupplier();
@@ -204,7 +206,7 @@ public class ByonLocationResolver extends AbstractLocationResolver {
                 if (host instanceof String) {
                     machineSpec = parseMachine((String) host, locationClass, defaultProps, spec);
                 } else if (host instanceof Map) {
-                    machineSpec = parseMachine(mgmt, context, (Map<String, ?>) host, locationClass, defaultProps, spec);
+                    machineSpec = parseMachine(mgmt, context, (Map<String, ?>) host, locationClass, defaultProps, spec, dynamicAllowed);
                 } else {
                     throw new IllegalArgumentException("Expected machine to be String or Map, but was " + host.getClass().getName() + " (" + host + ")");
                 }
@@ -214,13 +216,19 @@ public class ByonLocationResolver extends AbstractLocationResolver {
             return machineSpecs;
         }
 
-        private LocationSpec<? extends MachineLocation> parseMachine(ManagementContext mgmt, Object context, Map<String, ?> vals, Class<? extends MachineLocation> locationClass, Map<String, ?> defaults, String specForErrMsg) {
+        private LocationSpec<? extends MachineLocation> parseMachine(ManagementContext mgmt, Object context, Map<String, ?> vals, Class<? extends MachineLocation> locationClass, Map<String, ?> defaults, String specForErrMsg, boolean dynamicAllowed) {
             Map<String, Object> valSanitized = Sanitizer.sanitize(vals);
             Map<String, Object> machineConfig = MutableMap.copyOf(vals);
 
-            String osFamily = (String) machineConfig.remove(OS_FAMILY.getName());
-            String ssh = (String) machineConfig.remove("ssh");
-            String winrm = (String) machineConfig.remove("winrm");
+            String osFamily = resolveRemoveOrThrow(dynamicAllowed, machineConfig, OS_FAMILY.getName(), String.class);
+            String ssh = resolveRemoveOrThrow(dynamicAllowed, machineConfig, "ssh", String.class);
+            String winrm = resolveRemoveOrThrow(dynamicAllowed, machineConfig, "winrm", String.class);
+
+            // ensure other items are resolved when creating the machine spec
+            MutableMap.copyOf(machineConfig).forEach((k,v)->{
+                        if (v instanceof DeferredSupplier) machineConfig.put(k, resolveOrThrow(dynamicAllowed, v));
+                    });
+
             Map<Integer, String> tcpPortMappings = (Map<Integer, String>) machineConfig.get("tcpPortMappings");
 
             checkArgument(ssh != null ^ winrm != null, "Must specify exactly one of 'ssh' or 'winrm' for machine: %s", valSanitized);

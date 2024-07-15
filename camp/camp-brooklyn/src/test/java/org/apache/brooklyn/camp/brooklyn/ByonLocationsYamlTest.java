@@ -167,6 +167,29 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    public void testByonMachineResolvesDependentConfigForHostWithUser() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "location:",
+                "  byon:",
+                "    hosts:",
+                "      - ssh: 1.2.3.4",
+                "        user: $brooklyn:config(\"uzer\")",
+                "services:",
+                "- type: org.apache.brooklyn.entity.stock.BasicApplication",
+                "  brooklyn.config:",
+                "    uzer: Beth"
+        );
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        FixedListMachineProvisioningLocation<SshMachineLocation> loc = (FixedListMachineProvisioningLocation<SshMachineLocation>) Iterables.get(app.getLocations(), 0);
+
+        Set<SshMachineLocation> machines = loc.getAvailable();
+        SshMachineLocation machine = Iterables.getOnlyElement(machines);
+        assertMachine(machine, UserAndHostAndPort.fromParts("Beth", "1.2.3.4",  22), Collections.emptyMap());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     public void testByonWindowsMachine() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "location:",
