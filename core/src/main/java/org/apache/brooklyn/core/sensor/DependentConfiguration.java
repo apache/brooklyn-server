@@ -148,7 +148,6 @@ public class DependentConfiguration {
         Builder<T, T> builder = builder().attributeWhenReady(source, sensor);
         if (ready != null) builder.readiness(ready);
         return builder.build();
-
     }
 
     /** as {@link #attributeWhenReady(Entity, AttributeSensor, Predicate)} but with no timeout and not aborting if the entity goes on fire. */
@@ -157,6 +156,27 @@ public class DependentConfiguration {
         if (ready != null) builder.readiness(ready);
         return builder.build();
 
+    }
+
+    public static class AttributeWhenReadyOptions {
+        Duration timeoutIfOnFire;
+        Duration timeoutIfDown;
+        Duration timeout;
+
+        public static AttributeWhenReadyOptions defaultOptions() {
+            AttributeWhenReadyOptions result = new AttributeWhenReadyOptions();
+            result.timeoutIfOnFire = Duration.ZERO;
+            result.timeoutIfDown = Duration.ONE_MINUTE;
+            return result;
+        }
+
+        public static Map allowingOnFireMap() {
+            return MutableMap.of("timeout", "forever");
+        }
+    }
+
+    public static <T> Task<T> attributeWhenReady(final Entity source, final AttributeSensor<T> sensor, AttributeWhenReadyOptions options) {
+        return builder().attributeWhenReady(source, sensor).options(options).build();
     }
 
     /**
@@ -871,7 +891,7 @@ public class DependentConfiguration {
          * then it will timeout after 1 minute.
          */
         public <T2> Builder<T2,T2> attributeWhenReady(Entity source, AttributeSensor<T2> sensor) {
-            return new Builder<T2,T2>(source, sensor).abortIfOnFire().timeoutIfStoppingOrDestroyed(Duration.ONE_MINUTE);
+            return new Builder<T2,T2>(source, sensor).options(AttributeWhenReadyOptions.defaultOptions());
         }
 
         /**
@@ -961,6 +981,20 @@ public class DependentConfiguration {
             timeoutIf(source, Attributes.SERVICE_STATE_ACTUAL, Predicates.equalTo(Lifecycle.DESTROYED), time);
             return this;
         }
+        public Builder<T,V> options(AttributeWhenReadyOptions options) {
+            if (options!=null) {
+                if (options.timeout!=null) {
+                    timeout(options.timeout);
+                }
+                if (options.timeoutIfOnFire!=null) {
+                    if (Duration.ZERO.equals(options.timeoutIfOnFire)) abortIfOnFire();
+                    else timeoutIf(source, Attributes.SERVICE_STATE_ACTUAL, Predicates.equalTo(Lifecycle.ON_FIRE), options.timeoutIfOnFire);
+                }
+                if (options.timeoutIfDown!=null) timeoutIfStoppingOrDestroyed(options.timeoutIfDown);
+            }
+            return this;
+        }
+
         public Builder<T,V> blockingDetails(String val) {
             blockingDetails = val;
             return this;
@@ -972,6 +1006,8 @@ public class DependentConfiguration {
         }
         /** specifies the supplied timeout if the condition is met */
         public <T2> Builder<T,V> timeoutIf(Entity source, AttributeSensor<T2> sensor, Predicate<? super T2> predicate, Duration val) {
+            // TODO these only apply to the target entity's state at initialization time;
+            // it would be nice to store these and recheck periodically in case state changes subsequently (either from down to up or up to down)
             if (predicate.apply(source.sensors().get(sensor))) timeout(val);
             return this;
         }

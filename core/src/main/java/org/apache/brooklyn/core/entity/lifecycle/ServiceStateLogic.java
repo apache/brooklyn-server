@@ -181,7 +181,7 @@ public class ServiceStateLogic {
         return expected.getState();
     }
 
-    private static void waitBrieflyForServiceUpIfStateIsRunning(String when, Entity entity, Lifecycle state) {
+    public static void waitBrieflyForServiceUpIfStateIsRunning(String when, Entity entity, Lifecycle state) {
         if (state==Lifecycle.RUNNING) {
             Boolean up = entity.getAttribute(Attributes.SERVICE_UP);
             if (!Boolean.TRUE.equals(up) && Entities.isManagedActive(entity)) {
