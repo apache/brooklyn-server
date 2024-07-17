@@ -169,6 +169,10 @@ public class DependentConfiguration {
             result.timeoutIfDown = Duration.ONE_MINUTE;
             return result;
         }
+
+        public static Map allowingOnFireMap() {
+            return MutableMap.of("timeout", "forever");
+        }
     }
 
     public static <T> Task<T> attributeWhenReady(final Entity source, final AttributeSensor<T> sensor, AttributeWhenReadyOptions options) {

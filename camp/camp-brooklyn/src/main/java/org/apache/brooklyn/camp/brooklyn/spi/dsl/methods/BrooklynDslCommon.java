@@ -330,6 +330,10 @@ public class BrooklynDslCommon {
         return attributeWhenReady(sensorName, null);
     }
     @DslAccessible
+    public BrooklynDslDeferredSupplier<?> attributeWhenReadyAllowingOnFire(final Object sensorName) {
+        return attributeWhenReady(sensorName, DependentConfiguration.AttributeWhenReadyOptions.allowingOnFireMap());
+    }
+    @DslAccessible
     public static BrooklynDslDeferredSupplier<?> attributeWhenReady(final Object sensorName, Map options) {
         return new DslComponent(Scope.THIS, "").attributeWhenReady(sensorName, options);
     }

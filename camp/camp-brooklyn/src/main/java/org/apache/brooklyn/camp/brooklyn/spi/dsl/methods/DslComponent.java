@@ -657,6 +657,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         return new AttributeWhenReady(this, sensorNameOrSupplier);
     }
     @DslAccessible
+    public BrooklynDslDeferredSupplier<?> attributeWhenReadyAllowingOnFire(final Object sensorNameOrSupplier) {
+        return new AttributeWhenReady(this, sensorNameOrSupplier, DependentConfiguration.AttributeWhenReadyOptions.allowingOnFireMap());
+    }
+    @DslAccessible
     public BrooklynDslDeferredSupplier<?> attributeWhenReady(final Object sensorNameOrSupplier, Map options) {
         return new AttributeWhenReady(this, sensorNameOrSupplier, options);
     }
@@ -747,6 +751,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         }
         @Override
         public String toDslString(boolean yamlAllowed) {
+            if (options!=null && DependentConfiguration.AttributeWhenReadyOptions.allowingOnFireMap().equals(options)) {
+                return DslToStringHelpers.chainFunctionOnComponent1(yamlAllowed, component,
+                        "attributeWhenReadyAllowingOnFire", sensorName);
+            }
             return DslToStringHelpers.chainFunctionOnComponent(yamlAllowed, component,
                     "attributeWhenReady", MutableList.of(sensorName).appendIfNotNull(options));
         }
