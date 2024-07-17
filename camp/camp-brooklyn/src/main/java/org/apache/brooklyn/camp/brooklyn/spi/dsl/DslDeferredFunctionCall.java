@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslToStringHelpers;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
@@ -170,7 +171,13 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
             instanceArgs = ImmutableList.builder().add(obj).addAll(args).build();
             method = Reflections.getMethodFromArgs(instance, fnName, instanceArgs);
             if (method.isPresent()) return ;
-    
+
+            method = Reflections.findMethodMaybe((Class)instance, fnName, List.class);
+            if (method.isPresent()) {
+                instanceArgs = ImmutableList.of(args);
+                return;
+            }
+
             Maybe<?> facade;
             try {
                 facade = Reflections.invokeMethodFromArgs(BrooklynDslCommon.DslFacades.class, "wrap", ImmutableList.of(obj));
@@ -239,11 +246,11 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
     }
 
     @Override
-    public String toString() {
+    public String toDslString(boolean yamlAllowed) {
         // prefer the dsl set on us, if set
         if (dsl instanceof String && Strings.isNonBlank((String)dsl)) return (String)dsl;
 
-        return DslToStringHelpers.fn(DslToStringHelpers.internal(object) + "." + fnName, args);
+        return DslToStringHelpers.chainFunction(yamlAllowed, object, fnName, args);
     }
 
 }

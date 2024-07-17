@@ -19,24 +19,13 @@
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.google.common.base.CaseFormat;
-import com.google.common.base.Converter;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
+import com.google.common.base.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Callables;
 import com.thoughtworks.xstream.annotations.XStreamConverter;
-
-import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
@@ -46,13 +35,9 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
-import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslFunctionSource;
-
-import static com.jayway.jsonpath.Filter.filter;
-import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
@@ -60,7 +45,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.mgmt.internal.LocalEntityManager;
+import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
@@ -78,6 +63,14 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements DslFunctionSource {
 
@@ -654,8 +647,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             return Objects.equal(this.component, that.component);
         }
         @Override
-        public String toString() {
-            return DslToStringHelpers.component(component, DslToStringHelpers.fn("entityId"));
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.chainFunctionOnComponent(yamlAllowed, component, "entityId");
         }
     }
 
@@ -663,20 +656,30 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     public BrooklynDslDeferredSupplier<?> attributeWhenReady(final Object sensorNameOrSupplier) {
         return new AttributeWhenReady(this, sensorNameOrSupplier);
     }
+    @DslAccessible
+    public BrooklynDslDeferredSupplier<?> attributeWhenReady(final Object sensorNameOrSupplier, Map options) {
+        return new AttributeWhenReady(this, sensorNameOrSupplier, options);
+    }
     public static class AttributeWhenReady extends BrooklynDslDeferredSupplier<Object> {
         private static final long serialVersionUID = 1740899524088902383L;
         private final DslComponent component;
         @XStreamConverter(ObjectWithDefaultStringImplConverter.class)
         private final Object sensorName;
+        private final Map options;
 
         // JSON deserialization only
         private AttributeWhenReady() {
             this.component = null;
             this.sensorName = null;
+            this.options = null;
         }
         public AttributeWhenReady(DslComponent component, Object sensorName) {
+            this(component, sensorName, null);
+        }
+        public AttributeWhenReady(DslComponent component, Object sensorName, Map opts) {
             this.component = Preconditions.checkNotNull(component);
             this.sensorName = sensorName;
+            this.options = opts;
         }
 
         public Object getSensorName() {
@@ -726,7 +729,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (!(targetSensor instanceof AttributeSensor<?>)) {
                 targetSensor = Sensors.newSensor(Object.class, sensorNameS);
             }
-            return (Task<Object>) DependentConfiguration.attributeWhenReady(targetEntity, (AttributeSensor<?>)targetSensor);
+            return (Task<Object>) DependentConfiguration.attributeWhenReady(targetEntity, (AttributeSensor<?>)targetSensor, options!=null ?
+                    TypeCoercions.coerce(options, DependentConfiguration.AttributeWhenReadyOptions.class) : DependentConfiguration.AttributeWhenReadyOptions.defaultOptions());
         }
 
         @Override
@@ -742,8 +746,9 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     Objects.equal(this.sensorName, that.sensorName);
         }
         @Override
-        public String toString() {
-            return DslToStringHelpers.component(component, DslToStringHelpers.fn("attributeWhenReady", sensorName));
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.chainFunctionOnComponent(yamlAllowed, component,
+                    "attributeWhenReady", MutableList.of(sensorName).appendIfNotNull(options));
         }
     }
 
@@ -850,8 +855,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         }
 
         @Override
-        public String toString() {
-            return DslToStringHelpers.component(component, DslToStringHelpers.fn("config", keyName));
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.chainFunctionOnComponent1(yamlAllowed, component, "config", keyName);
         }
     }
 
@@ -958,9 +963,9 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         }
 
         @Override
-        public String toString() {
-            return DslToStringHelpers.component(component, DslToStringHelpers.fn("sensorName", 
-                sensorName instanceof Sensor ? ((Sensor<?>)sensorName).getName() : sensorName));
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.chainFunctionOnComponent1(yamlAllowed, component, "sensorName",
+                sensorName instanceof Sensor ? ((Sensor<?>)sensorName).getName() : sensorName);
         }
     }
 
@@ -1092,8 +1097,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     Objects.equal(this.index, that.index);
         }
         @Override
-        public String toString() {
-            return DslToStringHelpers.component(component, DslToStringHelpers.fn("location", index));
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.chainFunctionOnComponent1(yamlAllowed, component, "location", index);
         }
     }
 
@@ -1183,6 +1188,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 }
             }).build();
         }
+
+        @Override
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.chainFunctionOnComponent(yamlAllowed, component, "template", MutableList.of(template).appendIfNotNull(substitutions));
+        }
     }
 
     public static enum Scope {
@@ -1244,28 +1254,27 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     }
 
     @Override
-    public String toString() {
+    public String toDslString(boolean yamlAllowed) {
         Object component = componentId != null ? componentId : componentIdSupplier;
         
         if (scope==Scope.GLOBAL) {
-            return DslToStringHelpers.fn("entity", component);
+            return DslToStringHelpers.fn1(yamlAllowed, "entity", component);
         }
         
         if (scope==Scope.THIS) {
             if (scopeComponent!=null) {
                 return scopeComponent.toString();
             }
-            return DslToStringHelpers.fn("entity", "this", "");
+            return DslToStringHelpers.fn(yamlAllowed, "entity", "this", "");
         }
         
         String remainder;
         if (component==null || "".equals(component)) {
-            remainder = DslToStringHelpers.fn(scope.toString());
+            return DslToStringHelpers.chainFunctionOnComponent(yamlAllowed, scopeComponent, scope.toString());
         } else {
-            remainder = DslToStringHelpers.fn(scope.toString(), component);
+            return DslToStringHelpers.chainFunctionOnComponent1(yamlAllowed, scopeComponent, scope.toString(), component);
         }
-               
-        return DslToStringHelpers.component(scopeComponent, remainder);
+
     }
     
 }

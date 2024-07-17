@@ -20,9 +20,13 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import com.google.common.annotations.Beta;
 import java.util.Map;
+
+import com.google.common.base.Stopwatch;
 import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.internal.BrooklynSystemProperties;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -429,6 +433,57 @@ public class ConfigYamlTest extends AbstractYamlTest {
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_PLAIN).get(), ImmutableMap.of("mykey", "myOther"));
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_LIST_PLAIN).get(), ImmutableList.of("myOther"));
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_SET_PLAIN).get(), ImmutableSet.of("myOther"));
+    }
+
+    @Test
+    public void testAttributeWhenReadyOptions() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confName: { $brooklyn:attributeWhenReady: [ \"test.name\", { timeout: 10ms } ] }");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        // Attribute not yet set; non-blocking will return promptly without the value
+        Stopwatch sw = Stopwatch.createStarted();
+        Asserts.assertFailsWith(() -> entity.config().get(TestEntity.CONF_NAME),
+                Asserts.expectedFailureContainsIgnoreCase("Cannot resolve", "$brooklyn:attributeWhenReady", "test.name", "10ms", "Resolving config test.confName", "Unsatisfied after "));
+        Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isLongerThan(Duration.millis(9)));
+
+        entity.sensors().set(TestEntity.NAME, "x");
+        EntityAsserts.assertConfigEquals(entity, TestEntity.CONF_NAME, "x");
+    }
+
+    @Test
+    public void testOtherEntityAttributeWhenReadyOptions() throws Exception {
+        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: 10ms } ] } ] }";
+        String v1 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { \"timeout\": \"10ms\" } ] } ] }";
+
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confName: "+v0,
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  id: entity2");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        final TestEntity entity1 = (TestEntity) Iterables.get(app.getChildren(), 0);
+        final TestEntity entity2 = (TestEntity) Iterables.get(app.getChildren(), 1);
+
+        // Attribute not yet set; non-blocking will return promptly without the value
+        Stopwatch sw = Stopwatch.createStarted();
+        Asserts.assertFailsWith(() -> entity1.config().get(TestEntity.CONF_NAME),
+                Asserts.expectedFailureContainsIgnoreCase("Cannot resolve", "$brooklyn:chain", " attributeWhenReady", "test.name", "10ms", "Resolving config test.confName", "Unsatisfied after "));
+        Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isLongerThan(Duration.millis(9)));
+
+        entity2.sensors().set(TestEntity.NAME, "x");
+        EntityAsserts.assertConfigEquals(entity1, TestEntity.CONF_NAME, "x");
+
+        Maybe<Object> rawV = entity1.config().getRaw(TestEntity.CONF_NAME);
+        Asserts.assertEquals(rawV.get().toString(), v1);
     }
 
     @Test

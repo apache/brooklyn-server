@@ -21,6 +21,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.Configurable;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslToStringHelpers;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.PropertyAccess;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -142,11 +143,15 @@ public class DslDeferredPropertyAccess extends BrooklynDslDeferredSupplier {
     }
 
     @Override
-    public String toString() {
+    public String toDslString(boolean yamlAllowed) {
         // prefer the dsl set on us, if set
         if (dsl instanceof String && Strings.isNonBlank((String)dsl)) return (String)dsl;
-
-        return target + "[" +
-                (index instanceof Integer ? index : StringEscapes.JavaStringEscapes.wrapJavaString("" + index)) + "]";
+        String indexS = "[" + (index instanceof Integer ? index : StringEscapes.JavaStringEscapes.wrapJavaString("" + index)) + "]";
+        try {
+            return (target==null ? "null" : target.toDslString(false)) + indexS;
+        } catch (DslToStringHelpers.YamlSyntaxRequired e) {
+            if (!yamlAllowed) throw e;
+            return "{ $brooklyn:chain: [ "+target.toDslString(true)+", "+indexS+" ] }";
+        }
     }
 }

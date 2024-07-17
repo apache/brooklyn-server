@@ -161,4 +161,14 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
         
         Tasks.addTagDynamically(tag);
     }
+
+    public String toString() {
+        try {
+            return toDslString(false);
+        } catch (DslToStringHelpers.YamlSyntaxRequired e) {
+            return toDslString(true);
+        }
+    }
+
+    public abstract String toDslString(boolean yamlAllowed);
 }

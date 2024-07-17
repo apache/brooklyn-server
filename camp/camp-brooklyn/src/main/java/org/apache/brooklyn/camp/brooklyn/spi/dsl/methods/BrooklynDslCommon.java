@@ -19,34 +19,28 @@
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import java.util.*;
-
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
-import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
-import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
-
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.function.BiFunction;
-import java.util.function.Supplier;
-
+import com.thoughtworks.xstream.annotations.XStreamConverter;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.sensor.Sensor;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiator;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.EntitySpecConfiguration;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.*;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.WorkflowTransformGet;
 import org.apache.brooklyn.config.ConfigKey;
@@ -55,7 +49,6 @@ import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
@@ -81,12 +74,10 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.xstream.ObjectWithDefaultStringImplConverter;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.javalang.coerce.TryCoercer;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.net.Urls;
-import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -94,13 +85,15 @@ import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.thoughtworks.xstream.annotations.XStreamConverter;
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 /**
  * static import functions which can be used in `$brooklyn:xxx` contexts
@@ -327,14 +320,18 @@ public class BrooklynDslCommon {
         }
 
         @Override
-        public String toString() {
-            return DslToStringHelpers.concat(DslToStringHelpers.internal(obj), ".", DslToStringHelpers.fn("config", keyName));
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.chainFunction(yamlAllowed, obj, "config", Collections.singletonList(keyName));
         }
     }
 
     @DslAccessible
     public static BrooklynDslDeferredSupplier<?> attributeWhenReady(Object sensorName) {
-        return new DslComponent(Scope.THIS, "").attributeWhenReady(sensorName);
+        return attributeWhenReady(sensorName, null);
+    }
+    @DslAccessible
+    public static BrooklynDslDeferredSupplier<?> attributeWhenReady(final Object sensorName, Map options) {
+        return new DslComponent(Scope.THIS, "").attributeWhenReady(sensorName, options);
     }
 
     @DslAccessible
@@ -503,10 +500,8 @@ public class BrooklynDslCommon {
         }
 
         @Override
-        public String toString() {
-            return "$brooklyn:literal(" +
-                    (literalString!=null ? JavaStringEscapes.wrapJavaString(literalString) : literalObjectJson)
-                    +")";
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.fn1(yamlAllowed, "literal", literalString!=null ? literalString : literalObjectJson);
         }
     }
 
@@ -593,8 +588,8 @@ public class BrooklynDslCommon {
         }
 
         @Override
-        public String toString() {
-            return "$brooklyn:urlEncode("+arg+")";
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.fn1(yamlAllowed, "urlEncode", arg);
         }
     }
 
@@ -648,8 +643,8 @@ public class BrooklynDslCommon {
         }
 
         @Override
-        public String toString() {
-            return DslToStringHelpers.fn("formatString", MutableList.<Object>builder().add(pattern).addAll(args).build());
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.fn(yamlAllowed, "formatString", MutableList.<Object>builder().add(pattern).addAll(args).build());
         }
     }
 
@@ -705,8 +700,8 @@ public class BrooklynDslCommon {
         }
 
         @Override
-        public String toString() {
-            return DslToStringHelpers.fn("regexReplace", source, pattern, replacement);
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.fn(yamlAllowed, "regexReplacement", source, pattern, replacement);
         }
     }
 
@@ -950,15 +945,24 @@ public class BrooklynDslCommon {
         }
 
         @Override
-        public String toString() {
+        public String toDslString(boolean yamlAllowed) {
             // prefer the dsl set on us, if set
             if (dsl instanceof String && Strings.isNonBlank((String)dsl)) return (String)dsl;
 
-            Object arg = type != null ? type.getName() : typeName;
+            String arg = type != null ? type.getName() : typeName;
+            // old approach
+//            if (!constructorArgs.isEmpty()) {
+//                arg = MutableList.<Object>of(arg).appendAll(constructorArgs).toString();
+//            }
+//            return DslToStringHelpers.fn1(yamlAllowed, "object", arg);
+
+            // new approach; preserve list
             if (!constructorArgs.isEmpty()) {
-                arg = MutableList.of(arg).appendAll(constructorArgs).toString();
+                return DslToStringHelpers.fn(yamlAllowed, "object", MutableList.<Object>of(arg).appendAll(constructorArgs));
+            } else {
+                return DslToStringHelpers.fn1(yamlAllowed, "object", arg);
             }
-            return DslToStringHelpers.fn("object", arg);
+
         }
     }
 
@@ -1026,17 +1030,46 @@ public class BrooklynDslCommon {
         }
 
         @Override
-        public String toString() {
-            return DslToStringHelpers.fn("external", providerName, key);
+        public String toDslString(boolean yamlAllowed) {
+            return DslToStringHelpers.fn(yamlAllowed, "external", providerName, key);
         }
     }
 
+    @DslAccessible
     public static Object template(Object template) {
         return new DslComponent(Scope.THIS, "").template(template);
     }
 
+    @DslAccessible
     public static Object template(Object template, Map<? ,?> substitutions) {
         return new DslComponent(Scope.THIS, "").template(template, substitutions);
+    }
+
+    @DslAccessible
+    public static Object chain(List<Object> parts) {
+        Iterator<Object> pi = parts.iterator();
+        if (!pi.hasNext()) throw new IllegalArgumentException("chain must take at least one argument");
+        Object resultO = pi.next();
+        if (!(resultO instanceof BrooklynDslDeferredSupplier)) throw new IllegalStateException("Invalid argument to chain. First argument should be a DSL supplier.");
+
+        BrooklynDslDeferredSupplier result = (BrooklynDslDeferredSupplier) resultO;
+        while (pi.hasNext()) {
+            Object next = pi.next();
+            if (next instanceof String && ((String) next).startsWith("[")) {
+                String ns = ((String) next).substring(1).trim();
+                if (!ns.endsWith("]")) throw new IllegalArgumentException("Property access must be wrapped in open and close square bracket");
+                Object index;
+                if (ns.startsWith("\"")) index = JavaStringEscapes.unwrapJavaString(ns);
+                else index = Integer.parseInt(ns);
+                // dynamic indexes are not supported, neither here nor in the class below
+                result = new DslDeferredPropertyAccess(result, next);
+
+            } else if (next instanceof Map && ((Map)next).size()==1) {
+                Map nm = (Map) next;
+                result = new DslDeferredFunctionCall(result, (String) Iterables.getOnlyElement(nm.keySet()), (List) Iterables.getOnlyElement(nm.values()));
+            }
+        }
+        return result;
     }
 
     public static class Functions {
@@ -1094,8 +1127,8 @@ public class BrooklynDslCommon {
             }
 
             @Override
-            public String toString() {
-                return DslToStringHelpers.fn("function.regexReplace", pattern, replacement);
+            public String toDslString(boolean yamlAllowed) {
+                return DslToStringHelpers.fn(yamlAllowed, "function.regexReplace", pattern, replacement);
             }
         }
     }
