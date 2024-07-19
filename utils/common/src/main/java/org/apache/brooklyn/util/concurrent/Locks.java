@@ -26,8 +26,19 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 public class Locks {
 
     public static <T> T withLock(Lock lock, Callable<T> body) {
+        boolean locked = false;
         try {
-            lock.lockInterruptibly();
+            if (Thread.currentThread().isInterrupted()) {
+                if (!lock.tryLock()) {
+                    String msg = "Lock is held by another thread, and waiting not permitted: " + lock;
+                    if (!lock.tryLock()) {
+                        throw new InterruptedException(msg);
+                    }
+                }
+            } else {
+                lock.lockInterruptibly();
+            }
+            locked = true;
         } catch (InterruptedException e) {
             throw Exceptions.propagate(e);
         }
@@ -36,7 +47,7 @@ public class Locks {
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         } finally {
-            lock.unlock();
+            if (locked) lock.unlock();
         }       
     }
     

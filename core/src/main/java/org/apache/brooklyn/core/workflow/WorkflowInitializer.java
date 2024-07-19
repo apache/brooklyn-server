@@ -111,9 +111,20 @@ public class WorkflowInitializer extends EntityInitializers.InitializerPatternWi
                             if (delayDuration.isPositive()) Time.sleep(delayDuration);
                         }));
                     }
-                    Task<Object> submitted = delayed ? DynamicTasks.queue(task.get()) : Entities.submit(entity, task.get());
-                    if (delayed) DynamicTasks.waitForLast();
-                    Object result = submitted.getUnchecked();
+                    Object result;
+                    if (delayed) {
+                        result = DynamicTasks.queue(task.get());
+                        DynamicTasks.waitForLast();
+                    } else {
+                        //result = ((EntityInternal)entity).getExecutionContext().get(task.get());
+                        if (((EntityInternal) entity).getManagementSupport().wasDeployed()) {
+                            result = Entities.submit(entity, task.get()).getUnchecked();
+                        } else {
+                            // if initializer is pre-deployment, it should run in background, deferred until after management started
+                            Entities.submit(entity, task.get());
+                            result = "<in progress>";
+                        }
+                    }
                     log.debug("Applied workflow initializer on " + entity + ", result: " + result);
                     return result;
                 }

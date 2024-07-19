@@ -25,10 +25,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimaps;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.ExecutionContext;
-import org.apache.brooklyn.api.mgmt.ExecutionManager;
-import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
-import org.apache.brooklyn.api.mgmt.SubscriptionManager;
+import org.apache.brooklyn.api.mgmt.*;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
@@ -42,6 +39,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
+import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.SingleThreadedScheduler;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -166,7 +164,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
 
         if (notifyOfInitialValue) {
             if (LOG.isTraceEnabled()) LOG.trace("sending initial value of {} -> {} to {}", new Object[] {s.producer, s.sensor, s});
-            // this is run asynchronously to prevent deadlock when trying to get attribute and publish;
+            // after entity creation, this is run asynchronously to prevent deadlock when trying to get attribute and publish;
             // however we want it:
             // (a) to run in the same order as subscriptions are made, so use the manager tag scheduler
             // (b) ideally to use the last value that was not published to this target, and
@@ -179,8 +177,10 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             // window between adding the subscription and taking the last value,
             // we will think the last value hasn't changed.  but we will never send a
             // wrong value as this backs out if there is any confusion over the last value.
-            em.submit(
-                MutableMap.of("tags", getPublishTags(s, s.producer),
+            // while the entity is being created, it should run in the same thread.
+            boolean isPreManagement = s.producer!=null && !((EntityInternal)s.producer).getManagementSupport().wasDeployed();
+
+            Task<Void> t = new BasicTask(MutableMap.of("tags", getPublishTags(s, s.producer),
                     "displayName", "Initial value publication on subscription to "+s.sensor.getName()),
                 () -> {
                     T val = (T) s.producer.sensors().get((AttributeSensor<?>) s.sensor);
@@ -199,6 +199,10 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                     // by ourselves, as we are already in the right thread now and can prevent interleaving this way
                     submitPublishEvent(s, new BasicSensorEvent<T>(s.sensor, s.producer, val), true);
                 });
+
+            if (isPreManagement) ((EntityInternal)s.producer).getExecutionContext().get(t);
+            else em.submit(t);
+
         }
         
         return s;

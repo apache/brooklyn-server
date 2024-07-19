@@ -125,8 +125,8 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
         Task<T> task = newTask();
         T result;
         try {
-            result = exec.submit(task).get();
-        } catch (InterruptedException | ExecutionException e) {
+            result = exec.get(task);
+        } catch (Exception e) {
             Task<?> currentTask = Tasks.current();
             if (currentTask != null && currentTask.isCancelled()) {
                 task.cancel(true);

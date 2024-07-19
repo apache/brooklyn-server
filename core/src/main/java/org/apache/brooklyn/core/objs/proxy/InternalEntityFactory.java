@@ -51,10 +51,13 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.javalang.Threads;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,6 +70,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -193,10 +197,21 @@ public class InternalEntityFactory extends InternalFactory {
         Map<String,Entity> entitiesByEntityId = MutableMap.of();
         Map<String,EntitySpec<?>> specsByEntityId = MutableMap.of();
 
+
         T entity = createEntityAndDescendantsUninitialized(0, spec, options, entitiesByEntityId, specsByEntityId);
         try {
-            initEntityAndDescendants(entity.getId(), entitiesByEntityId, specsByEntityId, options);
+            // prevent this from blocking
+            Thread.currentThread().interrupt();
+            try {
+                initEntityAndDescendants(entity.getId(), entitiesByEntityId, specsByEntityId, options);
+            } finally {
+                // end of non-blocking portion
+                Thread.interrupted();
+            }
         } catch (RuntimeException ex) {
+            // end of non-blocking portion
+            Thread.interrupted();
+
             options.onException(ex, (e) -> {
                 Exceptions.propagateIfFatal(e);
                 log.info("Failed to initialise entity " + entity + " and its descendants - unmanaging and propagating original exception: " + Exceptions.collapseText(e));
@@ -210,6 +225,7 @@ public class InternalEntityFactory extends InternalFactory {
                 throw e;
             });
         }
+
         return entity;
     }
 
@@ -407,18 +423,32 @@ public class InternalEntityFactory extends InternalFactory {
                 }
                 ((AbstractEntity)entity).addLocations(spec.getLocations());
 
+                BiConsumer<String,Runnable> runNowOrLater = (name, runnable) -> {
+                    try {
+                        runnable.run();
+                    } catch (Exception e) {
+                        Throwable interrupt = Exceptions.getFirstThrowableMatching(e, t -> t instanceof InterruptedException || t instanceof RuntimeInterruptedException || t instanceof ImmediateSupplier.ImmediateValueNotAvailableException);
+                        if (interrupt != null) {
+                            log.debug("Unable to create " + name + " as part of initializing " + entity + " (will submit deferred): " + e);
+                            Entities.submit(entity, Tasks.create(name, runnable));
+                        } else {
+                            throw Exceptions.propagate(e);
+                        }
+                    }
+                };
+
                 List<EntityInitializer> initializers = Stream.concat(getGlobalDeploymentInitializers().stream(), spec.getInitializers().stream())
                         .collect(Collectors.toList());
                 for (EntityInitializer initializer: initializers) {
-                    initializer.apply((EntityInternal)entity);
+                    runNowOrLater.accept(""+initializer, () -> initializer.apply((EntityInternal)entity));
                 }
 
                 for (EnricherSpec<?> enricherSpec : spec.getEnricherSpecs()) {
-                    entity.enrichers().add(policyFactory.createEnricher(enricherSpec));
+                    runNowOrLater.accept(""+enricherSpec, () -> entity.enrichers().add(policyFactory.createEnricher(enricherSpec)));
                 }
 
                 for (PolicySpec<?> policySpec : spec.getPolicySpecs()) {
-                    entity.policies().add(policyFactory.createPolicy(policySpec));
+                    runNowOrLater.accept(""+policySpec, () -> entity.policies().add(policyFactory.createPolicy(policySpec)));
                 }
 
                 for (Entity child: entity.getChildren()) {
@@ -430,6 +460,7 @@ public class InternalEntityFactory extends InternalFactory {
                 if (entity instanceof EntityPostInitializable) {
                     ((EntityPostInitializable)entity).postInit();
                 }
+
             }
         }).build());
     }
