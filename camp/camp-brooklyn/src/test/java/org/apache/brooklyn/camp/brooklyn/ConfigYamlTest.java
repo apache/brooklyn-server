@@ -19,47 +19,42 @@
 package org.apache.brooklyn.camp.brooklyn;
 
 import com.google.common.annotations.Beta;
-import java.util.Map;
-
+import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.internal.BrooklynSystemProperties;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import static org.testng.Assert.*;
 
 public class ConfigYamlTest extends AbstractYamlTest {
     
@@ -436,7 +431,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testAttributeWhenReadyOptions() throws Exception {
+    public void testAttributeWhenReadyOptionsBasic() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity",
@@ -457,7 +452,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testOtherEntityAttributeWhenReadyOptions() throws Exception {
+    public void testAttributeWhenReadyOptionsBasicOnOtherEntity() throws Exception {
         String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: 10ms } ] } ] }";
         String v1 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { \"timeout\": \"10ms\" } ] } ] }";
 
@@ -482,8 +477,201 @@ public class ConfigYamlTest extends AbstractYamlTest {
         entity2.sensors().set(TestEntity.NAME, "x");
         EntityAsserts.assertConfigEquals(entity1, TestEntity.CONF_NAME, "x");
 
+        // and on fire
+        entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertConfigEquals(entity1, TestEntity.CONF_NAME, "x");
+        entity2.sensors().remove(TestEntity.NAME);
+        sw = Stopwatch.createStarted();
+        Asserts.assertFailsWith(() -> entity1.config().get(TestEntity.CONF_NAME),
+                Asserts.expectedFailureContainsIgnoreCase("Cannot resolve", "$brooklyn:chain", " attributeWhenReady", "test.name", "0", "Resolving config test.confName",
+//                        "Unsatisfied after ",
+                        "Abort due to", "on-fire"));
+        Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isShorterThan(Duration.millis(999)));
+
+        // and source code
         Maybe<Object> rawV = entity1.config().getRaw(TestEntity.CONF_NAME);
         Asserts.assertEquals(rawV.get().toString(), v1);
+    }
+
+    @Test
+    public void testAttributeWhenReadyOptionsTimeoutZero() throws Exception {
+        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: 0 } ] } ] }";
+
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confName: "+v0,
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  id: entity2");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        final TestEntity entity1 = (TestEntity) Iterables.get(app.getChildren(), 0);
+        final TestEntity entity2 = (TestEntity) Iterables.get(app.getChildren(), 1);
+
+        entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        Stopwatch sw = Stopwatch.createStarted();
+        Asserts.assertFailsWith(() -> entity1.config().get(TestEntity.CONF_NAME),
+                Asserts.expectedFailureContainsIgnoreCase("Cannot resolve", "$brooklyn:chain", " attributeWhenReady", "test.name", "0", "Resolving config test.confName",
+                        "Waiting not permitted"));
+        Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isShorterThan(Duration.millis(999)));
+
+        entity2.sensors().set(TestEntity.NAME, "");
+        sw = Stopwatch.createStarted();
+        Asserts.assertFailsWith(() -> entity1.config().get(TestEntity.CONF_NAME),
+                Asserts.expectedFailureContainsIgnoreCase("Cannot resolve", "$brooklyn:chain", " attributeWhenReady", "test.name", "0", "Resolving config test.confName",
+                        "Waiting not permitted"));
+        Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isShorterThan(Duration.millis(999)));
+
+        entity2.sensors().set(TestEntity.NAME, "x");
+        EntityAsserts.assertConfigEquals(entity1, TestEntity.CONF_NAME, "x");
+
+        entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertConfigEquals(entity1, TestEntity.CONF_NAME, "x");
+        entity2.sensors().remove(TestEntity.NAME);
+        // not aborted, just no timeout here
+        Asserts.assertFailsWith(() -> entity1.config().get(TestEntity.CONF_NAME),
+                e -> {
+                    Asserts.expectedFailureContainsIgnoreCase(e, "Cannot resolve", "$brooklyn:chain", " attributeWhenReady", "test.name", "0", "Resolving config test.confName",
+                        "Waiting not permitted");
+                    Asserts.expectedFailureDoesNotContainIgnoreCase(e,
+                            "Abort due to", "on-fire",
+                            "Unsatisfied after ");
+                    return true;
+                });
+    }
+
+    @Test
+    public void testAttributeWhenReadyOptionsTimeoutIfDownTimesOut() throws Exception {
+        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: forever, timeout_if_down: 10ms, abort_if_on_fire: false } ] } ] }";
+
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confName: "+v0,
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  id: entity2");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        final TestEntity entity1 = (TestEntity) Iterables.get(app.getChildren(), 0);
+        final TestEntity entity2 = (TestEntity) Iterables.get(app.getChildren(), 1);
+
+        new Thread(()->{
+            Time.sleep(10);
+            entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
+        }).start();
+
+        Stopwatch sw = Stopwatch.createStarted();
+        Asserts.assertFailsWith(() -> entity1.config().get(TestEntity.CONF_NAME),
+                Asserts.expectedFailureContainsIgnoreCase("Cannot resolve", "$brooklyn:chain", " attributeWhenReady", "test.name", "0", "Resolving config test.confName",
+                        "tighter timeout due to", "stopping"));
+        Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isShorterThan(Duration.millis(999)));
+    }
+
+    @Test
+    public void testAttributeWhenReadyOptionsTimeoutIfDownResetsAndAbortsIfOnFire() throws Exception {
+        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: forever, timeout_if_down: 10ms } ] } ] }";
+
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confName: "+v0,
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  id: entity2");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        final TestEntity entity1 = (TestEntity) Iterables.get(app.getChildren(), 0);
+        final TestEntity entity2 = (TestEntity) Iterables.get(app.getChildren(), 1);
+
+        entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
+        Stopwatch sw = Stopwatch.createStarted();
+        new Thread(()->{
+            Time.sleep(Duration.millis(10));
+            entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
+            entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);  // will clear the timeout
+
+            Time.sleep(Duration.millis(10));
+            entity2.sensors().set(TestEntity.NAME, "x");
+        }).start();
+        EntityAsserts.assertConfigEquals(entity1, TestEntity.CONF_NAME, "x");
+        Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isLongerThan(Duration.millis(19)));
+
+        entity2.sensors().remove(TestEntity.NAME);
+        sw = Stopwatch.createStarted();
+        new Thread(()->{
+            Time.sleep(Duration.millis(10));
+            entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        }).start();
+        Asserts.assertFailsWith(() -> entity1.config().get(TestEntity.CONF_NAME),
+                Asserts.expectedFailureContainsIgnoreCase("Cannot resolve", "$brooklyn:chain", " attributeWhenReady", "test.name", "0", "Resolving config test.confName",
+//                        "Unsatisfied after ",
+                        "Abort due to", "on-fire"));
+        Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isShorterThan(Duration.millis(999)));
+    }
+
+    @Test(groups="Integration")  // because slow
+    public void testAttributeWhenReadyOptionsTimeoutIfDownResetsBetter() throws Exception {
+        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: forever, timeout_if_down: 1s, abort_if_on_fire: false } ] } ] }";
+
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confName: "+v0,
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  id: entity2");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        final TestEntity entity1 = (TestEntity) Iterables.get(app.getChildren(), 0);
+        final TestEntity entity2 = (TestEntity) Iterables.get(app.getChildren(), 1);
+
+        entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
+        Stopwatch sw = Stopwatch.createStarted();
+        new Thread(()->{
+            Time.sleep(Duration.millis(100));
+            entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
+
+            // comment these two lines out and it shoud fail
+            Time.sleep(Duration.millis(50));
+            entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);  // will clear the timeout
+
+            Time.sleep(Duration.seconds(2));
+            entity2.sensors().set(TestEntity.NAME, "x");
+        }).start();
+        EntityAsserts.assertConfigEquals(entity1, TestEntity.CONF_NAME, "x");
+        Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isLongerThan(Duration.millis(19)));
+    }
+
+    @Test
+    public void testAttributeWhenReadyOptionsAbortIfOnFireAndNoWait() throws Exception {
+        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { wait_for_truthy: false, " +
+                // these have no effect with wait_for_truthy: false
+                "timeout: 1s, abort_if_on_fire: true } ] } ] }";
+
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confName: "+v0,
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  id: entity2");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        final TestEntity entity1 = (TestEntity) Iterables.get(app.getChildren(), 0);
+        final TestEntity entity2 = (TestEntity) Iterables.get(app.getChildren(), 1);
+
+        Stopwatch sw = Stopwatch.createStarted();
+        EntityAsserts.assertConfigEquals(entity1, TestEntity.CONF_NAME, null);
+        Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isShorterThan(Duration.millis(999)));
+
+        entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertConfigEquals(entity1, TestEntity.CONF_NAME, null);
+
+        entity2.sensors().set(TestEntity.NAME, "x");
+        EntityAsserts.assertConfigEquals(entity1, TestEntity.CONF_NAME, "x");
+        Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isShorterThan(Duration.millis(999)));
     }
 
     @Test
