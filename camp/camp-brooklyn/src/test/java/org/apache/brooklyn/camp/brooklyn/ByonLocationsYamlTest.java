@@ -28,13 +28,16 @@ import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.LocationPredicates;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.DoNothingSoftwareProcess;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -42,6 +45,8 @@ import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -119,6 +124,34 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
         Set<SshMachineLocation> machines = loc.getAvailable();
         SshMachineLocation machine = Iterables.getOnlyElement(machines);
         assertMachine(machine, UserAndHostAndPort.fromParts(machine.getUser(), "1.2.3.4",  22), Collections.emptyMap());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testByonMachineResolvesDynamicDependentConfigForHost() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "location:",
+                "  byon:",
+                "    hosts:",
+                "    - $brooklyn:attributeWhenReady(\"ip_address\")",
+                "services:",
+                "- type: org.apache.brooklyn.entity.software.base.DoNothingSoftwareProcess"
+        );
+
+        Entity app = createApplicationUnstarted(yaml);
+        Task<Void> start = app.invoke(Startable.START, null);
+        Time.sleep(Duration.millis(100));
+        Asserts.assertFalse(start.isDone());
+
+        Iterables.getOnlyElement(app.getChildren()).sensors().set(Sensors.newStringSensor("ip_address"), "1.2.3.4");
+        start.getUnchecked();
+        start.getUnchecked(Duration.seconds(5));
+
+        FixedListMachineProvisioningLocation<SshMachineLocation> loc = (FixedListMachineProvisioningLocation<SshMachineLocation>) Iterables.get(app.getLocations(), 0);
+
+        Set<SshMachineLocation> machines = loc.getAllMachines();
+        SshMachineLocation machine = Iterables.getOnlyElement(machines);
+        assertMachine(machine, UserAndHostAndPort.fromParts(machine.getUser(), "1.2.3.4", 22), Collections.emptyMap());
     }
 
     @Test
@@ -357,7 +390,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
             Entity app = createStartWaitAndLogApplication(yaml);
             Asserts.shouldHaveFailedPreviously("app="+app);
         } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "Invalid location", "byon", "at least one host must be defined");
+            Asserts.expectedFailureContains(e, "Invalid location", "byon", "hosts must be defined");
         }
     }
     

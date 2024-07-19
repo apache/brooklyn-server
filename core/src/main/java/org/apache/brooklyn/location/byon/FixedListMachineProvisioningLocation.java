@@ -46,6 +46,8 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.apache.brooklyn.util.text.WildcardGlobs.PhraseTreatment;
@@ -158,17 +160,9 @@ implements MachineProvisioningLocation<T>, Closeable {
     @Override
     public void init() {
         super.init();
-        
-        List<LocationSpec<? extends MachineLocation>> machineSpecs = getConfig(MACHINE_SPECS);
-        if (machineSpecs != null) {
-            for (LocationSpec<? extends MachineLocation> spec : machineSpecs) {
-                @SuppressWarnings("unchecked")
-                T machine = (T) getManagementContext().getLocationManager().createLocation(spec);
-                machines.add(machine);
-            }
-        }
-        config().set(MACHINE_SPECS, (List<LocationSpec<? extends MachineLocation>>) null);
-        
+
+        attemptResolveMachineSpecs(false);
+
         Supplier<? extends List<? extends MachineLocation>> initialMachinesFactory = getConfig(INITIAL_MACHINES_FACTORY);
         if (initialMachinesFactory != null) {
             List<? extends MachineLocation> initialMachines = initialMachinesFactory.get();
@@ -181,7 +175,11 @@ implements MachineProvisioningLocation<T>, Closeable {
             }
         }
         config().set(INITIAL_MACHINES_FACTORY, (Supplier<List<? extends MachineLocation>>) null);
-        
+
+        ensureMachinesInitialized();
+    }
+
+    private void ensureMachinesInitialized() {
         Set<T> machinesCopy = MutableSet.of();
         for (T location : machines) {
             if (location==null) {
@@ -198,7 +196,34 @@ implements MachineProvisioningLocation<T>, Closeable {
             machines = machinesCopy;
         }
     }
-    
+
+    transient Exception dynamicMachineSpecsError;
+
+    private void attemptResolveMachineSpecs(boolean ensureMachinesInitialized) {
+        Maybe<Object> machineSpecsRaw = config().getRaw(MACHINE_SPECS);
+        if (machineSpecsRaw.isAbsent()) return;
+        List<LocationSpec<? extends MachineLocation>> machineSpecs = null;
+        try {
+            machineSpecs = config().get(MACHINE_SPECS);
+        } catch (Exception e) {
+            // don't treat interrupted as severe:
+            // Exceptions.propagateIfFatal(e);
+            log.debug("Machine specs for "+this+" are not resolvable at this time. Try again later. ("+e+")");
+            dynamicMachineSpecsError = e;
+            return;
+        }
+        dynamicMachineSpecsError = null;
+        if (machineSpecs != null) {
+            for (LocationSpec<? extends MachineLocation> spec : machineSpecs) {
+                @SuppressWarnings("unchecked")
+                T machine = (T) getManagementContext().getLocationManager().createLocation(spec);
+                machines.add(machine);
+            }
+        }
+        config().set(MACHINE_SPECS, (List<LocationSpec<? extends MachineLocation>>) null);
+        if (ensureMachinesInitialized) ensureMachinesInitialized();
+    }
+
     @Override
     public String toVerboseString() {
         return MoreObjects.toStringHelper(this).omitNullValues()
@@ -267,7 +292,7 @@ implements MachineProvisioningLocation<T>, Closeable {
     }
     
     public Set<T> getAvailable() {
-        Set<T> a = Sets.newLinkedHashSet(machines);
+        Set<T> a = Sets.newLinkedHashSet(getMachines());
         a.removeAll(inUse);
         return a;
     }   
@@ -277,7 +302,7 @@ implements MachineProvisioningLocation<T>, Closeable {
     }   
      
     public Set<T> getAllMachines() {
-        return ImmutableSet.copyOf(machines);
+        return ImmutableSet.copyOf(getMachines());
     }   
      
     @Override
@@ -322,12 +347,20 @@ implements MachineProvisioningLocation<T>, Closeable {
         synchronized (lock) {
             Set<T> a = getAvailable();
             if (a.isEmpty()) {
+                if (dynamicMachineSpecsError!=null) {
+                    attemptResolveMachineSpecs(true);
+                    a = getAvailable();
+                }
                 if (canProvisionMore()) {
                     provisionMore(1, allflags.getAllConfig());
                     a = getAvailable();
                 }
-                if (a.isEmpty())
-                    throw new NoMachinesAvailableException("No machines available in "+toString());
+                if (a.isEmpty()) {
+                    if (dynamicMachineSpecsError!=null) {
+                        throw new NoMachinesAvailableException("Machines cannot be resolved at this time in " + toString()+": "+dynamicMachineSpecsError, dynamicMachineSpecsError);
+                    }
+                    throw new NoMachinesAvailableException("No machines available in " + toString());
+                }
             }
             if (desiredMachine != null) {
                 if (a.contains(desiredMachine)) {

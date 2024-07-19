@@ -152,9 +152,11 @@ public class ByonLocationResolver extends AbstractLocationResolver {
             return TypeCoercions.coerce(v, type);
         }
         protected <T> T resolveRemoveOrThrow(boolean dynamicAllowed, Map<String, Object> map, String key, Class<T> type) {
-            Object v = map.remove(key);
+            Object v = map.get(key);
             v = resolveOrThrow(dynamicAllowed, v);
-            return TypeCoercions.coerce(v, type);
+            T result = TypeCoercions.coerce(v, type);
+            map.remove(key);
+            return result;
         }
         protected Object resolveOrThrow(boolean dynamicAllowed, Object v) {
             if (v instanceof DeferredSupplier) {
@@ -171,7 +173,6 @@ public class ByonLocationResolver extends AbstractLocationResolver {
 
             Class<? extends MachineLocation> locationClass;
             MutableMap<String, Object> defaultProps = MutableMap.of();
-            config.remove("hosts");
             String user = resolveOrThrow(dynamicAllowed, "user", String.class);
             Integer port = resolveOrThrow(dynamicAllowed, "port", Integer.class);
             resolveOrThrow(dynamicAllowed, OS_FAMILY.getName(), Object.class);
@@ -192,7 +193,7 @@ public class ByonLocationResolver extends AbstractLocationResolver {
             } else if (hosts instanceof Iterable) {
                 hostAddresses = ImmutableList.copyOf((Iterable<?>) hosts);
             } else {
-                throw new IllegalArgumentException("Invalid location '" + spec + "'; at least one host must be defined");
+                throw new IllegalArgumentException("Invalid location '" + spec + "'; hosts must be defined, as a string of a single host or list of hosts");
             }
             if (hostAddresses.isEmpty()) {
                 throw new IllegalArgumentException("Invalid location '" + spec + "'; at least one host must be defined");
@@ -213,6 +214,7 @@ public class ByonLocationResolver extends AbstractLocationResolver {
                 machineSpec.configureIfNotNull(LocalLocationManager.CREATE_UNMANAGED, config.get(LocalLocationManager.CREATE_UNMANAGED));
                 machineSpecs.add(machineSpec);
             }
+            config.remove("hosts");
             return machineSpecs;
         }
 
