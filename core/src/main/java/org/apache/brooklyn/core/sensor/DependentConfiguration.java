@@ -138,13 +138,13 @@ public class DependentConfiguration {
 
     public static class AttributeWhenReadyOptions {
         @JsonAlias("timeoutIfDown")
-        Duration timeout_if_down;
-        Duration timeout;
+        public Duration timeout_if_down;
+        public Duration timeout;
 
         @JsonAlias("abortIfOnFire")
-        boolean abort_if_on_fire = true;
+        public boolean abort_if_on_fire = true;
         @JsonAlias("waitForTruthy")
-        boolean wait_for_truthy = true;
+        public boolean wait_for_truthy = true;
 
         public static AttributeWhenReadyOptions defaultOptions() {
             AttributeWhenReadyOptions result = new AttributeWhenReadyOptions();
