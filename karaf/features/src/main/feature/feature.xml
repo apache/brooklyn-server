@@ -231,7 +231,7 @@
 -->
 
     <feature name="brooklyn-rest-resources-prereqs" version="${project.version}" description="Brooklyn REST Resources Prerequisites">
-        <feature>pax-jetty</feature>
+        <feature>pax-web-jetty</feature>
         <feature>cxf-jaxrs-with-optional-dependencies</feature>
 
         <bundle dependency="true">mvn:org.apache.cxf/cxf-rt-rs-security-cors/${cxf.version}</bundle>
@@ -256,7 +256,7 @@
 
     <feature name="cxf-jaxrs-with-optional-dependencies" version="${project.version}" description="cxf-jaxrs with optional dependencies">
         <feature>cxf-jaxrs</feature>
-        
+
         <!-- do this here otherwise causes jackson-jaxrs-json-provider to be rewired when this optional dep is installed -->
         <bundle dependency="true" start-level="35">mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/${fasterxml.jackson.version}</bundle>
     </feature>
@@ -344,7 +344,7 @@
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.version}</bundle>
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch-agentproxy-sshj/${jsch.agentproxy.bundle.version}</bundle>
 
-        <!-- upstream dependencies, maybe not needed --> 
+        <!-- upstream dependencies, maybe not needed -->
         <bundle dependency="true">mvn:jakarta.ws.rs/jakarta.ws.rs-api/${jakarta.rs-api.version}</bundle>  <!-- was javax; mapped to jakarta -->
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.javax-inject/1_1</bundle>
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.aopalliance/1.0_5</bundle>
@@ -444,7 +444,7 @@
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle>
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.generex/1.0.2_1</bundle>
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.automaton/1.11-8_1</bundle>
-     - these need wrapped because they define Bundle-ManifestVersion: 1 
+     - these need wrapped because they define Bundle-ManifestVersion: 1
         <bundle>wrap:mvn:com.squareup.okio/okio/1.15.0$Bundle-SymbolicName=squareup-okio&amp;Bundle-Version=1.15.0&amp;Export-Package=okio;version=1.15.0</bundle>
         <bundle>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,javax.annotation;version=1.3,*;resolution:=optional</bundle>
         <bundle>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>

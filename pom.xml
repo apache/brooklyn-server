@@ -145,7 +145,7 @@
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
         <swagger.version>1.6.2</swagger.version>
         <mx4j.version>3.0.1</mx4j.version>
-        <bouncycastle.version>1.72</bouncycastle.version>  <!-- beyond this gives asn1 errors, needs a new dep probably -->
+        <bouncycastle.version>1.77</bouncycastle.version>  <!-- beyond this gives asn1 errors, needs a new dep probably -->
         <eddsa.version>0.3.0</eddsa.version>  <!-- eddsa 0.3.0 needs sun x509 -->
         <sshj.version>0.34.0</sshj.version>  <!-- jclouds 2.4 uses 0.27; 0.32 needs eddsa 0.3.0 -->
         <sshj.asn1.version>0.6.0</sshj.asn1.version>
@@ -188,13 +188,13 @@
         <kubernetes-client.version>6.8.1</kubernetes-client.version>  <!-- 6.9 switches to slf4j v2 which has compatibility issues -->
 
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
-        <karaf.version>4.3.8</karaf.version>
+        <karaf.version>4.4.6</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
-        <pax-web.version>7.3.27</pax-web.version> <!-- karaf 4.3 -->
-        <jetty.version>9.4.49.v20220914</jetty.version> <!-- pax 7.3.27, there is more recent 9.4.50.v20221201 but no pax -->
+        <pax-web.version>8.0.27</pax-web.version> <!-- karaf 4.4; pax 9.x.y requires Java 11-->
+        <jetty.version>9.4.54.v20240208</jetty.version> <!-- pax 7.3.27, there is more recent 9.4.50.v20221201 but no pax -->
         <commons-collections.version>3.2.2</commons-collections.version>
         <spifly.version>1.3.2</spifly.version> <!-- 1.3.0 from kubernetes; 1.2.4 from pax-jetty; v1.3.2 from erstwhile jetty feature; but 1.3.2 fixes an NPE bug in 1.3.0 so use it -->
-        <jaxb-api.version>2.3.3</jaxb-api.version>
+        <jaxb-api.version>2.3.8</jaxb-api.version>
         <spifly.version>1.3.5</spifly.version> <!-- v1.3.2 from jetty feature; v1.2.4 from pax-jetty -->
         <felix.framework.version>6.0.5</felix.framework.version>
 
@@ -210,7 +210,7 @@
         <minidev.accessors-smart.version>2.4.9</minidev.accessors-smart.version>
 
         <ow2.asm.version.jsonpath>5.2</ow2.asm.version.jsonpath>
-          <!-- json-path needs objectweb.asm version 5.2 (<6.0.0), and won't accept a bundleReplacement for a higher one; 
+          <!-- json-path needs objectweb.asm version 5.2 (<6.0.0), and won't accept a bundleReplacement for a higher one;
                in addition currently pax-web-core brings in 8.0.1 and aries-proxy 9.0;
                the addition of 5.2 triggers a refresh of the wiring of proxy because asm is an optional dependency
                (even though it's a lower version and it shouldn't);
