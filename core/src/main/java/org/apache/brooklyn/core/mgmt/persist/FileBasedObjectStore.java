@@ -24,6 +24,7 @@ import static java.lang.String.format;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -36,6 +37,8 @@ import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -346,22 +349,38 @@ public class FileBasedObjectStore implements PersistenceObjectStore {
      * Overwriting existing destFile
      */
     static void moveFile(File srcFile, File destFile) throws IOException, InterruptedException {
-        if (destFile.isDirectory()) {
-            deleteCompletely(destFile);
-        }
+        final int MAX_ATTEMPTS = 5;
+        int attempts = 0;
+        while (true) {
+            attempts++;
+            try {
+                if (destFile.isDirectory()) {
+                    deleteCompletely(destFile);
+                }
 
-        try {
-            Files.move(srcFile.toPath(), destFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
-        } catch (AtomicMoveNotSupportedException e) {
-            if (!WARNED_ON_NON_ATOMIC_FILE_UPDATES) {
-                WARNED_ON_NON_ATOMIC_FILE_UPDATES = true;
-                log.warn("Unable to perform atomic file update ("+srcFile+" to "+destFile+"); file system not recommended for production HA/DR");
+                try {
+                    Files.move(srcFile.toPath(), destFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
+                } catch (AtomicMoveNotSupportedException e) {
+                    if (!WARNED_ON_NON_ATOMIC_FILE_UPDATES) {
+                        WARNED_ON_NON_ATOMIC_FILE_UPDATES = true;
+                        log.warn("Unable to perform atomic file update (" + srcFile + " to " + destFile + "); file system not recommended for production HA/DR");
+                    }
+                    Files.move(srcFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                if (log.isTraceEnabled()) {
+                    log.trace("Completly moved from {} to {} completed", new Object[]{srcFile, destFile});
+                }
+                return;
+            } catch (Exception e) {
+                if (e instanceof AccessDeniedException && attempts<=MAX_ATTEMPTS) {
+                    // worth a retry after a delay, in case eg AV software is inspecting the file
+                    log.warn("Error moving file, possibly due to AV software scanning it, or other permissions problem. Will retry in case the former: " + e, e);
+                    Time.sleep(Duration.millis(10).multiply(attempts));
+                    continue;
+                }
+                throw e;
             }
-            Files.move(srcFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        }
-        
-        if (log.isTraceEnabled()) {
-            log.trace("Completly moved from {} to {} completed", new Object[] { srcFile, destFile });
         }
     }
 
