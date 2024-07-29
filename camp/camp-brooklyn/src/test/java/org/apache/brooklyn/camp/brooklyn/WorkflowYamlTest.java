@@ -217,6 +217,11 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         waitForApplicationTasks(app);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
+
+        // may need to wait for workflow initializer. TBC whether this should be part of a REST application start, or another REST method.
+        // (maybe the default rest application create started should wait for these prior to invoking start? maybe they should be tagged as initialization?)
+        waitForApplicationTasks(entity);
+
         EntityAsserts.assertAttribute(entity, Sensors.newSensor(Object.class, "foo"), v -> {
             Asserts.assertInstanceOf(v, SpecialMap.class);
             Asserts.assertEquals( ((SpecialMap)v).x, "bar" );
