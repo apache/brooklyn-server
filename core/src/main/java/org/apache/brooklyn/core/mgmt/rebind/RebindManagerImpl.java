@@ -387,13 +387,14 @@ public class RebindManagerImpl implements RebindManager {
     @Override
     public void stopReadOnly() {
         readOnlyRunning = false;
-        if (readOnlyTask!=null) {
+        ScheduledTask rt = readOnlyTask;
+        if (rt!=null) {
             LOG.debug("Stopping read-only rebinding ("+this+"), mgmt "+managementContext.getManagementNodeId());
-            readOnlyTask.cancel(true);
-            readOnlyTask.blockUntilEnded();
-            boolean reallyEnded = Tasks.blockUntilInternalTasksEnded(readOnlyTask, Duration.TEN_SECONDS);
+            rt.cancel(true);
+            rt.blockUntilEnded();
+            boolean reallyEnded = Tasks.blockUntilInternalTasksEnded(rt, Duration.TEN_SECONDS);
             if (!reallyEnded) {
-                LOG.warn("Rebind (read-only) tasks took too long to die after interrupt (ignoring): "+readOnlyTask);
+                LOG.warn("Rebind (read-only) tasks took too long to die after interrupt (ignoring): "+rt);
             }
             readOnlyTask = null;
             if (persistenceStoreAccess!=null) {
