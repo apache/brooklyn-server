@@ -249,11 +249,18 @@ public class InternalEntityFactory extends InternalFactory {
             if (!options.isDryRun()) {
                 // entity.getParent and .getApplicationId not available yet; but spec.getParent does have them;
                 // we want to show the message before initialization happens
+                Object planId = ((EntityInternal) entity).config().getRaw(BrooklynConfigKeys.PLAN_ID).orNull();
+
+                String name = entity.getId() + " " +
+                        (planId != null ? planId + " / " : "") +
+                        entity.getDisplayName() + " " +
+                        "(" + entity + ")";
                 if (spec.getParent() == null) {
-                    BrooklynLoggingCategories.APPLICATION_LIFECYCLE_LOG.debug("Creating application " + entity.getId() + " (" + entity + ") for user " + Entitlements.getEntitlementContextUser());
+                    BrooklynLoggingCategories.APPLICATION_LIFECYCLE_LOG.debug("Creating application " + name +
+                            " for user " + Entitlements.getEntitlementContextUser());
                 } else {
-                    BrooklynLoggingCategories.ENTITY_LIFECYCLE_LOG.debug("Creating entity " + entity.getId() + " (" + entity + ") " +
-                            "for user " + Entitlements.getEntitlementContextUser() + ", "+
+                    BrooklynLoggingCategories.ENTITY_LIFECYCLE_LOG.debug("Creating entity " + name +
+                            " for user " + Entitlements.getEntitlementContextUser() + ", "+
                             "child of " +
                             (!Objects.equals(spec.getParent().getId(), spec.getParent().getApplicationId())
                                     ? "entity " + spec.getParent().getId() + " in "
