@@ -982,7 +982,7 @@ public class BasicExecutionManager implements ExecutionManager {
                     }
                 }
                 for (Task<?> t : execMgmt.getAllTasks()) {
-                    if (task.equals(t.getSubmittedByTask())) {
+                    if (!t.isDone() && Objects.equals(task.getId(), t.getSubmittedByTaskId())) {
                         if (mode.isAllowedToInterruptAllSubmittedTasks() || BrooklynTaskTags.isTransient(t)) {
                             if (log.isTraceEnabled()) {
                                 log.trace("Cancelling " + t + " on recursive cancellation of " + task);

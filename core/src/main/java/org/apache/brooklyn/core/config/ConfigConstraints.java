@@ -144,7 +144,7 @@ public abstract class ConfigConstraints<T> {
         if (exec!=null) {
             return exec.get(
                 BrooklynTaskTags.setTransient(   // set transient so gets GC and doesn't pollute the "top-level" view
-                    Tasks.<Map<ConfigKey<?>,Throwable>>builder().dynamic(false).displayName("Validating config").body( () -> validateAll() ).build() ));
+                    Tasks.<Map<ConfigKey<?>,Throwable>>builder().dynamic(false).displayName("Validating config of "+getSource()).body( () -> validateAll() ).build() ));
         } else {
             return validateAll();
         }

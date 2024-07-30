@@ -327,16 +327,24 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         try {
             return runInSameThread(fakeTaskForContext, new Callable<Maybe<T>>() {
                 public Maybe<T> call() throws Exception {
+                    long count = -1;
+                    if (executionManager instanceof BasicExecutionManager) count = ((BasicExecutionManager)executionManager).getTotalTasksSubmitted();
                     try {
                         return Threads.runTemporarilyUninterrupted(job::getImmediately);
                     } finally {
                         // we've acknowledged that getImmediate may wreck (cancel) the task,
                         // their first priority is to prevent them from leaking;
-                        // however previously we did the cancel before running, 
-                        // doing it after means more tasks successfully execute 
-                        // (the interrupt is sufficient to prevent them blocking); 
+                        // however previously we did the cancel before running,
+                        // doing it after means more tasks successfully execute
+                        // (the interrupt is sufficient to prevent them blocking);
                         // see test EffectorSayHiTest.testInvocationGetImmediately
-                        fakeTaskForContext.cancel();
+
+                        if (count>=0 && (((BasicExecutionManager)executionManager).getTotalTasksSubmitted()==count || ((BasicExecutionManager) executionManager).getNumIncompleteTasks() == 0)) {
+                            // skip interrupt if not necessary, to speed things up
+                            fakeTaskForContext.cancel(TaskInternal.TaskCancellationMode.DO_NOT_INTERRUPT);
+                        } else {
+                            fakeTaskForContext.cancel();
+                        }
                     }
                 } });
         } catch (Exception e) {
