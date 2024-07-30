@@ -203,7 +203,7 @@ public class InternalEntityFactory extends InternalFactory {
             // prevent this from blocking
             Thread.currentThread().interrupt();
             try {
-                initEntityAndDescendants(entity.getId(), entitiesByEntityId, specsByEntityId, options);
+                initEntityAndDescendants(entity.getId(), entitiesByEntityId, specsByEntityId, options, true);
             } finally {
                 // end of non-blocking portion
                 Thread.interrupted();
@@ -395,7 +395,7 @@ public class InternalEntityFactory extends InternalFactory {
         }
     }
 
-    protected <T extends Entity> void initEntityAndDescendants(String entityId, final Map<String,Entity> entitiesByEntityId, final Map<String,EntitySpec<?>> specsByEntityId, EntityManager.EntityCreationOptions options) {
+    protected <T extends Entity> void initEntityAndDescendants(String entityId, final Map<String,Entity> entitiesByEntityId, final Map<String,EntitySpec<?>> specsByEntityId, EntityManager.EntityCreationOptions options, boolean validationRequired) {
         final Entity entity = entitiesByEntityId.get(entityId);
         final EntitySpec<?> spec = specsByEntityId.get(entityId);
 
@@ -406,9 +406,11 @@ public class InternalEntityFactory extends InternalFactory {
             return;
         }
 
-        // Validate all config before attempting to manage any entity. Do this here rather
-        // than in manageRecursive so that rebind is unaffected.
-        validateDescendantConfig(entity, options);
+        if (validationRequired) {
+            // Validate all config before attempting to manage any entity, if being invoked on a root entity.
+            // Do this here rather than in manageRecursive so that rebind is unaffected.
+            validateDescendantConfig(entity, options);
+        }
 
         ((EntityInternal)entity).getExecutionContext().get(Tasks.builder().dynamic(false).displayName("Entity initialization")
                 // no longer transient because the UI groups these more nicely now
@@ -461,7 +463,7 @@ public class InternalEntityFactory extends InternalFactory {
                 for (Entity child: entity.getChildren()) {
                     // right now descendants are initialized depth-first (see the getUnchecked() call below)
                     // they could be done in parallel, but OTOH initializers should be very quick
-                    initEntityAndDescendants(child.getId(), entitiesByEntityId, specsByEntityId, options);
+                    initEntityAndDescendants(child.getId(), entitiesByEntityId, specsByEntityId, options, false);
                 }
 
                 if (entity instanceof EntityPostInitializable) {
