@@ -40,6 +40,7 @@ import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.*;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
@@ -364,14 +365,16 @@ public class DependentConfiguration {
 
                 Map<Integer,Duration> customTimeouts = MutableMap.of();
                 BiConsumer<Integer,Object> checkValueAtIndex = (index, val) -> {
-                    Pair<AttributeAndSensorCondition<Object>, Duration> timeoutIfCondition = timeoutIfTimeoutSensorConditions.get(index);
-                    if (timeoutIfCondition.getLeft().predicate.apply(val)) {
-                        if (!customTimeouts.containsKey(index)) {
-                            // start timer from this point
-                            customTimeouts.put(index, timer.getDurationElapsed().add(timeoutIfCondition.getRight()));
+                    synchronized (customTimeouts) {
+                        Pair<AttributeAndSensorCondition<Object>, Duration> timeoutIfCondition = timeoutIfTimeoutSensorConditions.get(index);
+                        if (timeoutIfCondition.getLeft().predicate.apply(val)) {
+                            if (!customTimeouts.containsKey(index)) {
+                                // start timer from this point
+                                customTimeouts.put(index, timer.getDurationElapsed().add(timeoutIfCondition.getRight()));
+                            }
+                        } else {
+                            customTimeouts.remove(index);
                         }
-                    } else {
-                        customTimeouts.remove(index);
                     }
                 };
 
@@ -439,8 +442,14 @@ public class DependentConfiguration {
                         throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortionExceptions);
                     }
 
-                    if (!customTimeouts.isEmpty()) {
-                        for (Map.Entry<Integer, Duration> entry : customTimeouts.entrySet()) {
+                    Set<Map.Entry<Integer, Duration>> timeoutsHere = null;
+                    synchronized (customTimeouts) {
+                        if (!customTimeouts.isEmpty()) {
+                            timeoutsHere = MutableSet.copyOf(customTimeouts.entrySet());
+                        }
+                    }
+                    if (timeoutsHere!=null) {
+                        for (Map.Entry<Integer, Duration> entry : timeoutsHere) {
                             Integer index = entry.getKey();
                             Duration specialTimeout = entry.getValue();
                             Pair<AttributeAndSensorCondition<Object>, Duration> timeoutIfCondition = timeoutIfTimeoutSensorConditions.get(index);
