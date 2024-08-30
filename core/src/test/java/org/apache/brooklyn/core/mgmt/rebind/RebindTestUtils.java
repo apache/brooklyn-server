@@ -472,6 +472,14 @@ public class RebindTestUtils {
         return managementContext.getRebindManager().hasPending();
     }
 
+    public static File getLocalPersistenceDir(ManagementContext manager) {
+        BrooklynMementoPersister persister = manager.getRebindManager().getPersister();
+        if (!(persister instanceof BrooklynMementoPersisterToObjectStore)) return null;
+        PersistenceObjectStore store = ((BrooklynMementoPersisterToObjectStore) persister).getObjectStore();
+        if (!(store instanceof FileBasedObjectStore)) return null;
+        return ((FileBasedObjectStore) store).getBaseDir();
+    }
+
     public static void stopPersistence(Application origApp) throws InterruptedException, TimeoutException {
         stopPersistence(origApp.getManagementContext());
     }

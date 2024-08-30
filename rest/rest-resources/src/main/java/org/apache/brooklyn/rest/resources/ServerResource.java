@@ -662,6 +662,9 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             persister.stop(true);
             tempPersistenceStore.close();
 
+            // ensure the imported state is persisted
+            mgmt().getRebindManager().forcePersistNow(true, null);
+
         } catch (Exception e){
             Exceptions.propagateIfFatal(e);
             ApiError.Builder error = ApiError.builder().errorCode(Response.Status.BAD_REQUEST);
