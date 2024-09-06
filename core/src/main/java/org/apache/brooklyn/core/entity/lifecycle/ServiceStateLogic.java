@@ -165,7 +165,7 @@ public class ServiceStateLogic {
     
     private static void setExpectedState(Entity entity, Lifecycle state, boolean waitBrieflyForServiceUpIfRunning) {
         if (waitBrieflyForServiceUpIfRunning) {
-            waitBrieflyForServiceUpIfStateIsRunning("setting expected state", entity, state);
+            recomputeIfIssueWhenBecomingExpectedRunning("setting expected state", entity, state);
         }
         ((EntityInternal)entity).sensors().set(Attributes.SERVICE_STATE_EXPECTED, new Lifecycle.Transition(state, new Date()));
 
@@ -181,12 +181,17 @@ public class ServiceStateLogic {
         return expected.getState();
     }
 
-    public static void waitBrieflyForServiceUpIfStateIsRunning(String when, Entity entity, Lifecycle state) {
-        if (state==Lifecycle.RUNNING) {
+    public static void recomputeIfIssueWhenBecomingExpectedRunning(String when, Entity entity, Lifecycle state) {
+        if (!Entities.isManagedActive(entity) || state!=Lifecycle.RUNNING) {
+            return;
+        } else {
+            Map<String, Object> problems = entity.getAttribute(SERVICE_PROBLEMS);
+            boolean noProblems = problems == null || problems.isEmpty();
             Boolean up = entity.getAttribute(Attributes.SERVICE_UP);
-            if (!Boolean.TRUE.equals(up) && Entities.isManagedActive(entity)) {
-
-                log.debug("Service is not up when setting "+ state +" when "+when+" on " + entity+", but possibly just needs a recompute; doing recompute now");
+            if (Boolean.TRUE.equals(up) && noProblems) {
+                return;
+            } else {
+                log.debug("Service not up pre-check, up="+up+" and problems="+problems+" when setting "+ state +" (when "+when+") on " + entity+"; possibly just needs a recompute; doing recompute now");
 
                 try {
                     Iterables.filter(entity.enrichers(), x -> x instanceof ComputeServiceIndicatorsFromChildrenAndMembers).forEach(
@@ -209,7 +214,7 @@ public class ServiceStateLogic {
                             log.debug("Service not up pre-check recompute ran, service.isUp="+up+" after: "+css);
                         }
                     } else {
-                        log.debug("Service not up pre-check recompute not running because not up indicators are: " + notUpIndicators);
+                        log.debug("Service not up pre-check recompute not running because not up indicators are now: " + notUpIndicators);
                     }
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
@@ -380,22 +385,23 @@ public class ServiceStateLogic {
                     if (!Entities.isManagedActive(entity)) {
                         return Maybe.absent("entity not managed active");
                     }
-                    if (!Lifecycle.ON_FIRE.equals(entity.getAttribute(SERVICE_STATE_ACTUAL)) && noProblems) {
+                    if (!Lifecycle.ON_FIRE.equals(entity.getAttribute(SERVICE_STATE_ACTUAL))) {
                         boolean waitable = count==0;
                         waitable = waitable && event!=null && !Attributes.SERVICE_UP.equals(event.getSensor());
                         if (waitable) {
                             // very occasional race here; might want to give a grace period if entity has just transitioned; allow children to catch up
                             // we probably did the wait when expected running, but possibly in some cases we don't (seen once, 2024-07, not reproduced)
                             log.debug("Entity "+entity+" would be on-fire due to problems (up="+serviceUp+", problems="+problems+"), will attempt re-check");
-                            waitBrieflyForServiceUpIfStateIsRunning("computing actual state", entity, Lifecycle.RUNNING);
+                            recomputeIfIssueWhenBecomingExpectedRunning("computing actual state", entity, Lifecycle.RUNNING);
                             count++;
                             continue;
                         }
-
-                        BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(entity, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.DEBUG),
-                                "Setting " + entity + " " + Lifecycle.ON_FIRE + " due to problems when expected running, up=" + serviceUp + ", " +
-                                        (noProblems ? "not-up-indicators: " + entity.getAttribute(SERVICE_NOT_UP_INDICATORS) : "problems: " + problems));
                     }
+                    BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(entity, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.DEBUG),
+                            "Setting " + entity + " " + Lifecycle.ON_FIRE + " due to problems when expected running, " +
+                                    "trigger="+event+", "+
+                                    "up=" + serviceUp + ", " +
+                                    (noProblems ? "not-up-indicators: " + entity.getAttribute(SERVICE_NOT_UP_INDICATORS) : "problems: " + problems));
                     return Maybe.of(Lifecycle.ON_FIRE);
                 }
             }
