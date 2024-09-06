@@ -290,9 +290,9 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     /** causes nested structures (maps, lists) to be descended and nested unresolved values resolved.
      * for legacy reasons this sets deepTraversalUsesRootType.
      * @deprecated use {@link #deep(boolean, boolean, Boolean)} */
-    @Deprecated public ValueResolver<T> deep(boolean forceDeep) { return deep(true, true, true); }
+    @Deprecated public ValueResolver<T> deep(boolean forceDeep) { return deep(true, forceDeep, false); }
     /* @deprecated use {@link #deep(boolean, boolean, Boolean)} */
-    @Deprecated public ValueResolver<T> deep(boolean forceDeep, Boolean deepTraversalUsesRootType) { return deep(true,true,true); }
+    @Deprecated public ValueResolver<T> deep(boolean forceDeep, Boolean deepTraversalUsesRootType) { return deep(true, forceDeep, deepTraversalUsesRootType); }
     /** causes nested structures (maps, lists) to be descended and nested unresolved values resolved.
      * if the second argument is true, the type specified here is used against non-map/iterable items
      * inside maps and iterables encountered. if false, any generic signature on the supplied type
