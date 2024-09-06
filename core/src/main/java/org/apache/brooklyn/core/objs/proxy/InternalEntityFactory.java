@@ -250,7 +250,6 @@ public class InternalEntityFactory extends InternalFactory {
                 // entity.getParent and .getApplicationId not available yet; but spec.getParent does have them;
                 // we want to show the message before initialization happens
                 Object planId = ((EntityInternal) entity).config().getRaw(BrooklynConfigKeys.PLAN_ID).orNull();
-
                 String name = entity.getId() + " " +
                         (planId != null ? planId + " / " : "") +
                         entity.getDisplayName() + " " +
@@ -271,6 +270,21 @@ public class InternalEntityFactory extends InternalFactory {
             }
 
             loadUnitializedEntity(entity, spec, options);
+
+            if (!options.isDryRun()) {
+                // ID's might have only been set above; log again so we can see them
+                Object planId = ((EntityInternal) entity).config().getLocalRaw(BrooklynConfigKeys.PLAN_ID).orNull();
+                String name = entity.getId() + " " +
+                        (planId != null ? planId + " / " : "") +
+                        entity.getDisplayName() + " " +
+                        "(" + entity + ")";
+
+                if (spec.getParent() == null) {
+                    BrooklynLoggingCategories.APPLICATION_LIFECYCLE_LOG.debug("Creation configuration done for application " + name);
+                } else {
+                    BrooklynLoggingCategories.ENTITY_LIFECYCLE_LOG.debug("Creation configuration done for entity " + name);
+                }
+            }
 
             List<NamedStringTag> upgradedFrom = BrooklynTags.findAllNamedStringTags(BrooklynTags.UPGRADED_FROM, spec.getTags());
             if (!upgradedFrom.isEmpty()) {
