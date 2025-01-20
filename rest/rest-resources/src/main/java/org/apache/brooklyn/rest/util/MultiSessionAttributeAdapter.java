@@ -101,11 +101,12 @@ public class MultiSessionAttributeAdapter {
     private static final String KEY_PREFERRED_SESSION_HANDLER_INSTANCE = "org.apache.brooklyn.server.PreferredSessionHandlerInstance";
     private static final String KEY_IS_PREFERRED = "org.apache.brooklyn.server.IsPreferred";
 
+    public final static String OAB_SERVER_CONFIG_PREFIX = "org.apache.brooklyn.server";
     public final static ConfigKey<Long> MAX_SESSION_AGE = ConfigKeys.newLongConfigKey(
-            "org.apache.brooklyn.server.maxSessionAge", "Max session age in seconds");
+            OAB_SERVER_CONFIG_PREFIX+".maxSessionAge", "Max session age in seconds");
 
     public final static ConfigKey<Integer> MAX_INACTIVE_INTERVAL = ConfigKeys.newIntegerConfigKey(
-            "org.apache.brooklyn.server.maxInactiveInterval", "Max inactive interval in seconds",
+            OAB_SERVER_CONFIG_PREFIX+".maxInactiveInterval", "Max inactive interval in seconds",
             3600);
 
     private static final Object PREFERRED_SYMBOLIC_NAME =

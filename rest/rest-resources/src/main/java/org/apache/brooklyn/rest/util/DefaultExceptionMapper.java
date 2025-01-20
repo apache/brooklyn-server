@@ -19,21 +19,34 @@
 package org.apache.brooklyn.rest.util;
 
 import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.ExceptionMapper;
 import javax.ws.rs.ext.Provider;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.entitlement.EntitlementClass;
+import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.domain.ApiError.Builder;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.javalang.coerce.ClassCoercionException;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,7 +61,10 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
 
     static Set<Class<?>> encounteredUnknownExceptions = MutableSet.of();
     static Set<Object> encounteredExceptionRecords = MutableSet.of();
-    
+
+    @Context
+    private ContextResolver<ManagementContext> mgmt;
+
     /**
      * Maps a throwable to a response.
      * <p/>
@@ -69,13 +85,14 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
             return null;
         }
 
+        String errorReference = Identifiers.makeRandomId(13);
         Throwable throwable2 = Exceptions.getFirstInteresting(throwable1);
         if (isSevere(throwable2)) {
-            LOG.warn("REST request running as {} threw: {}", Entitlements.getEntitlementContext(), 
-                Exceptions.collapseText(throwable1));
+            LOG.warn("REST request running as {} threw: {} (ref {})", Entitlements.getEntitlementContext(),
+                Exceptions.collapseText(throwable1), errorReference);
         } else {
-            LOG.debug("REST request running as {} threw: {}", Entitlements.getEntitlementContext(), 
-                Exceptions.collapseText(throwable1));
+            LOG.debug("REST request running as {} threw: {} (ref {})", Entitlements.getEntitlementContext(),
+                Exceptions.collapseText(throwable1), errorReference);
         }
         logExceptionDetailsForDebugging(throwable1);
 
@@ -114,11 +131,62 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
         if (userFacing instanceof UserFacingException) {
             return ApiError.of(userFacing.getMessage()).asBadRequestResponseJson();
         }
-        
-        Builder rb = ApiError.builderFromThrowable(Exceptions.collapse(throwable2));
-        if (Strings.isBlank(rb.getMessage()))
-            rb.message("Internal error. Contact server administrator to consult logs for more details.");
-        return rb.build().asResponse(Status.INTERNAL_SERVER_ERROR, MediaType.APPLICATION_JSON_TYPE);
+
+        if (!isTraceVisibleToUser()) {
+            return ApiError.builder()
+                    .message("Internal error. Contact server administrator citing reference " + errorReference +" to consult logs for more details.")
+                    .build().asResponse(Status.INTERNAL_SERVER_ERROR, MediaType.APPLICATION_JSON_TYPE);
+        } else {
+            Builder rb = ApiError.builderFromThrowable(Exceptions.collapse(throwable2));
+            if (Strings.isBlank(rb.getMessage())) {
+                rb.message("Internal error. Contact server administrator citing reference " + errorReference + " to consult logs for more details.");
+            } else {
+                rb.message(rb.getMessage()+" (Reference: "+errorReference+")");
+            }
+            return rb.build().asResponse(Status.INTERNAL_SERVER_ERROR, MediaType.APPLICATION_JSON_TYPE);
+        }
+    }
+
+
+    public static final ConfigKey<ReturnStackTraceMode> REST_RETURN_STACK_TRACES = ConfigKeys.newConfigKey(ReturnStackTraceMode.class,
+            MultiSessionAttributeAdapter.OAB_SERVER_CONFIG_PREFIX+"returnStackTraces",
+            "Whether REST requests that have errors can include stack traces; " +
+                    "'true' or 'all' to mean always, 'false' or 'none' to mean never, " +
+                    "and otherwise 'root' or 'power' to allow users with root or java entitlement",
+            ReturnStackTraceMode.ALL);
+
+    boolean isTraceVisibleToUser() {
+        ManagementContext m = mgmt.getContext(ManagementContext.class);
+        if (m==null) return true;
+        try {
+            ReturnStackTraceMode mode = m.getConfig().getConfig(REST_RETURN_STACK_TRACES);
+            if (mode==null) mode = ReturnStackTraceMode.ALL;
+            return mode.checkCurrentUser(m);
+        } catch (Exception e) {
+            LOG.warn("Error checking user permissions for nested exception; will log and return original exception, with stack traces shown here", e);
+            return false;
+        }
+    }
+    enum ReturnStackTraceMode {
+        ALL( (_m,_ec) -> true),
+        TRUE( (_m,_ec) -> true),
+        NONE( (_m,_ec) -> false),
+        FALSE( (_m,_ec) -> false),
+        ROOT( (m,ec) -> Entitlements.isEntitled(m.getEntitlementManager(), Entitlements.ROOT, null) ),
+        POWER( (m,ec) -> Entitlements.isEntitled(m.getEntitlementManager(), Entitlements.ADD_JAVA, null) ),
+        POWERUSER( (m,ec) -> Entitlements.isEntitled(m.getEntitlementManager(), Entitlements.ADD_JAVA, null) ),
+        POWER_USER( (m,ec) -> Entitlements.isEntitled(m.getEntitlementManager(), Entitlements.ADD_JAVA, null) ),
+        ADDJAVA( (m,ec) -> Entitlements.isEntitled(m.getEntitlementManager(), Entitlements.ADD_JAVA, null) ),
+        ADD_JAVA( (m,ec) -> Entitlements.isEntitled(m.getEntitlementManager(), Entitlements.ADD_JAVA, null) ),
+        ;
+        final BiPredicate<ManagementContext,EntitlementContext> fn;
+        ReturnStackTraceMode(BiPredicate<ManagementContext,EntitlementContext> fn) {
+            this.fn = fn;
+        }
+
+        public boolean checkCurrentUser(ManagementContext m) {
+            return m==null ? false : fn.test(m, Entitlements.getEntitlementContext());
+        }
     }
 
     protected boolean isTooUninterestingToLogWarn(Throwable throwable2) {
