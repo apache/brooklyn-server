@@ -26,15 +26,16 @@ import com.google.common.collect.Lists;
 import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.naming.Context;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 import javax.naming.directory.*;
+import javax.naming.ldap.LdapName;
+import javax.naming.ldap.Rdn;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
@@ -43,6 +44,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.lang3.StringUtils;
@@ -62,6 +64,10 @@ import static org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext.US
  * brooklyn.webconsole.security.ldap.fetch_user_group=true
  * brooklyn.webconsole.security.ldap.group_config_keys=<role_resolver_config_key_example_one>,<role_resolver_config_key_example_two>
  * brooklyn.webconsole.security.ldap.login_info_log=true
+ * brooklyn.webconsole.security.ldap.recursive=true
+ * brooklyn.webconsole.security.ldap.group_filter=(&(...)(objectClass=group))
+ * brooklyn.webconsole.security.ldap.group_ou=02-Groups,OU=DOMAIN
+
  *
  * @author Peter Veentjer.
  */
@@ -79,20 +85,41 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
     private boolean logUserLoginAttempt;
     private boolean fetchUserGroups = false;
     private List<String> validGroups;
+    private Boolean recursiveSearch;
+    private final String groupBaseOU;
+    private final String groupSearchFilter;
 
     public LdapSecurityProvider(ManagementContext mgmt) {
         StringConfigMap properties = mgmt.getConfig();
         ldapUrl = properties.getConfig(BrooklynWebConfig.LDAP_URL);
         Strings.checkNonEmpty(ldapUrl, "LDAP security provider configuration missing required property " + BrooklynWebConfig.LDAP_URL);
         fetchUserGroups = properties.getConfig(BrooklynWebConfig.LDAP_FETCH_USER_GROUPS);
+        recursiveSearch = properties.getConfig(BrooklynWebConfig.LDAP_RECURSIVE);
+
         logUserLoginAttempt = properties.getConfig(BrooklynWebConfig.LDAP_LOGIN_INFO_LOG);
         domainRegex = properties.getConfig(BrooklynWebConfig.LDAP_DOMAIN_REGEX);
         userNameRegex = properties.getConfig(BrooklynWebConfig.LDAP_USERNAME_REGEX);
         List ldapGroupsPrefixes = properties.getConfig(BrooklynWebConfig.GROUP_CONFIG_KEY_NAME);
+        groupSearchFilter = properties.getConfig(BrooklynWebConfig.LDAP_GROUP_FILTER);
+        groupBaseOU = properties.getConfig(BrooklynWebConfig.LDAP_GROUP_OU);
+
         if (fetchUserGroups && !ldapGroupsPrefixes.isEmpty()) {
-            validGroups = getConfiguredGroups(properties, ldapGroupsPrefixes);
+            validGroups = getBrooklynConfiguredLdapGroups(properties, ldapGroupsPrefixes);
+            if (Strings.isNonBlank(groupSearchFilter) || Strings.isNonBlank(groupBaseOU)) {
+                if (Strings.isBlank(groupSearchFilter) || Strings.isBlank(groupBaseOU)) {
+                    LOG.warn("LdapSecurityProvider group BaseOU+Search configuration (" +
+                            groupBaseOU + " / " + groupSearchFilter+
+                            ") is not; either specify both "+BrooklynWebConfig.LDAP_GROUP_OU+" / "+BrooklynWebConfig.LDAP_GROUP_FILTER
+                            + " or neither (ignoring)");
+                }
+            }
         } else {
             validGroups = ImmutableList.of();
+            if (!ldapGroupsPrefixes.isEmpty() || !groupBaseOU.isEmpty() || !groupSearchFilter.isEmpty()) {
+                LOG.warn("LdapSecurityProvider group search/fetch configuration (" +
+                        ldapGroupsPrefixes + ", " + groupBaseOU + ", " + groupSearchFilter+
+                        ") is not valid unless "+BrooklynWebConfig.LDAP_FETCH_USER_GROUPS+" set true (ignoring)");
+            }
         }
 
         String realmConfig = properties.getConfig(BrooklynWebConfig.LDAP_REALM);
@@ -116,6 +143,8 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         this.organizationUnit = organizationUnit;
         this.userNameRegex = "";
         this.domainRegex = "";
+        this.groupBaseOU = "";
+        this.groupSearchFilter = "";
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -173,7 +202,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
                 , "\\\\");
     }
 
-    private List<String> getConfiguredGroups(StringConfigMap properties, List<String> prefixes) {
+    private List<String> getBrooklynConfiguredLdapGroups(StringConfigMap properties, List<String> prefixes) {
         ImmutableList.Builder<String> configuredGroupsBuilder = ImmutableList.builder();
         for (String prefix : prefixes){
             StringConfigMap roles = properties.submap(ConfigPredicates.nameStartsWith(prefix + "."));
@@ -196,17 +225,34 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         SearchControls ctls = new SearchControls();
         ctls.setReturningAttributes(new String[]{"memberOf"});
 
-        NamingEnumeration<?> answer = ctx.search(buildUserContainer(), "(&(objectclass=user)(sAMAccountName=" + getAccountName(user) + "))", ctls);
+        if (Boolean.TRUE.equals(recursiveSearch)) {
+            ctls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+        }
+
+        NamingEnumeration<?> answer = ctx.search(buildContainer(organizationUnit, defaultLdapRealm),
+                "(&(objectclass=user)(sAMAccountName=" + getAccountName(user) + "))", ctls);
 
         while (answer.hasMore()) {
             SearchResult rslt = (SearchResult) answer.next();
-            Attributes attrs = rslt.getAttributes();
+            if (Strings.isNonBlank(groupSearchFilter) && Strings.isNonBlank(groupBaseOU)) {
+                // add group custom search (to allow nested groups and base group OU)
+                String filter = groupSearchFilter.replace("{0}", rslt.getNameInNamespace());
+                NamingEnumeration<?> results = ctx.search(buildContainer(groupBaseOU, defaultLdapRealm), filter, ctls);
 
-            Attribute memberOf = attrs.get("memberOf");
-            if (memberOf != null) {
-                NamingEnumeration<?> groups = memberOf.getAll();
-                while (groups.hasMore()) {
-                    groupsListBuilder.add(getGroupName(groups.next().toString()));
+                if (results != null) {
+                    while (results.hasMore()) {
+                        SearchResult result = (SearchResult) results.next();
+                        groupsListBuilder.add(getGroupName(result.getNameInNamespace()));
+                    }
+                }
+            } else {
+                Attributes attrs = rslt.getAttributes();
+                Attribute memberOf = attrs.get("memberOf");
+                if (memberOf != null) {
+                    NamingEnumeration<?> groups = memberOf.getAll();
+                    while (groups.hasMore()) {
+                        groupsListBuilder.add(getGroupName(groups.next().toString()));
+                    }
                 }
             }
         }
@@ -218,15 +264,11 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         return ldapGroups.stream().filter(ldapGroup -> validGroups.contains(ldapGroup)).collect(Collectors.toList());
     }
 
-    private String buildUserContainer() {
-        StringBuilder userContainerBuilder = new StringBuilder();
-        for (String s : organizationUnit.split("\\.")) {
-            userContainerBuilder.append("OU=").append(s).append(",");
-        }
-        for (String s : defaultLdapRealm.split("\\.")) {
-            userContainerBuilder.append("DC=").append(s).append(",");
-        }
-        return StringUtils.chop(userContainerBuilder.toString());
+    private String buildContainer(String ous, String dcs) {
+        List<String> groups = MutableList.of();
+        Arrays.stream(ous.split("\\.")).map(s -> s.toLowerCase().startsWith("ou=") ? s : "OU="+s).forEach(groups::add);
+        Arrays.stream(dcs.split("\\.")).map(s -> s.toLowerCase().startsWith("dc=") ? s : "DC="+s).forEach(groups::add);
+        return Strings.join(groups, ",");
     }
 
     private String getAccountName(String user) {
@@ -243,14 +285,28 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
      * @param groupAttribute
      * @return
      */
-    private String getGroupName(String groupAttribute) {
-        // CN=groupName,OU=OuGroups,OU=Users,DC=dc,DC=example,DC=com
-        Pattern groupNamePatter = Pattern.compile("^CN=(?<groupName>[a-zA-Z0-9_-]+),*");
-        Matcher m = groupNamePatter.matcher(groupAttribute);
-        if (m.find()) {
-            return m.group(1);
+    private String getGroupName(String groupAttribute) throws NamingException {
+//        // CN=groupName,OU=OuGroups,OU=Users,DC=dc,DC=example,DC=com
+//        // no longer do this type of pattern check as it can't work for all allowed form of CN names
+//        Pattern groupNamePatter = Pattern.compile("^CN=(?<groupName>[a-zA-Z0-9_-]+),*");
+//        Matcher m = groupNamePatter.matcher(groupAttribute);
+//        if (m.find()) {
+//            return m.group(1);
+//        }
+
+        // Take account of all CN name/characters (space, etc...)
+        // We take the first CN in the groupAttribute
+        LdapName ln = new LdapName(groupAttribute);
+        ListIterator<Rdn> li = ln.getRdns().listIterator(ln.getRdns().size());
+        while (li.hasPrevious()) {
+            // recurse backwards through the list, to take the last CN
+            Rdn rdn = li.previous();
+            if (rdn.getType().equalsIgnoreCase("CN")) {
+                return rdn.getValue().toString();
+            }
         }
-        throw new IllegalStateException("Not valid group found in " + groupAttribute);
+
+        throw new IllegalStateException("No valid CN group found in " + groupAttribute);
     }
 
     /**
@@ -263,16 +319,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         if (user.contains("@") || user.contains("\\")) {
             return user;
         }
-
-        List<String> domain = Lists.transform(Arrays.asList(defaultLdapRealm.split("\\.")), new Function<String, String>() {
-            @Override
-            public String apply(String input) {
-                return "dc=" + input;
-            }
-        });
-
-        String dc = Joiner.on(",").join(domain).toLowerCase();
-        return "cn=" + user + ",ou=" + organizationUnit + "," + dc;
+        return "CN=" + user + ","+buildContainer(organizationUnit, defaultLdapRealm);
     }
 
     static boolean triedLoading = false;
@@ -285,7 +332,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
             throw Exceptions.propagate(new ClassNotFoundException("Unable to load LDAP classes ("+LDAP_CONTEXT_FACTORY+") required for Brooklyn LDAP security provider"));
         }
     }
-    
+
     @Override
     public boolean requiresUserPass() {
         return true;

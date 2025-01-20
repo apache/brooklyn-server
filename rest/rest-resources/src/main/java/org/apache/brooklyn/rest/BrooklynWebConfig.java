@@ -104,6 +104,17 @@ public class BrooklynWebConfig {
             "Whether the users attempt to login and its groups are print on the `info` log",
             false);
 
+    public final static ConfigKey<Boolean> LDAP_RECURSIVE = ConfigKeys.newBooleanConfigKey(
+            BASE_NAME_SECURITY+".ldap.recursive",
+            "Whether user/groups should be searched in recursive way",
+            false);
+    public final static ConfigKey<String> LDAP_GROUP_FILTER = ConfigKeys.newStringConfigKey(
+            BASE_NAME_SECURITY+".ldap.group_filter",
+            "Group search filter");
+    public final static ConfigKey<String> LDAP_GROUP_OU = ConfigKeys.newStringConfigKey(
+            BASE_NAME_SECURITY+".ldap.group_ou",
+            "Group base OU");
+
     public final static ConfigKey<List<String>> GROUP_CONFIG_KEY_NAME = ConfigKeys.newConfigKey(
             new TypeToken<List<String>>() {},
             BASE_NAME_SECURITY+".ldap.group_config_keys",

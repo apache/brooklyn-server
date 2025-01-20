@@ -18,37 +18,33 @@
  */
 package org.apache.brooklyn.rest.security.provider;
 
-import org.junit.Assert;
-import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import javax.naming.NamingException;
-import javax.servlet.http.HttpSession;
 
-import java.util.function.Supplier;
-
-import static org.testng.Assert.*;
+import static org.testng.Assert.assertEquals;
 
 public class LdapSecurityProviderTest {
 
     @Test
     public void testNoRealm() throws NamingException {
         LdapSecurityProvider ldapSecurityProvider = new LdapSecurityProvider("url", "example.org", "Users");
+        assertEquals(ldapSecurityProvider.getSecurityPrincipal("Me"), "CN=Me,OU=Users,DC=example,DC=org");
 
-        assertEquals(ldapSecurityProvider.getSecurityPrincipal("Me"), "cn=Me,ou=Users,dc=example,dc=org");
+        // for legacy compatibility aaa,OU=bbb is is supported; but OU=aaa,OU=bbb or OU=aaa.bbb is preferred
+        ldapSecurityProvider = new LdapSecurityProvider("url", "DC=example.org,DC=DOMAIN", "Users.Parent,OU=OtherParent");
+        assertEquals(ldapSecurityProvider.getSecurityPrincipal("Me"), "CN=Me,OU=Users,OU=Parent,OU=OtherParent,DC=example,DC=org,DC=DOMAIN");
     }
 
     @Test
     public void testDomain() throws NamingException {
         LdapSecurityProvider ldapSecurityProvider = new LdapSecurityProvider("url", null, "Users");
-
         assertEquals(ldapSecurityProvider.getSecurityPrincipal("MyDomain\\Me"), "MyDomain\\Me");
     }
 
     @Test
     public void testAllowedDomainByRegexListMatch() throws NamingException {
         LdapSecurityProvider ldapSecurityProvider = new LdapSecurityProvider("url", null, "Users");
-
         assertEquals(ldapSecurityProvider.getSecurityPrincipal("username@example.org"), "username@example.org");
     }
 
