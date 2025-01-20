@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 import org.apache.http.util.ByteArrayBuffer;
 import org.slf4j.Logger;
@@ -52,6 +53,7 @@ public class LoggingOutputStream extends FilterOutputStream {
         OutputStream out;
         Logger log;
         String logPrefix;
+        Function<String,String> sanitizer;
         
         public Builder outputStream(OutputStream val) {
             this.out = val;
@@ -65,6 +67,10 @@ public class LoggingOutputStream extends FilterOutputStream {
             this.logPrefix = val;
             return this;
         }
+        public Builder sanitizer(Function<String,String> val) {
+            this.sanitizer = val;
+            return this;
+        }
         public LoggingOutputStream build() {
             return new LoggingOutputStream(this);
         }
@@ -73,7 +79,8 @@ public class LoggingOutputStream extends FilterOutputStream {
     protected final Logger log;
     protected final String logPrefix;
     private final AtomicBoolean running = new AtomicBoolean(true);
-    
+    protected final Function<String,String> sanitizer;
+
     // Uses byte array, rather than StringBuilder, to handle Unicode chars longer than one byte
     private ByteArrayBuffer lineSoFar = new ByteArrayBuffer(16);
 
@@ -81,6 +88,7 @@ public class LoggingOutputStream extends FilterOutputStream {
         super(builder.out != null ? builder.out : NOOP_OUTPUT_STREAM);
         log = builder.log;
         logPrefix = (builder.logPrefix != null) ? builder.logPrefix : "";
+        sanitizer = (builder.sanitizer != null) ? builder.sanitizer : s->s;
       }
 
     @Override
@@ -151,7 +159,7 @@ public class LoggingOutputStream extends FilterOutputStream {
         while (line.length()>0 && (line.charAt(0)=='\n' || line.charAt(0)=='\r'))
             line = line.substring(1);
         if (!line.isEmpty()) {
-            if (log!=null && log.isDebugEnabled()) log.debug(logPrefix+line);
+            if (log!=null && log.isDebugEnabled()) log.debug(logPrefix+sanitizer.apply(line));
         }
     }
 }

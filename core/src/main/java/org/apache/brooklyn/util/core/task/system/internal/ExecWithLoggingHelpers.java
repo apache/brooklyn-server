@@ -133,6 +133,7 @@ public abstract class ExecWithLoggingHelpers {
             OutputStream outO = LoggingOutputStream.builder()
                     .outputStream(execFlags.get(STDOUT))
                     .logger(commandLogger)
+                    .sanitizer(Sanitizer::sanitizeMultilineString)
                     .logPrefix(stdoutLogPrefix)
                     .build();
 
@@ -144,6 +145,7 @@ public abstract class ExecWithLoggingHelpers {
             OutputStream outE = LoggingOutputStream.builder()
                     .outputStream(execFlags.get(STDERR))
                     .logger(commandLogger)
+                    .sanitizer(Sanitizer::sanitizeMultilineString)
                     .logPrefix(stderrLogPrefix)
                     .build();
             execFlags.put(STDERR, outE);
