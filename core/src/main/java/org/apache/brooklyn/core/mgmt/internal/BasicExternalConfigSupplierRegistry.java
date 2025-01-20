@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.config.external.InPlaceExternalConfigSupplier;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
@@ -112,7 +113,7 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
             String name = strippedKey;
             String providerClassname = (String) externalProviderProperties.get(key);
             BrooklynProperties config = ConfigUtils.filterForPrefixAndStrip(externalProviderProperties, key + ".");
-            LOG.debug("Registering external config supplier "+name+": "+providerClassname);
+            LOG.debug("Registering external config supplier "+name+": "+providerClassname+" "+Sanitizer.sanitize(config.asMapWithStringKeys()));
 
             try {
                 Class<ExternalConfigSupplier> supplierClass = (Class<ExternalConfigSupplier>)new ClassLoaderUtils(this, mgmt).loadClass(providerClassname);
