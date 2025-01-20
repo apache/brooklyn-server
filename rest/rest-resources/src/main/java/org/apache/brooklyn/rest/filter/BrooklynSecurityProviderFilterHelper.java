@@ -19,27 +19,34 @@
 package org.apache.brooklyn.rest.filter;
 
 import com.google.common.collect.ImmutableList;
+
+import java.security.Principal;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.SecurityContext;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.rest.security.LoginLogging;
 import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
 import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
@@ -103,7 +110,7 @@ public class BrooklynSecurityProviderFilterHelper {
     
     public static final String BASIC_REALM_HEADER_VALUE = "BASIC realm="+StringEscapes.JavaStringEscapes.wrapJavaString(BASIC_REALM_NAME);
     
-    public void run(HttpServletRequest webRequest, ManagementContext mgmt) throws SecurityProviderDeniedAuthentication {
+    public void run(HttpServletRequest webRequest, ManagementContext mgmt, @Nullable ContainerRequestContext container) throws SecurityProviderDeniedAuthentication {
         SecurityProvider provider = getProvider(mgmt);
         MultiSessionAttributeAdapter preferredSessionWrapper = null;
 
@@ -177,7 +184,16 @@ public class BrooklynSecurityProviderFilterHelper {
                 preferredSession2.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
                 if (user != null) {
                     preferredSession2.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
+                } else {
+                    if (container!=null) {
+                        SecurityContext securityContext = container.getSecurityContext();
+                        Principal userPrincipal = securityContext!=null ? securityContext.getUserPrincipal() : null;
+                        if (userPrincipal!=null) user = userPrincipal.getName();
+                    }
                 }
+                LoginLogging.logLoginIfNotLogged(preferredSession2, user,
+                        MutableMap.of("origin", webRequest.getRemoteAddr(), "provider", provider.getClass().getName()));
+
                 return;
             }
         } catch (WebApplicationException e) {

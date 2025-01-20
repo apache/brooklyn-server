@@ -72,7 +72,7 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
         log.trace("BrooklynSecurityProviderFilterJersey.filter {}", requestContext);
         ManagementContext mgmt = mgmtC.getContext(ManagementContext.class);
         try {
-            new BrooklynSecurityProviderFilterHelper().run(webRequest, mgmt);
+            new BrooklynSecurityProviderFilterHelper().run(webRequest, mgmt, requestContext);
         } catch (SecurityProviderDeniedAuthentication e) {
             Response rin = e.getResponse();
             if (rin==null) rin = Response.status(Status.UNAUTHORIZED).build();

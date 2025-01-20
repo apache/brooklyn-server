@@ -36,9 +36,9 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.rest.security.LoginLogging;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.eclipse.jetty.http.HttpHeader;
 import org.slf4j.Logger;
@@ -70,8 +70,7 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
             loginPage = getLoginPageFromContext(mgmt);
 
             Preconditions.checkNotNull(mgmt, "Brooklyn management context not available; cannot authenticate");
-            new BrooklynSecurityProviderFilterHelper().run((HttpServletRequest)request, mgmt);
-
+            new BrooklynSecurityProviderFilterHelper().run((HttpServletRequest)request, mgmt, null);
             chain.doFilter(request, response);
 
         } catch (SecurityProviderDeniedAuthentication e) {

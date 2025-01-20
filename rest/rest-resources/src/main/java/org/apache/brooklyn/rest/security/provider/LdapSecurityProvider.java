@@ -124,7 +124,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         if (user == null) return false;
         String ldapRegex = getLdapRegexPattern();
         if(Strings.isNonEmpty(ldapRegex) && !user.matches(ldapRegex)){
-            LOG.debug("Rejecting authenticating attempt for user `{}` due to userNameRegex configuration: {}", user, ldapRegex);
+            LOG.debug("LDAP authentication not permitted for user `{}` due to userNameRegex configuration: {}", user, ldapRegex);
             return false;
         }
         checkCanLoad();

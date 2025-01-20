@@ -20,6 +20,7 @@ package org.apache.brooklyn.rest.resources;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -29,10 +30,12 @@ import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.rest.api.LogoutApi;
 import org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilterHelper;
+import org.apache.brooklyn.rest.security.LoginLogging;
 import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 import org.eclipse.jetty.server.session.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -124,7 +127,10 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
 //        } else {
 //            log.warn("UNABLE to swap request"+MultiSessionAttributeAdapter.info(jreq));
 //        }
-        
+
+        HttpSession session = multi.getPreferredSession();
+        String user = Strings.toString(session.getAttribute(BrooklynSecurityProviderFilterHelper.AUTHENTICATED_USER_SESSION_ATTRIBUTE));
+        String sessionId = session.getId();
         multi.configureWhetherToSetInAll(true)
             .removeAttribute(BrooklynSecurityProviderFilterHelper.AUTHENTICATED_USER_SESSION_ATTRIBUTE);
         // security provider logout
@@ -144,5 +150,6 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
                     " is valid after invaildating "+MultiSessionAttributeAdapter.info(multi.getPreferredSession()));
             }
         }
+        LoginLogging.logLogout(session, user, MutableMap.of("session", sessionId, "origin", req.getRemoteAddr()));
     }
 }
