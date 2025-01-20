@@ -409,7 +409,8 @@ public class LocalManagementContext extends AbstractManagementContext {
         }
         this.downloadsManager = BasicDownloadsManager.newDefault(configMap);
         this.entitlementManager = Entitlements.newManager(this, configMap);
-        
+        this.configSupplierRegistry = new BasicExternalConfigSupplierRegistry(this);
+
         clearLocationRegistry();
         
         BrooklynFeatureEnablement.init(configMap);

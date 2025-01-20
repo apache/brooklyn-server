@@ -177,7 +177,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
 
     private final BrooklynStorage storage;
 
-    protected final ExternalConfigSupplierRegistry configSupplierRegistry;
+    protected ExternalConfigSupplierRegistry configSupplierRegistry;
 
     private volatile boolean running = true;
     protected boolean startupComplete = false;
@@ -198,12 +198,12 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         this.typeRegistry = new BasicBrooklynTypeRegistry(this);
         
         this.storage = new BrooklynStorageImpl();
-        this.rebindManager = new RebindManagerImpl(this); // TODO leaking "this" reference; yuck
-        this.managementNodeStateListenerManager = new ManagementNodeStateListenerManager(this); // TODO leaking "this" reference; yuck
-        this.highAvailabilityManager = new HighAvailabilityManagerImpl(this, managementNodeStateListenerManager); // TODO leaking "this" reference; yuck
+        this.rebindManager = new RebindManagerImpl(this);
+        this.managementNodeStateListenerManager = new ManagementNodeStateListenerManager(this);
+        this.highAvailabilityManager = new HighAvailabilityManagerImpl(this, managementNodeStateListenerManager);
         
         this.entitlementManager = Entitlements.newManager(this, brooklynProperties);
-        this.configSupplierRegistry = new BasicExternalConfigSupplierRegistry(this); // TODO leaking "this" reference; yuck
+        this.configSupplierRegistry = new BasicExternalConfigSupplierRegistry(this);
     }
 
     @Override

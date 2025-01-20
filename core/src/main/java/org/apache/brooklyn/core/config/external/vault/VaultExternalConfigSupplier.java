@@ -64,7 +64,7 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
     protected final int version;
     protected final int recoverTryCount;
     protected final String token;
-    protected final ImmutableMap<String, String> headersWithToken;
+    protected Map<String, String> headersWithToken;
 
     public VaultExternalConfigSupplier(ManagementContext managementContext, String name, Map<String, String> config) {
         super(managementContext, name);
@@ -115,7 +115,7 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
         String urlPath = (version == 1)
                 ? Urls.mergePaths("v1", path)
                 : Urls.mergePaths("v1", mountPoint, "data", path);
-        JsonObject response = apiGetRetryable(urlPath, headersWithToken, recoverTryCount);
+        JsonObject response = apiGetRetryable(urlPath, recoverTryCount);
         JsonElement jsonElement = (version == 1)
                 ? response.getAsJsonObject("data").get(key)
                 : response.getAsJsonObject("data").getAsJsonObject("data").get(key);
@@ -127,30 +127,29 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
      * Obtains data stored in <code>path</code>.
      */
     public Map<String, String> getDataAsStringMap() {
-        JsonObject response = apiGetRetryable(Urls.mergePaths("v1", path), headersWithToken, recoverTryCount);
+        JsonObject response = apiGetRetryable(Urls.mergePaths("v1", path), recoverTryCount);
         Map<String, JsonElement> dataMap = response.getAsJsonObject("data").entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         return Maps.transformValues(dataMap, jsonElement -> jsonElement.getAsString());
     }
 
-    protected JsonObject apiGetRetryable(String path, Map<String, String> headers, int recoverTryCount) {
+    protected JsonObject apiGetRetryable(String path, int recoverTryCount) {
         try {
-            if (Strings.isBlank(headers.get("X-Vault-Token"))) {
+            if (Strings.isBlank(headersWithToken.get("X-Vault-Token"))) {
                 String currentToken = initAndLogIn(config);
                 if (Strings.isBlank(currentToken)) {
-                    throw new IllegalStateException("Vault sealed or unavailable.");
+                    throw new IllegalStateException("Vault sealed or token otherwise unavailable.");
                 }
-                headers = MutableMap.copyOf(headers).add("X-Vault-Token", currentToken);
+                headersWithToken = MutableMap.copyOf(headersWithToken).add("X-Vault-Token", currentToken).asUnmodifiable();
             }
-            return apiGet(path, headers);
+            return apiGet(path, headersWithToken);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
+            LOG.warn("Error accessing vault (" + recoverTryCount+" retries remaining): "+e);
+            headersWithToken = MutableMap.<String,String>builder().putAll(headersWithToken).remove("X-Vault-Token").build().asUnmodifiable();
             if (recoverTryCount > 0) {
-                LOG.warn("Vault sealed or unavailable. Retries remaining: " + recoverTryCount);
                 Time.sleep(Duration.ONE_SECOND);
-                String currentToken = initAndLogIn(config);
-                headers = MutableMap.copyOf(headers).add("X-Vault-Token", currentToken);
-                return apiGetRetryable(path, headers, --recoverTryCount);
+                return apiGetRetryable(path, --recoverTryCount);
             }
             throw Exceptions.propagate(e);
         }

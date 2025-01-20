@@ -112,6 +112,7 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
             String name = strippedKey;
             String providerClassname = (String) externalProviderProperties.get(key);
             BrooklynProperties config = ConfigUtils.filterForPrefixAndStrip(externalProviderProperties, key + ".");
+            LOG.debug("Registering external config supplier "+name+": "+providerClassname);
 
             try {
                 Class<ExternalConfigSupplier> supplierClass = (Class<ExternalConfigSupplier>)new ClassLoaderUtils(this, mgmt).loadClass(providerClassname);
