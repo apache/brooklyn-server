@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.Serializable;
 import java.util.Objects;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
@@ -219,10 +220,18 @@ public class ApiError implements Serializable {
     }
 
     public WebApplicationException throwWebApplicationException(@Nullable Throwable exception) {
-        throw new WebApplicationException(
-                exception==null ? new Throwable(this.toString()) :
-                        message==null ? exception :
-                                new PropagatedRuntimeException(message, exception),
-                this.asJsonResponse());
+        // drops any details, for now; unlikely the user will want them
+        throw new WebApplicationExceptionWithApiError(this, exception);
+    }
+
+    public static class WebApplicationExceptionWithApiError extends WebApplicationException {
+        private final ApiError apiError;
+        public WebApplicationExceptionWithApiError(@Nonnull ApiError apiError, Throwable cause) {
+            super(apiError.getMessage(), cause, apiError.asJsonResponse());
+            this.apiError = apiError;
+        }
+        public ApiError getApiError() {
+            return apiError;
+        }
     }
 }
