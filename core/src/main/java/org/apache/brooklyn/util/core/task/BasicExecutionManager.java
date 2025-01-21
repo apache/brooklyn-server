@@ -122,6 +122,11 @@ public class BasicExecutionManager implements ExecutionManager {
         return PerThreadCurrentTaskHolder.perThreadCurrentTask;
     }
 
+    /** See {@link BasicExecutionManager#getAutoFlagsLive()} */
+    @VisibleForTesting @Beta public static final String TASK_START_CALLBACK_TAG = "newTaskStartCallback";
+    /** See {@link BasicExecutionManager#getAutoFlagsLive()} */
+    @VisibleForTesting @Beta public static final String TASK_END_CALLBACK_TAG = "newTaskEndCallback";
+
     /**
      * task names in this list will be print only in the trace level
      */
@@ -715,12 +720,33 @@ public class BasicExecutionManager implements ExecutionManager {
     }
 
     @Override
-    public <T> Task<T> submit(Map<?, ?> flags, TaskAdaptable<T> task) {
-        if (!(task instanceof Task))
-            task = task.asTask();
+    public <T> Task<T> submit(Map<?, ?> flags, TaskAdaptable<T> taskA) {
+        final Task<T> task = taskA instanceof Task ? (Task<T>) taskA : taskA.asTask();
+
+        if (!autoFlags.isEmpty()) {
+            MutableMap p2 = MutableMap.copyOf(flags);
+            autoFlags.forEach((k,v)->{
+                if (!p2.containsKey(k)) {
+                    p2.put(k, (Runnable) ()->BasicExecutionManager.invokeCallback(v, (Task) task));
+                } else if (!Objects.equals(v, p2.get(k))) {
+                    // will usually have these from BEC to register per-thread
+                    if (BasicExecutionManager.TASK_START_CALLBACK_TAG.equals(k) || BasicExecutionManager.TASK_END_CALLBACK_TAG.equals(k)) {
+                        Object v2 = p2.get(k);
+                        p2.put(k, (Runnable) ()->{
+                            BasicExecutionManager.invokeCallback(v, (Task) task);
+                            BasicExecutionManager.invokeCallback(v2, (Task) task);
+                        });
+                    } else {
+                        throw new IllegalStateException("Cannot have autoFlags and task-specific flags with the same unexpected key '"+k+"': "+task);
+                    }
+                }
+            });
+            flags = p2;
+        }
+
         synchronized (task) {
             if (((TaskInternal<?>) task).getInternalFuture() != null) return (Task<T>) task;
-            return submitNewTask(flags, (Task<T>) task);
+            return submitNewTask(flags, task);
         }
     }
 
@@ -1219,7 +1245,7 @@ public class BasicExecutionManager implements ExecutionManager {
             jitterThreadStart(task);
         }
         if (flags != null && !startingThisThreadMightEndElsewhere) {
-            invokeCallback(flags.get("newTaskStartCallback"), task);
+            invokeCallback(flags.get(TASK_START_CALLBACK_TAG), task);
         }
     }
 
@@ -1342,7 +1368,7 @@ public class BasicExecutionManager implements ExecutionManager {
             }
 
             if (flags != null && taskWasSubmittedAndNotYetEnded && startedGuaranteedToEndInSameThreadAndEndingSameThread) {
-                invokeCallback(flags.get("newTaskEndCallback"), task);
+                invokeCallback(flags.get(TASK_END_CALLBACK_TAG), task);
             }
             if (task.getEndTimeUtc() > 0) {
                 if (taskWasSubmittedAndNotYetEnded) {
@@ -1494,4 +1520,15 @@ public class BasicExecutionManager implements ExecutionManager {
         log.info("Setting task startup jittering maximum delay to " + jitterThreadsMaxDelay);
     }
 
+
+    final Map autoFlags = MutableMap.of();
+    /** Autoflags are tags which are automatically applied to tasks in this execution context.
+     *  Intended for use during testing, such as inserting arbitrarily delays.
+     *  Not guaranteed to work in all situations (but plenty for inserting chaos monkey delays).
+     *  Often used with {@link BasicExecutionManager#TASK_START_CALLBACK_TAG} and {@link BasicExecutionManager#TASK_END_CALLBACK_TAG}.
+     */
+    @VisibleForTesting @Beta
+    public Map getAutoFlagsLive() {
+        return autoFlags;
+    }
 }

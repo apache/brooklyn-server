@@ -19,15 +19,7 @@
 package org.apache.brooklyn.util.core.task;
 
 import java.lang.reflect.Proxy;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -39,6 +31,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
@@ -355,7 +348,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     protected <T> Task<T> submitInternal(Map<?,?> propertiesQ, final Object task) {
-        if (task instanceof TaskAdaptable<?> && !(task instanceof Task<?>)) 
+        if (task instanceof TaskAdaptable<?> && !(task instanceof Task<?>))
             return submitInternal(propertiesQ, ((TaskAdaptable<?>)task).asTask());
         
         Map properties = MutableMap.copyOf(propertiesQ);
@@ -394,8 +387,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             ((ScheduledTask)task).executionContext = this;
 
         } else {
-            final Object startCallback = properties.get("newTaskStartCallback");
-            properties.put("newTaskStartCallback", new Function<Task<?>, Void>() {
+            final Object startCallback = properties.get(BasicExecutionManager.TASK_START_CALLBACK_TAG);
+            properties.put(BasicExecutionManager.TASK_START_CALLBACK_TAG, new Function<Task<?>, Void>() {
                 @Override
                 public Void apply(Task<?> it) {
                     registerPerThreadExecutionContext();
@@ -404,8 +397,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
                 }
             });
 
-            final Object endCallback = properties.get("newTaskEndCallback");
-            properties.put("newTaskEndCallback", new Function<Task<?>, Void>() {
+            final Object endCallback = properties.get(BasicExecutionManager.TASK_END_CALLBACK_TAG);
+            properties.put(BasicExecutionManager.TASK_END_CALLBACK_TAG, new Function<Task<?>, Void>() {
                 @Override
                 public Void apply(Task<?> it) {
                     try {
@@ -600,5 +593,10 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     @Override
     public String toString() {
         return getClass().getSimpleName()+tags.stream().filter(t -> !(t instanceof ManagementContext)).collect(Collectors.toList());
+    }
+
+    @VisibleForTesting
+    public Set<Object> getTagsLive() {
+        return tags;
     }
 }

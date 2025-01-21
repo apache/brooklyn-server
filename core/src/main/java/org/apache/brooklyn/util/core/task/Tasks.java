@@ -44,10 +44,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -125,6 +122,17 @@ public class Tasks {
         Task<?> proxy = ((TaskInternal<?>)task).getProxyTarget();
         if (proxy==null || proxy.equals(task)) return task;
         return getFinalProxyTarget(proxy);
+    }
+    /** true if this is a task, and it is not a proxy task, i.e. it equals its {@link TaskInternal#getProxyTarget()}.
+     * (proxy tasks are wrappers and other things which used by framework rather than a real user-supplied task.)  */
+    public static boolean isNonProxyTask(Task<?> task) {
+        if (task==null) return false;
+        return Objects.equals(task, getFinalProxyTarget(task));
+    }
+    /** as {@link #isNonProxyTask(Task)} for the actual task in the current thread
+     * (using {@link BasicExecutionManager#getPerThreadCurrentTask()} not {@link Tasks#current()} which follows proxies */
+    public static boolean isNonProxyTask() {
+        return isNonProxyTask(BasicExecutionManager.getPerThreadCurrentTask().get());
     }
     
     /** creates a {@link ValueResolver} instance which allows significantly more customization than
