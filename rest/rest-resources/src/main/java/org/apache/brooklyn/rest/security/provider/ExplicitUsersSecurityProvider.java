@@ -31,6 +31,7 @@ import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.PasswordHasher;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,10 +75,10 @@ public class ExplicitUsersSecurityProvider extends AbstractSecurityProvider impl
     
     @Override
     public boolean authenticate(HttpServletRequest request, Supplier<HttpSession> sessionSupplierOnSuccess, String user, String pass) throws SecurityProviderDeniedAuthentication {
-        if (user==null) return false;
+        if (Strings.isBlank(user)) return false;
         if (!allowAnyUserWithValidPass) {
             if (!allowedUsers.contains(user)) {
-                LOG.debug("REST rejecting unknown user "+user);
+                LOG.debug("REST authentication rejecting unknown user '"+user+"'");
                 return false;                
             }
         }

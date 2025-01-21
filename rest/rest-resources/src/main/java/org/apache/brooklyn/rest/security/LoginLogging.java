@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.security;
 
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,7 +51,20 @@ public class LoginLogging {
     }
 
     public static void logLogout(HttpSession session, String user, Map<String,String> values) {
-        session.setAttribute(LOGIN_LOGGED, false);
+        boolean error = false;
+        try {
+            session.setAttribute(LOGIN_LOGGED, false);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            // expected
+            error = true;
+        }
+        if (!error) {
+            log.warn("Expected error clearing logged attribute on session but session did not report an invalidated error: "+session);
+            values = MutableMap.copyOf(values).add("error", "WARN: unconfirmed; see log above");
+        }
+        // above is just to be safe; normally logout will invalidate session so the above will error with no side-effect
+
         log.debug(
                 "Logout of " +
                         (user==null ? "anonymous user" : "user: "+user) +

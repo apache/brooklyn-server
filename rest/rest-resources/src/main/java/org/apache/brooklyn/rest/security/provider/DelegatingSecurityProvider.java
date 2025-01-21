@@ -51,6 +51,11 @@ public class DelegatingSecurityProvider implements SecurityProvider {
     
     private SecurityProvider delegate;
 
+    public static SecurityProvider getTarget(SecurityProvider provider) {
+        if (provider instanceof DelegatingSecurityProvider) return getTarget( ((DelegatingSecurityProvider) provider).getDelegate() );
+        return provider;
+    }
+
     public synchronized SecurityProvider getDelegate() {
         if (delegate == null) {
             delegate = loadDelegate();

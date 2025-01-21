@@ -165,6 +165,10 @@ public class BrooklynSecurityProviderFilterHelper {
                 if (idxColon >= 0) {
                     user = userpass.substring(0, idxColon);
                     pass = userpass.substring(idxColon + 1);
+                    if ("logout".equals(user) && "logout".equals(pass)) {
+                        // logout:logout sent by UI to clear browser state; force failure here and suppress subsequent error messages in log, after a logout
+                        throw abort("Reauthorization required after logout", provider.requiresUserPass());
+                    }
                 } else {
                     throw abort("Invalid authorization string (no colon after decoding)", provider.requiresUserPass());
                 }
@@ -192,7 +196,8 @@ public class BrooklynSecurityProviderFilterHelper {
                     }
                 }
                 LoginLogging.logLoginIfNotLogged(preferredSession2, user,
-                        MutableMap.of("origin", webRequest.getRemoteAddr(), "provider", provider.getClass().getName()));
+                        MutableMap.of("origin", webRequest.getRemoteAddr(), "provider",
+                                DelegatingSecurityProvider.getTarget(provider).getClass().getName()));
 
                 return;
             }
