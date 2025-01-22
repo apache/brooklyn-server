@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
@@ -51,9 +52,9 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.enricher.stock.AbstractMultipleSensorAggregator;
 import org.apache.brooklyn.enricher.stock.Enrichers;
@@ -64,6 +65,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
@@ -164,8 +166,8 @@ public class ServiceStateLogic {
     }
     
     private static void setExpectedState(Entity entity, Lifecycle state, boolean waitBrieflyForServiceUpIfRunning) {
-        if (waitBrieflyForServiceUpIfRunning) {
-            recomputeIfIssueWhenBecomingExpectedRunning("setting expected state", entity, state);
+        if (waitBrieflyForServiceUpIfRunning && state == Lifecycle.RUNNING) {
+            recomputeWantingNoIssuesWhenBecomingExpectedRunning("setting expected state", entity, RecomputeWaitMode.LONG);
         }
         ((EntityInternal)entity).sensors().set(Attributes.SERVICE_STATE_EXPECTED, new Lifecycle.Transition(state, new Date()));
 
@@ -181,67 +183,97 @@ public class ServiceStateLogic {
         return expected.getState();
     }
 
-    public static void recomputeIfIssueWhenBecomingExpectedRunning(String when, Entity entity, Lifecycle state) {
-        if (!Entities.isManagedActive(entity) || state!=Lifecycle.RUNNING) {
-            return;
-        } else {
-            Map<String, Object> problems = entity.getAttribute(SERVICE_PROBLEMS);
-            boolean noProblems = problems == null || problems.isEmpty();
-            Boolean up = entity.getAttribute(Attributes.SERVICE_UP);
-            if (Boolean.TRUE.equals(up) && noProblems) {
-                return;
+    private static boolean isEmptyOrNull(Map x) {
+        return x==null || x.isEmpty();
+    }
+    private enum RecomputeWaitMode { LONG, SHORT, RECOMPUTE_ONLY, NONE }
+    private static boolean recomputeWantingNoIssuesWhenBecomingExpectedRunning(String when, Entity entity, RecomputeWaitMode canWait) {
+        if (!Entities.isManagedActive(entity)) return true;
+
+        Map<String, Object> problems = entity.getAttribute(SERVICE_PROBLEMS);
+        Boolean up = entity.getAttribute(Attributes.SERVICE_UP);
+        if (Boolean.TRUE.equals(up) && isEmptyOrNull(problems)) return true;
+        if (canWait==RecomputeWaitMode.NONE) return false;
+
+        log.debug("Recompute indicated setting RUNNING ("+when+") on service issue; up="+up+", problems="+problems+",on " + entity + " (mode "+canWait+")");
+        try {
+            Iterables.filter(entity.enrichers(), x -> x instanceof ComputeServiceIndicatorsFromChildrenAndMembers).forEach(
+                    x -> {
+                        ComputeServiceIndicatorsFromChildrenAndMembers mx = (ComputeServiceIndicatorsFromChildrenAndMembers) x;
+                        if (mx.isRunning()) {
+                            log.debug("Recompute rerunning "+mx);
+                            mx.onUpdated();
+                            log.debug("Recomputed values now: problems="+
+                                    entity.sensors().get(SERVICE_PROBLEMS) + ", not_up_indicators=" + entity.sensors().get(SERVICE_NOT_UP_INDICATORS) );
+                        }
+                    }
+            );
+
+            Map<String, Object> notUpIndicators = entity.sensors().get(Attributes.SERVICE_NOT_UP_INDICATORS);
+            if (notUpIndicators == null || notUpIndicators.isEmpty()) {
+                Maybe<Enricher> css = EntityAdjuncts.tryFindWithUniqueTag(entity.enrichers(), ServiceNotUpLogic.DEFAULT_ENRICHER_UNIQUE_TAG);
+                if (css.isPresent()) {
+                    SensorEvent<Map<String, Object>> pseudoEvent = new BasicSensorEvent<>(Attributes.SERVICE_NOT_UP_INDICATORS, entity, notUpIndicators);
+                    ((SensorEventListener) css.get()).onEvent(pseudoEvent);
+                    up = entity.getAttribute(Attributes.SERVICE_UP);
+                    log.debug("Recompute for service indicators now gives: service.isUp="+up+" after: "+css);
+                }
             } else {
-                log.debug("Service not up pre-check, up="+up+" and problems="+problems+" when setting "+ state +" (when "+when+") on " + entity+"; possibly just needs a recompute; doing recompute now");
-
-                try {
-                    Iterables.filter(entity.enrichers(), x -> x instanceof ComputeServiceIndicatorsFromChildrenAndMembers).forEach(
-                            x -> {
-                                ComputeServiceIndicatorsFromChildrenAndMembers mx = (ComputeServiceIndicatorsFromChildrenAndMembers) x;
-                                if (mx.isRunning()) {
-                                    log.debug("Service not up pre-check recompute rerunning "+mx);
-                                    mx.onUpdated();
-                                }
-                            }
-                    );
-
-                    Map<String, Object> notUpIndicators = entity.sensors().get(Attributes.SERVICE_NOT_UP_INDICATORS);
-                    if (notUpIndicators == null || notUpIndicators.isEmpty()) {
-                        Maybe<Enricher> css = EntityAdjuncts.tryFindWithUniqueTag(entity.enrichers(), ServiceNotUpLogic.DEFAULT_ENRICHER_UNIQUE_TAG);
-                        if (css.isPresent()) {
-                            SensorEvent<Map<String, Object>> pseudoEvent = new BasicSensorEvent<>(Attributes.SERVICE_NOT_UP_INDICATORS, entity, notUpIndicators);
-                            ((SensorEventListener) css.get()).onEvent(pseudoEvent);
-                            up = entity.getAttribute(Attributes.SERVICE_UP);
-                            log.debug("Service not up pre-check recompute ran, service.isUp="+up+" after: "+css);
-                        }
-                    } else {
-                        log.debug("Service not up pre-check recompute not running because not up indicators are now: " + notUpIndicators);
-                    }
-                } catch (Exception e) {
-                    Exceptions.propagateIfFatal(e);
-                    log.debug("Service is not up when setting "+ state +" on " + entity+", and attempt to run standard prep workflows failed with exception; will wait and see if service up clears, but for reference the error is: "+e);
-                    if (log.isTraceEnabled()) log.trace("Exception trace", e);
-                }
-
-                if (!Boolean.TRUE.equals(up) && Entities.isManagedActive(entity)) {
-                    // pause briefly to allow any recent problem-clearing processing to complete;
-                    // should be less necessary now that the code above explicitly triggers any not-up indicators
-                    Stopwatch timer = Stopwatch.createStarted();
-                    boolean nowUp = Repeater.create()
-                            .every(ValueResolver.REAL_QUICK_PERIOD)
-                            .limitTimeTo(ValueResolver.PRETTY_QUICK_WAIT)
-                            .until(entity, EntityPredicates.attributeEqualTo(Attributes.SERVICE_UP, true))
-                            .run();
-                    if (nowUp) {
-                        log.debug("Had to wait " + Duration.of(timer) + " for " + entity + " " + Attributes.SERVICE_UP + " to be true before setting " + state);
-                    } else {
-                        if (Entities.isManagedActive(entity)) {
-                            log.warn("Service is not up when "+when+" on " + entity + "; delayed " + Duration.of(timer) + " "
-                                    + "but " + Attributes.SERVICE_UP + " did not recover from " + up + "; not-up-indicators=" + entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS));
-                        }
-                    }
-                }
+                log.debug("Recomputed not_up_indicators now: " + notUpIndicators);
             }
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            if (!Entities.isManagedActive(entity)) return true;
+            log.debug("Service is not up when setting RUNNING on " + entity+", and attempt to run standard prep workflows failed with exception: "+e);
+            if (log.isTraceEnabled()) log.trace("Exception trace", e);
         }
+
+        if (recomputeWantingNoIssuesWhenBecomingExpectedRunning(when+" (after recompute)", entity, RecomputeWaitMode.NONE)) return true;
+        if (canWait==RecomputeWaitMode.RECOMPUTE_ONLY) return false;
+
+        assert canWait==RecomputeWaitMode.LONG || canWait==RecomputeWaitMode.SHORT;
+        // repeat with pauses briefly to allow any recent in-flight service-ups or state changes or problem-clearing processing to complete;
+        // should only be necessary when using setExpectedState, where canWait is true, unless the actual is used without expected;
+        // but leaving it as it used to be to minimise surprises for now;
+        // probably also no need to recompute above either with this (could be tidied up a lot)
+        Stopwatch timer = Stopwatch.createStarted();
+        final Duration LONG_WAIT = Duration.THIRTY_SECONDS;  // this should be enough time for in-flight racing activities, even when slow and heavily contended
+        Task current = Tasks.current();
+        boolean notTimedout = Repeater.create()
+                .every(ValueResolver.REAL_QUICK_PERIOD)
+                .limitTimeTo(canWait==RecomputeWaitMode.LONG ? LONG_WAIT : ValueResolver.PRETTY_QUICK_WAIT)
+                .until(() -> {
+                    Set<Task<?>> tasksHere = BrooklynTaskTags.getTasksInEntityContext(
+                            ((EntityInternal) entity).getManagementContext().getExecutionManager(), entity);
+                    java.util.Optional<Task<?>> unrelatedSubmission = tasksHere.stream()
+                            .filter(t ->
+                                    !t.isDone() &&
+                                    BrooklynTaskTags.hasTag(t, BrooklynTaskTags.SENSOR_TAG) &&
+                                    !Tasks.isAncestor(current, anc -> Objects.equal(anc, t)))
+                            .findAny();
+                    // abort when self and children have no unrelated submission tasks, or if something is known to be on_fire;
+                    // otherwise give it LONG_WAIT (arbitrary but inoffensive) to settle in that case (things running very slow)
+                    if (!unrelatedSubmission.isPresent()) return true;
+                    return recomputeWantingNoIssuesWhenBecomingExpectedRunning(when+" (recheck after "+Duration.of(timer.elapsed())+")", entity, RecomputeWaitMode.NONE);
+                })
+                .run();
+
+        boolean nowUp = recomputeWantingNoIssuesWhenBecomingExpectedRunning(when+" (recheck after "+
+                (notTimedout ? "completion" : "timeout")+", after "+Duration.of(timer.elapsed())+")", entity, RecomputeWaitMode.RECOMPUTE_ONLY);
+        if (nowUp) {
+            log.debug("Recompute determined "+entity+" is up, after " + Duration.of(timer));
+            return true;
+        }
+
+        if (!Entities.isManagedActive(entity)) return true;
+
+        log.warn("Service is not up when "+when+" on " + entity + "; delayed " + Duration.of(timer) + " "
+                + "but: " + Attributes.SERVICE_UP + "=" + entity.getAttribute(Attributes.SERVICE_UP) + ", "
+                + "not-up-indicators=" + entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS)
+                + ", problems=" + entity.getAttribute(Attributes.SERVICE_PROBLEMS)
+        );
+        // slight chance above has updated since the check, but previuos log messages should make clear what happened
+        return false;
     }
 
     public static Lifecycle getActualState(Entity entity) {
@@ -309,7 +341,7 @@ public class ServiceStateLogic {
                     .defaultValue(Entities.UNCHANGED).apply(input.getValue());
             if (!Objects.equal(result, Entities.UNCHANGED)) {
                 Boolean prevValue = entity.sensors().get(SERVICE_UP);
-                if (!Objects.equal(result, prevValue)) {
+                if (!Objects.equal(result, prevValue) && (prevValue!=null || result!=Boolean.TRUE)) {
                     log.debug("Enricher '" + DEFAULT_ENRICHER_UNIQUE_TAG + "' for " + entity + " determined service up changed from " + prevValue + " to " + result + " due to indicators: " + input);
                 }
             }
@@ -371,39 +403,52 @@ public class ServiceStateLogic {
             }
         }
 
+        transient int recomputeDepth=0;
         protected Maybe<Lifecycle> computeActualStateWhenExpectedRunning(SensorEvent<Object> event) {
-            int count=0;
-            while (true) {
-                Map<String, Object> problems = entity.getAttribute(SERVICE_PROBLEMS);
-                boolean noProblems = problems == null || problems.isEmpty();
+            if (recomputeDepth>0) {
+                return Maybe.absent("Skipping actual state computation because already computing");
+            }
+            try {
+                while (true) {
+                    Map<String, Object> problems = entity.getAttribute(SERVICE_PROBLEMS);
+                    boolean noProblems = problems == null || problems.isEmpty();
 
-                Boolean serviceUp = entity.getAttribute(SERVICE_UP);
+                    Boolean serviceUp = entity.getAttribute(SERVICE_UP);
 
-                if (Boolean.TRUE.equals(serviceUp) && noProblems) {
-                    return Maybe.of(Lifecycle.RUNNING);
-                } else {
-                    if (!Entities.isManagedActive(entity)) {
-                        return Maybe.absent("entity not managed active");
-                    }
-                    if (!Lifecycle.ON_FIRE.equals(entity.getAttribute(SERVICE_STATE_ACTUAL))) {
-                        boolean waitable = count==0;
-                        waitable = waitable && event!=null && !Attributes.SERVICE_UP.equals(event.getSensor());
-                        if (waitable) {
-                            // very occasional race here; might want to give a grace period if entity has just transitioned; allow children to catch up
-                            // we probably did the wait when expected running, but possibly in some cases we don't (seen once, 2024-07, not reproduced)
-                            log.debug("Entity "+entity+" would be on-fire due to problems (up="+serviceUp+", problems="+problems+"), will attempt re-check");
-                            recomputeIfIssueWhenBecomingExpectedRunning("computing actual state", entity, Lifecycle.RUNNING);
-                            count++;
-                            continue;
+                    if (Boolean.TRUE.equals(serviceUp) && noProblems) {
+                        return Maybe.of(Lifecycle.RUNNING);
+                    } else {
+                        if (!Entities.isManagedActive(entity)) {
+                            return Maybe.absent("entity not managed active");
                         }
+                        // with delay when writing expected state, it should not be necessary to have a wait/retry
+                        if (!Lifecycle.ON_FIRE.equals(entity.getAttribute(SERVICE_STATE_ACTUAL))) {
+                            boolean retryable = recomputeDepth == 0;
+                            // allow recompute if event is null (intermediate recomputation?)
+                            // but need to prevent
+                            retryable = retryable && (event == null || !Attributes.SERVICE_UP.equals(event.getSensor()));
+                            if (retryable) {
+                                recomputeDepth++;
+                                // occasional race here; might want to give a grace period if entity has just transitioned; allow children to catch up;
+                                // we should have done the wait when expected running, but possibly it hasn't caught up yet
+                                log.debug("Entity " + entity + " would be computed on-fire due to problems (up=" + serviceUp + ", problems=" + problems + "), will attempt re-check");
+                                recomputeWantingNoIssuesWhenBecomingExpectedRunning("computing actual state", entity,
+                                        RecomputeWaitMode.SHORT  // NONE would probalby be fine here, with none of the recompute above,
+                                        // at least whenever expected state is used, due to how it waits now; but leaving it as is until more confirmation
+                                );
+                                continue;
+                            }
+                        }
+                        BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(entity, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.DEBUG),
+                                "Setting " + entity + " " + Lifecycle.ON_FIRE + " due to problems when expected running, " +
+                                        "trigger=" + event + ", " +
+                                        "up=" + serviceUp + ", " +
+                                        (noProblems ? "not-up-indicators: " + entity.getAttribute(SERVICE_NOT_UP_INDICATORS) : "problems: " + problems));
+                        return Maybe.of(Lifecycle.ON_FIRE);
                     }
-                    BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(entity, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.DEBUG),
-                            "Setting " + entity + " " + Lifecycle.ON_FIRE + " due to problems when expected running, " +
-                                    "trigger="+event+", "+
-                                    "up=" + serviceUp + ", " +
-                                    (noProblems ? "not-up-indicators: " + entity.getAttribute(SERVICE_NOT_UP_INDICATORS) : "problems: " + problems));
-                    return Maybe.of(Lifecycle.ON_FIRE);
                 }
+            } finally {
+                recomputeDepth = 0;
             }
         }
 
@@ -421,7 +466,7 @@ public class ServiceStateLogic {
                     return Maybe.of(Lifecycle.STOPPED);
                 } else {
                     BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(entity, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.DEBUG),
-                        "Setting "+entity+" "+Lifecycle.ON_FIRE+" due to problems when expected "+stateTransition+" / up="+up+": "+problems);
+                        "Computed "+entity+" "+Lifecycle.ON_FIRE+" due to problems when expected "+stateTransition+" / up="+up+": "+problems);
                     return Maybe.of(Lifecycle.ON_FIRE);
                 }
             } else {
@@ -549,7 +594,7 @@ public class ServiceStateLogic {
         @SuppressWarnings("serial")
         public static final ConfigKey<Set<Lifecycle>> IGNORE_ENTITIES_WITH_THESE_SERVICE_STATES = ConfigKeys.newConfigKey(new TypeToken<Set<Lifecycle>>() {},
             "enricher.service_state.children_and_members.ignore_entities.service_state_values",
-            "Service states (including null) which indicate an entity should be ignored when looking at children service states; anything apart from RUNNING not in this list will be treated as not healthy (by default just ON_FIRE will mean not healthy)",
+            "Service states of children (including null) which indicate they should be ignored when looking at children service states; anything apart from RUNNING not in this list will be treated as not healthy (by default just ON_FIRE will mean not healthy)",
             MutableSet.<Lifecycle>builder().addAll(Lifecycle.values()).add(null).remove(Lifecycle.RUNNING).remove(Lifecycle.ON_FIRE).build().asUnmodifiable());
 
         protected String getKeyForMapSensor() {
