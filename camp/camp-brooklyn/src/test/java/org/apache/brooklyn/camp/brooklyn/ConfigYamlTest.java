@@ -571,7 +571,8 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
     @Test
     public void testAttributeWhenReadyOptionsTimeoutIfDownResetsAndAbortsIfOnFire() throws Exception {
-        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: forever, timeout_if_down: 10ms } ] } ] }";
+        // was 10ms, but that is too short as there are 10ms sleeps while stopping; 50ms is better
+        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: forever, timeout_if_down: 50ms } ] } ] }";
 
         String yaml = Joiner.on("\n").join(
                 "services:",
