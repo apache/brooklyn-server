@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.AttributeMap;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
@@ -42,6 +43,8 @@ import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.SingleThreadedScheduler;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -297,7 +300,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             name.append(":");
         }
         name.append(sensorName);
-        
+
         description.append(sensorName);
         description.append(" on ");
         description.append(sourceName==null ? "<null-source>" : sourceName);
@@ -307,14 +310,11 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             description.append(", ");
             description.append(s.subscriptionDescription);
         }
-        
-        if (includeDescriptionForSensorTask(event)) {
+
+        String valueSummary = getValueSummaryOrNull(event.getValue());
+        if (valueSummary!=null) {
             name.append(" ");
-            String vs = Strings.toStringWithValueForNull(event.getValue(), "<null>");
-            if (vs.length() > 200) vs = vs.substring(0, 196) + " ...";
-            description.append(", value: ");
-            description.append(vs);
-            if (vs.length() < 40) name.append(vs);
+            name.append(valueSummary);
         }
         Map<String, Object> execFlags = MutableMap.of("tags", tags, 
             "displayName", name.toString(),
@@ -338,6 +338,10 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                 boolean setEC;
                 if (ec instanceof BasicExecutionContext) {
                     oldEC = BasicExecutionContext.setPerThreadExecutionContext((BasicExecutionContext) ec);
+                    final ExecutionContext ec2 = BrooklynTaskTags.getExecutionContext(tags);
+                    if (ec2!=ec) {
+                        BasicExecutionContext.setPerThreadExecutionContext((BasicExecutionContext) ec2);
+                    }
                     setEC = true;
                 } else {
                     setEC = false;
@@ -398,15 +402,27 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             .addIfNotNull(source!=null ? BrooklynTaskTags.tagForTargetEntity(source) : null)
             .build();
     }
-    
-    protected boolean includeDescriptionForSensorTask(SensorEvent<?> event) {
-        // just do it for simple/quick things to avoid expensive toStrings
-        // (info is rarely useful, but occasionally it will be)
-        if (event.getValue()==null) return true;
-        Class<?> clazz = event.getValue().getClass();
-        if (clazz.isEnum() || clazz.isPrimitive() || Number.class.isAssignableFrom(clazz) || 
-            clazz.equals(String.class)) return true;
-        return false;
+
+
+    protected String getValueSummaryOrNull(Object v) {
+        if (v==null) return "<null>";
+        Class<?> clazz = v.getClass();
+        if (clazz.isEnum() || v instanceof Enum) return v.toString();
+        if (clazz.equals(String.class)) {
+            if (((String) v).length()<40) return (String) v;
+            return ((String) v).substring(0, 20)+"... (len "+((String) v).length()+")";
+        }
+        if (Boxing.isPrimitiveOrBoxedObject(v)) return v.toString();
+        if (Number.class.isAssignableFrom(clazz)) return v.toString();
+
+        if (v instanceof List) return "List:size="+(((Collection<?>) v).size());
+        if (v instanceof Set) return "Set:size="+(((Collection<?>) v).size());
+        if (v instanceof Collection) return v.getClass().getName()+":size="+(((Collection<?>) v).size());
+        if (v instanceof Map) return "Map:size="+(((Map<?,?>) v).size());
+
+        if (v instanceof Lifecycle.Transition) return v.toString();
+
+        return null;
     }
 
     @Override

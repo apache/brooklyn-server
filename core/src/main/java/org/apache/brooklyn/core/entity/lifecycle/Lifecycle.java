@@ -33,6 +33,7 @@ import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import org.apache.brooklyn.util.time.Time;
 
 /**
  * An enumeration representing the status of an {@link org.apache.brooklyn.api.entity.Entity}.
@@ -156,7 +157,7 @@ public enum Lifecycle {
         
         @Override
         public String toString() {
-            return state+" @ "+timestampUtc+" / "+new Date(timestampUtc);
+            return state+" @ "+timestampUtc+" / "+ Time.makeDateStampStringZ(timestampUtc);
         }
     }
     
