@@ -428,11 +428,12 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
                     args.putStringKey(keyName, config().get(entry.getKey()));
                 }
             }
-            
+
             args.putAll(props);
-            args.configure(SshTool.PROP_HOST, getAddress().getHostAddress());
-            args.configure(WinRmTool.USE_NTLM, getConfig(WinRmMachineLocation.USE_NTLM));
-            args.configure(WinRmTool.PROP_PORT, getPort());
+            ConfigBag explicitProps = ConfigBag.newInstance(props);
+            if (!explicitProps.containsKey(SshTool.PROP_HOST)) args.configure(SshTool.PROP_HOST, getAddress().getHostAddress());
+            if (!explicitProps.containsKey(WinRmTool.USE_NTLM)) args.configure(WinRmTool.USE_NTLM, getConfig(WinRmMachineLocation.USE_NTLM));
+            if (!explicitProps.containsKey(WinRmTool.PROP_PORT)) args.configure(WinRmTool.PROP_PORT, getPort());
 
             if (LOG.isTraceEnabled()) LOG.trace("creating WinRM session for "+Sanitizer.sanitize(args));
 
