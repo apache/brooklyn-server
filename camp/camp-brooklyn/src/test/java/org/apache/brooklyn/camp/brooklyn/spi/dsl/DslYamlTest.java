@@ -15,6 +15,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
@@ -31,6 +32,8 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -41,9 +44,12 @@ import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.StringEscapes;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static org.testng.Assert.assertEquals;
@@ -988,5 +994,26 @@ public class DslYamlTest extends AbstractYamlTest {
             assertEquals(immediateValue.get(), blockingValue);
             return blockingValue;
         }).build()).get();
+    }
+
+    @Test
+    public void deserializeNestedDslIntoWrappedValue() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName());
+        Entities.submit(app, Tasks.create("test", () -> {
+            try {
+                String literal = StringEscapes.JavaStringEscapes.wrapJavaString("$brooklyn:literal(\"foo\")");
+                WrappedValue<?> ws = BeanWithTypeUtils.newMapper(mgmt(), true, null, true).readerFor(WrappedValue.class)
+                        .readValue(literal);
+                Asserts.assertEquals(ws.get(), "foo");
+
+                String dslExpressionString = "{ \"key\": " + literal + " }";
+                WrappedValue<?> wm = BeanWithTypeUtils.newMapper(mgmt(), true, null, true).readerFor(WrappedValue.class).readValue(dslExpressionString);
+                Asserts.assertEquals(((Map) wm.get()).get("key"), "foo");
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+        })).get();
     }
 }

@@ -148,10 +148,11 @@ public class WrappedValuesSerializationTest implements MapperTestFixture {
 
     @Test
     public void testDeserializeUnrecognizedDsl() throws Exception {
-        // tests in CAMP DslDeserializationTest for processing the DSL
         String dslLiteralFoo = "$brooklyn:literal(\"foo\")";
         ObjectWithWrappedValueString impl = deser(json("x: " + dslLiteralFoo), ObjectWithWrappedValueString.class);
         Asserts.assertNotNull(impl.x);
+        // expect the DSL NOT to be recognized by this deserializer as it is not configured with a Brooklyn mgmt context
+        // see tests in CAMP DslSerializationTest for processing the DSL, and DslYamlTest for evaluating the DSL in an entity context
         Asserts.assertEquals(impl.x.get(), dslLiteralFoo);
     }
 }

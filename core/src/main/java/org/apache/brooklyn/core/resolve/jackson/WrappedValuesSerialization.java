@@ -43,6 +43,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynRegisteredTypeAndClassNameIdResolver;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.slf4j.Logger;
@@ -74,6 +75,9 @@ public class WrappedValuesSerialization {
             if (JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION!=null && mgmt!= null) {
                 if (looksLikeDsl(v)) {
                     v = JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION.apply(mgmt, v);
+                } else if (looksLikeNestedDsl(v)) {
+                    Object vDeep = JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION.apply(mgmt, v);
+                    v = Tasks.resolving(vDeep).as(Object.class).deep();
                 }
             }
             return WrappedValue.of(v);
@@ -86,6 +90,24 @@ public class WrappedValuesSerialization {
             if (v instanceof Map) {
                 if (((Map)v).size()==1) {
                     return looksLikeDsl(Iterables.getOnlyElement( ((Map)v).keySet() ));
+                }
+            }
+            return false;
+        }
+
+        private boolean looksLikeNestedDsl(Object v) {
+            if (v instanceof String) {
+                return ((String)v).contains("$brooklyn:");
+            }
+            if (v instanceof Map) {
+                for (Map.Entry entry: ((Map<?, ?>) v).entrySet()) {
+                    if (looksLikeNestedDsl(entry.getKey())) return true;
+                    if (looksLikeNestedDsl(entry.getValue())) return true;
+                }
+            }
+            if (v instanceof Iterable) {
+                for (Object entry: (Iterable)v) {
+                    if (looksLikeNestedDsl(entry)) return true;
                 }
             }
             return false;

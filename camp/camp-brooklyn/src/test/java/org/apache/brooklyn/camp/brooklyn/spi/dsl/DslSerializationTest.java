@@ -31,12 +31,9 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.DslConfigSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.resolve.jackson.*;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.ConfigurableBeanDeserializerModifier;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerializationTest.SampleBean;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValuesSerializationTest.ObjectWithWrappedValueString;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.test.Asserts;
@@ -301,5 +298,8 @@ public class DslSerializationTest extends AbstractYamlTest implements MapperTest
         check.accept(r);
         r = BeanWithTypeUtils.convertShallow(mgmt(), MutableMap.of("map", MutableMap.of("a", ws)), TypeToken.of(MapX.class), true, null, true);
         check.accept(r);
+
+        // see deserializeNestedDslIntoWrappedValue test in DslYamlTest
     }
+
 }
