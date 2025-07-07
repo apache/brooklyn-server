@@ -36,6 +36,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
@@ -290,7 +291,7 @@ public class BeanWithTypeUtils {
             return Maybe.ofDisallowingNull(convert(mgmt, o, type, allowRegisteredTypes, loader, allowJavaTypes));
         } catch (Exception e) {
             if (fallback!=null) return fallback;
-            return Maybe.absent("BeanWithType cannot convert given input "+o+" to "+type, e);
+            return Maybe.absent("BeanWithType cannot convert given input "+ (o instanceof Map? Sanitizer.sanitize((Map)o) : Sanitizer.sanitizeMultilineString(o.toString())) +" to "+type, e);
         }
     }
 
