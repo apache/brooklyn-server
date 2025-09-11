@@ -48,7 +48,7 @@ public class BrooklynUserWithRandomPasswordSecurityProvider extends AbstractSecu
 
     @Override
     public boolean authenticate(HttpServletRequest request, Supplier<HttpSession> sessionSupplierOnSuccess, String user, String pass) throws SecurityProviderDeniedAuthentication {
-        if ((USER.equals(user) && this.password.equals(password)) || isRemoteAddressLocalhost(request)) {
+        if ((USER.equals(user) && this.password.equals(pass)) || isRemoteAddressLocalhost(request)) {
             return allow(sessionSupplierOnSuccess.get(), user);
         } else {
             return false;
