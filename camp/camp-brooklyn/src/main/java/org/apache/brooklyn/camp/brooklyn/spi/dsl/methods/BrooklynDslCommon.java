@@ -162,7 +162,7 @@ public class BrooklynDslCommon {
     public static void registerWorkflowTransforms() {
         TransformVariableWorkflowStep.registerTransformation("get", () -> new WorkflowTransformGet());
     }
-    
+
     // Access specific entities
 
     @DslAccessible
@@ -267,7 +267,7 @@ public class BrooklynDslCommon {
             if (keyName instanceof String) {
                 return (String)keyName;
             }
-            
+
             return Tasks.resolving(keyName)
                 .as(String.class)
                 .context(DslComponent.findExecutionContext(this))
@@ -349,7 +349,7 @@ public class BrooklynDslCommon {
     public static BrooklynDslDeferredSupplier<Sensor<?>> sensor(Object sensorName) {
         return new DslComponent(Scope.THIS, "").sensor(sensorName);
     }
-    
+
     /** Returns a {@link Sensor} declared on the type (e.g. entity class) declared in the first argument. */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @DslAccessible
@@ -359,7 +359,7 @@ public class BrooklynDslCommon {
             //      Should have the catalog's loader at this point in a thread local
             String mappedClazzName = DeserializingClassRenamesProvider.INSTANCE.findMappedName(clazzName);
             Class<?> clazz = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedClazzName);
-            
+
             Sensor<?> sensor;
             if (Entity.class.isAssignableFrom(clazz)) {
                 sensor = new EntityDynamicType((Class<? extends Entity>) clazz).getSensor(sensorName);
@@ -392,7 +392,7 @@ public class BrooklynDslCommon {
     // Build complex things
 
     // TODO allow entitySpec to take string, parsed as YAML, and if just a string that's taken as the type
-    
+
     @DslAccessible
     public static EntitySpecConfiguration entitySpec(Map<String, Object> arguments) {
         return new EntitySpecConfiguration(arguments);
@@ -400,8 +400,8 @@ public class BrooklynDslCommon {
 
     /**
      * Return an instance of the specified class with its fields set according
-     * to the {@link Map}. Or a {@link BrooklynDslDeferredSupplier} if either the arguments are 
-     * not yet fully resolved, or the class cannot be loaded yet (e.g. needs the catalog's OSGi 
+     * to the {@link Map}. Or a {@link BrooklynDslDeferredSupplier} if either the arguments are
+     * not yet fully resolved, or the class cannot be loaded yet (e.g. needs the catalog's OSGi
      * bundles).
      */
     @SuppressWarnings("unchecked")
@@ -510,13 +510,13 @@ public class BrooklynDslCommon {
     }
 
     /**
-     * Returns the arg with characters escaped so it is a valid part of a URL, or a 
-     * {@link BrooklynDslDeferredSupplier} that returns this if the arguments are not yet fully 
+     * Returns the arg with characters escaped so it is a valid part of a URL, or a
+     * {@link BrooklynDslDeferredSupplier} that returns this if the arguments are not yet fully
      * resolved.
-     * 
+     *
      * See {@link Urls#encode(String)} for further details (it currently uses the encoding rules for
      * "x-www-form-urlencoded")
-     * 
+     *
      * Do not call with a whole URL unless you want everything escaped (e.g. "http://myhost" will be
      * encoded as "http%3A%2F%2Fmyhost").
      */
@@ -552,7 +552,7 @@ public class BrooklynDslCommon {
             return new DslRegexReplacement(source, pattern, replacement);
         }
     }
-    
+
     /**
      * Deferred execution of escaping a URL.
      *
@@ -682,7 +682,7 @@ public class BrooklynDslCommon {
         public Maybe<String> getImmediately() {
             return DependentConfiguration.regexReplacementImmediately(source, pattern, replacement);
         }
-        
+
         @Override
         public Task<String> newTask() {
             return DependentConfiguration.regexReplacement(source, pattern, replacement);
@@ -806,13 +806,13 @@ public class BrooklynDslCommon {
                     }
                 }
             };
-            
+
             try {
                 Map<String, Object> resolvedFields = MutableMap.copyOf(Maps.transformValues(fields, resolver));
                 Map<String, Object> resolvedConfig = MutableMap.copyOf(Maps.transformValues(config, resolver));
                 List<Object> resolvedConstructorArgs = MutableList.copyOf(Lists.transform(constructorArgs, resolver));
                 List<Object> resolvedFactoryMethodArgs = MutableList.copyOf(Lists.transform(factoryMethodArgs, resolver));
-    
+
                 Object result;
                 if (factoryMethodName == null) {
                     result = create(clazz, resolvedConstructorArgs, resolvedFields, resolvedConfig);
@@ -824,12 +824,12 @@ public class BrooklynDslCommon {
                 return Maybe.absent(e);
             }
         }
-        
+
         @Override
         public Task<Object> newTask() {
             final Class<?> clazz = getOrLoadType();
             final ExecutionContext executionContext = entity().getExecutionContext();
-            
+
             final Function<Object, Object> resolver = new Function<Object, Object>() {
                 @Override public Object apply(Object value) {
                     try {
@@ -839,7 +839,7 @@ public class BrooklynDslCommon {
                     }
                 }
             };
-            
+
             return Tasks.builder().displayName("building instance of '"+clazz+"'")
                     .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                     .dynamic(false)
@@ -852,7 +852,7 @@ public class BrooklynDslCommon {
                             Map<String, Object> resolvedConfig = MutableMap.copyOf(Maps.transformValues(config, resolver));
                             List<Object> resolvedConstructorArgs = MutableList.copyOf(Lists.transform(constructorArgs, resolver));
                             List<Object> resolvedFactoryMethodArgs = MutableList.copyOf(Lists.transform(factoryMethodArgs, resolver));
-                            
+
                             if (factoryMethodName == null) {
                                 return create(clazz, resolvedConstructorArgs, resolvedFields, resolvedConfig);
                             } else {
@@ -889,7 +889,7 @@ public class BrooklynDslCommon {
             }
             return type;
         }
-        
+
         public static <T> T create(Class<T> type, List<?> constructorArgs, Map<String,?> fields, Map<String,?> config) {
             try {
                 T bean = Reflections.invokeConstructorFromArgs(type, constructorArgs.toArray()).get();
@@ -976,47 +976,35 @@ public class BrooklynDslCommon {
      * the desired config value.
      */
     @DslAccessible
-    public static DslExternal external(final String providerName, final String key) {
+    public static DslExternal external(final Object providerName, final Object key) {
         return new DslExternal(providerName, key);
     }
     public final static class DslExternal extends BrooklynDslDeferredSupplier<Object> {
         private static final long serialVersionUID = -3860334240490397057L;
-        private final String providerName;
-        private final String key;
+        private final Object providerName;
+        private final Object key;
 
-        public DslExternal(String providerName, String key) {
+        public DslExternal(Object providerName, Object key) {
             this.providerName = providerName;
             this.key = key;
         }
 
-        public String getProviderName() {
+        public Object getProviderName() {
             return providerName;
         }
 
-        public String getKey() {
+        public Object getKey() {
             return key;
         }
 
         @Override @JsonIgnore
-        public final Maybe<Object> getImmediately() {
-            // Note this call to getConfig() is different from entity.getConfig.
-            // We expect it to not block waiting for other entities.
-            ManagementContextInternal managementContext = DslExternal.managementContext();
-            return Maybe.<Object>of(managementContext.getExternalConfigProviderRegistry().getConfig(providerName, key));
+        public Maybe<Object> getImmediately() {
+            return DependentConfiguration.externalImmediately(DslExternal.managementContext(), getProviderName(), getKey());
         }
 
         @Override
         public Task<Object> newTask() {
-            return Tasks.<Object>builder()
-                .displayName("resolving external configuration: '" + key + "' from provider '" + providerName + "'")
-                .dynamic(false)
-                .body(new Callable<Object>() {
-                    @Override
-                    public Object call() throws Exception {
-                        return getImmediately().get();
-                    }
-                })
-                .build();
+            return DependentConfiguration.external(DslExternal.managementContext(), getProviderName(), getKey());
         }
 
         @Override
@@ -1110,7 +1098,7 @@ public class BrooklynDslCommon {
             public Maybe<Function<String, String>> getImmediately() {
                 return DependentConfiguration.regexReplacementImmediately(pattern, replacement);
             }
-            
+
             @Override
             public Task<Function<String, String>> newTask() {
                 return DependentConfiguration.regexReplacement(pattern, replacement);

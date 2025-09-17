@@ -15,7 +15,6 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
@@ -29,9 +28,11 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.TestDslS
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.custom.UserSuppliedPackageType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.external.InPlaceExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -447,7 +448,7 @@ public class DslYamlTest extends AbstractYamlTest {
                 "        static.value: myvalue");
         assertEquals(getConfigEventually(app, DEST), "myvalue");
     }
-    
+
     @Test
     public void testDslEntityId() throws Exception {
         final Entity app = createAndStartApplication(
@@ -700,7 +701,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "localhost");
     }
 
-    
+
     @Test
     public void testDeferredDslAttributeFacade() throws Exception {
         final Entity app = createAndStartApplication(
@@ -964,7 +965,7 @@ public class DslYamlTest extends AbstractYamlTest {
         // Broke this in https://github.com/apache/brooklyn-server/pull/971.
         // It thought that the '$brooklyn:parent().config("test.value")' was the
         // same each time, rather than 'parent' resolving differently each time.
-        
+
         final Entity app = createAndStartApplication(
                 "services:",
                 "- type: " + BasicApplication.class.getName(),
@@ -981,7 +982,7 @@ public class DslYamlTest extends AbstractYamlTest {
                 "            memberSpec:",
                 "              $brooklyn:entitySpec:",
                 "                type: "+TestEntity.class.getName());
-        
+
         BasicStartable child = (BasicStartable) Iterables.getOnlyElement(app.getChildren());
         DynamicCluster cluster = (DynamicCluster) Iterables.getOnlyElement(child.getChildren());
         assertEquals(cluster.config().get(DynamicCluster.INITIAL_SIZE), Integer.valueOf(0));
@@ -1016,4 +1017,30 @@ public class DslYamlTest extends AbstractYamlTest {
             }
         })).get();
     }
+
+    @Test
+    public void testDslNestedFunctions() throws Exception {
+//        ((ManagementContextInternal)mgmt()).getBrooklynProperties().putAll(MutableMap.of(
+//                "brooklyn.external.prov1", InPlaceExternalConfigSupplier.class.getName(),
+//                "brooklyn.external.prov1.s1", "Secret1"
+//        ));
+        ((ManagementContextInternal) mgmt()).getExternalConfigProviderRegistry().addProvider("prov1",
+                new InPlaceExternalConfigSupplier(mgmt(), "prov1", MutableMap.of(
+                        "s1", "Secret1"
+                )));
+
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    dest:",
+                "      $brooklyn:formatString:",
+                "      - \"%s-%s\"",
+//                "      - $brooklyn:external(\"prov1\", \"s1\")",
+                "      - $brooklyn:external: [ $brooklyn:literal(\"prov1\"), s1 ]",
+                "      - v2",
+                "");
+        assertEquals("Secret1-v2", getConfigEventually(app, DEST));
+    }
+
 }

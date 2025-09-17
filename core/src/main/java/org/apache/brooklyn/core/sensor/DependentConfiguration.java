@@ -36,6 +36,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -88,7 +89,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class DependentConfiguration {
 
     private static final Logger LOG = LoggerFactory.getLogger(DependentConfiguration.class);
-    
+
     //not instantiable, only a static helper
     private DependentConfiguration() {}
 
@@ -115,7 +116,7 @@ public class DependentConfiguration {
         Predicate<Object> readyPredicate = (ready != null) ? GroovyJavaMethods.<Object>predicateFromClosure(ready) : JavaGroovyEquivalents.groovyTruthPredicate();
         return attributeWhenReady(source, sensor, readyPredicate);
     }
-    
+
     /** returns an unsubmitted {@link Task} which blocks until the given sensor on the given source entity gives a value that satisfies ready, then returns that value;
      * particular useful in Entity configuration where config will block until Tasks have a value.
      * This task will fail if the entity goes on fire and timeout after 1 minute if starting or stopping,
@@ -188,7 +189,7 @@ public class DependentConfiguration {
     public static <T,V> Task<V> valueWhenAttributeReady(Entity source, AttributeSensor<T> sensor, Function<? super T,V> valueProvider) {
         return attributePostProcessedWhenReady(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate(), valueProvider);
     }
-    
+
     /**
      * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
      */
@@ -196,7 +197,7 @@ public class DependentConfiguration {
     public static <T,V> Task<V> valueWhenAttributeReady(Entity source, AttributeSensor<T> sensor, Closure<V> valueProvider) {
         return attributePostProcessedWhenReady(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate(), valueProvider);
     }
-    
+
     /**
      * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
      */
@@ -204,7 +205,7 @@ public class DependentConfiguration {
     public static <T,V> Task<V> attributePostProcessedWhenReady(final Entity source, final AttributeSensor<T> sensor, final Predicate<? super T> ready, final Closure<V> postProcess) {
         return attributePostProcessedWhenReady(source, sensor, ready, GroovyJavaMethods.<T,V>functionFromClosure(postProcess));
     }
-    
+
     @SuppressWarnings("unchecked")
     public static <T,V> Task<V> attributePostProcessedWhenReady(final Entity source, final AttributeSensor<T> sensor, final Predicate<? super T> ready, final Function<? super T,V> postProcess) {
         Builder<T,T> builder1 = DependentConfiguration.builder().attributeWhenReady(source, sensor);
@@ -216,7 +217,7 @@ public class DependentConfiguration {
             builder = (Builder<T,V>)builder1;
         }
         if (ready != null) builder.readiness(ready);
-        
+
         return builder.build();
     }
 
@@ -228,9 +229,9 @@ public class DependentConfiguration {
         String blockingDetails = "Waiting for ready from "+source+" "+sensor+" (subscription)";
         return waitInTaskForAttributeReady(source, sensor, ready, abortConditions, blockingDetails);
     }
-    
+
     // TODO would be nice to have an easy semantics for whenServiceUp (cf DynamicWebAppClusterImpl.whenServiceUp)
-    
+
     public static <T> T waitInTaskForAttributeReady(final Entity source, final AttributeSensor<T> sensor, Predicate<? super T> ready, List<AttributeAndSensorCondition<?>> abortConditions, String blockingDetails) {
         return new WaitInTaskForAttributeReady<T,T>(source, sensor, ready, abortConditions, blockingDetails).call();
     }
@@ -238,11 +239,11 @@ public class DependentConfiguration {
     protected static class WaitInTaskForAttributeReady<T,V> implements Callable<V> {
 
         /* This is a change since before Oct 2014. Previously it would continue to poll,
-         * (maybe finding a different error) if the target entity becomes unmanaged. 
-         * Now it actively checks unmanaged by default, and still throws although it might 
+         * (maybe finding a different error) if the target entity becomes unmanaged.
+         * Now it actively checks unmanaged by default, and still throws although it might
          * now find a different problem. */
         private final static boolean DEFAULT_IGNORE_UNMANAGED = false;
-        
+
         protected final Entity source;
         protected final AttributeSensor<T> sensor;
         protected final Predicate<? super T> ready;
@@ -255,7 +256,7 @@ public class DependentConfiguration {
         protected final boolean ignoreUnmanaged;
         protected final Maybe<V> onUnmanaged;
         // TODO onError Continue / Throw / Return(V)
-        
+
         protected WaitInTaskForAttributeReady(Builder<T, V> builder) {
             this.source = builder.source;
             this.sensor = builder.sensor;
@@ -269,7 +270,7 @@ public class DependentConfiguration {
             this.ignoreUnmanaged = builder.ignoreUnmanaged;
             this.onUnmanaged = builder.onUnmanaged;
         }
-        
+
         private WaitInTaskForAttributeReady(Entity source, AttributeSensor<T> sensor, Predicate<? super T> ready,
                 List<AttributeAndSensorCondition<?>> abortConditions, String blockingDetails) {
             this.source = source;
@@ -277,7 +278,7 @@ public class DependentConfiguration {
             this.ready = ready;
             this.abortSensorConditions = abortConditions;
             this.blockingDetails = blockingDetails;
-            
+
             this.timeout = Duration.PRACTICALLY_FOREVER;
             this.timeoutIfTimeoutSensorConditions = null;
             this.onTimeout = Maybe.absent();
@@ -292,12 +293,12 @@ public class DependentConfiguration {
             // if no post-processing assume the types are correct
             return (V) value;
         }
-        
+
         protected boolean ready(T value) {
             if (ready!=null) return ready.apply(value);
             return JavaGroovyEquivalents.groovyTruth(value);
         }
-        
+
         @SuppressWarnings({ "rawtypes", "unchecked" })
         @Override
         public V call() {
@@ -315,7 +316,7 @@ public class DependentConfiguration {
 
             final List<Exception> abortionExceptions = Lists.newCopyOnWriteArrayList();
             long start = System.currentTimeMillis();
-            
+
             for (AttributeAndSensorCondition abortCondition : abortSensorConditions) {
                 Object currentValue = abortCondition.source.getAttribute(abortCondition.sensor);
                 if (abortCondition.predicate.apply(currentValue)) {
@@ -331,12 +332,12 @@ public class DependentConfiguration {
             Entity entity = BrooklynTaskTags.getTargetOrContextEntity(current);
             if (entity == null) throw new IllegalStateException("Should only be invoked in a running task with an entity tag; "+
                 current+" has no entity tag ("+current.getStatusDetail(false)+")");
-            
+
             final LinkedList<T> publishedValues = new LinkedList<T>();
             final Semaphore semaphore = new Semaphore(0); // could use Exchanger
             SubscriptionHandle subscription = null;
             List<SubscriptionHandle> thisWaitSubscriptions = Lists.newArrayList();
-            
+
             try {
                 subscription = entity.subscriptions().subscribe(source, sensor, new SensorEventListener<T>() {
                     @Override public void onEvent(SensorEvent<T> event) {
@@ -396,8 +397,8 @@ public class DependentConfiguration {
                 Duration maxPeriod = ValueResolver.PRETTY_QUICK_WAIT;
                 Duration nextPeriod = ValueResolver.REAL_QUICK_PERIOD;
                 while (true) {
-                    // check the source on initial run (could be done outside the loop) 
-                    // and also (optionally) on each iteration in case it is more recent 
+                    // check the source on initial run (could be done outside the loop)
+                    // and also (optionally) on each iteration in case it is more recent
                     value = source.getAttribute(sensor);
                     if (ready(value)) break;
 
@@ -427,7 +428,7 @@ public class DependentConfiguration {
                     while (true) {
                         synchronized (publishedValues) {
                             if (publishedValues.isEmpty()) break;
-                            value = publishedValues.pop(); 
+                            value = publishedValues.pop();
                         }
                         if (ready(value)) break;
                     }
@@ -435,9 +436,9 @@ public class DependentConfiguration {
                     // if unmanaged then ignore the other abort conditions
                     if (!ignoreUnmanaged && Entities.isNoLongerManaged(entity)) {
                         if (onUnmanaged.isPresent()) return onUnmanaged.get();
-                        throw new NotManagedException(entity);                        
+                        throw new NotManagedException(entity);
                     }
-                    
+
                     if (!abortionExceptions.isEmpty()) {
                         throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortionExceptions);
                     }
@@ -480,10 +481,10 @@ public class DependentConfiguration {
             }
         }
     }
-    
+
     /**
      * Returns a {@link Task} which blocks until the given job returns, then returns the value of that job.
-     * 
+     *
      * @deprecated since 0.7; code will be moved into test utilities
      */
     @Deprecated
@@ -503,10 +504,10 @@ public class DependentConfiguration {
     public static <U,T> Task<T> transform(final Task<U> task, final Function<U,T> transformer) {
         return transform(MutableMap.of("displayName", "transforming "+task), task, transformer);
     }
- 
-    /** 
+
+    /**
      * @see #transform(Task, Function)
-     * 
+     *
      * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
      */
     @Deprecated
@@ -514,7 +515,7 @@ public class DependentConfiguration {
     public static <U,T> Task<T> transform(Task<U> task, Closure transformer) {
         return transform(task, GroovyJavaMethods.functionFromClosure(transformer));
     }
-    
+
     /**
      * @see #transform(Task, Function)
      */
@@ -525,11 +526,11 @@ public class DependentConfiguration {
             public T call() throws Exception {
                 if (!task.asTask().isSubmitted()) {
                     BasicExecutionContext.getCurrentExecutionContext().submit(task);
-                } 
+                }
                 return transformer.apply(task.asTask().get());
-            }});        
+            }});
     }
-     
+
     /** Returns a task which waits for multiple other tasks (submitting if necessary)
      * and performs arbitrary computation over the List of results.
      * @see #transform(Task, Function) but note argument order is reversed (counterintuitive) to allow for varargs */
@@ -539,7 +540,7 @@ public class DependentConfiguration {
 
     /**
      * @see #transformMultiple(Function, TaskAdaptable...)
-     * 
+     *
      * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
      */
     @Deprecated
@@ -550,7 +551,7 @@ public class DependentConfiguration {
 
     /**
      * @see #transformMultiple(Function, TaskAdaptable...)
-     * 
+     *
      * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
      */
     @Deprecated
@@ -558,7 +559,7 @@ public class DependentConfiguration {
     public static <U,T> Task<T> transformMultiple(Map flags, Closure transformer, TaskAdaptable<U> ...tasks) {
         return transformMultiple(flags, GroovyJavaMethods.functionFromClosure(transformer), tasks);
     }
-    
+
     /** @see #transformMultiple(Function, TaskAdaptable...) */
     @SuppressWarnings({ "rawtypes" })
     public static <U,T> Task<T> transformMultiple(Map flags, final Function<List<U>,T> transformer, @SuppressWarnings("unchecked") TaskAdaptable<U> ...tasks) {
@@ -587,7 +588,7 @@ public class DependentConfiguration {
      * Example:
      * <pre>
      * {@code
-     *   setConfig(URL, DependentConfiguration.formatString("%s:%s", 
+     *   setConfig(URL, DependentConfiguration.formatString("%s:%s",
      *           DependentConfiguration.attributeWhenReady(target, Target.HOSTNAME),
      *           DependentConfiguration.attributeWhenReady(target, Target.PORT) ) );
      * }
@@ -602,7 +603,7 @@ public class DependentConfiguration {
             if (arg instanceof TaskAdaptable) taskArgs.add((TaskAdaptable<Object>)arg);
             else if (arg instanceof TaskFactory) taskArgs.add( ((TaskFactory<TaskAdaptable<Object>>)arg).newTask() );
         }
-        
+
         return transformMultiple(
             MutableMap.<String,String>of("displayName", "formatting '"+spec.toString()+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")),
             new Function<List<Object>, String>() {
@@ -648,12 +649,12 @@ public class DependentConfiguration {
         Maybe<?> resolvedArg = resolveImmediately(arg);
         if (resolvedArg.isAbsent()) return Absent.castAbsent(resolvedArg);
         if (resolvedArg.isNull()) return Maybe.<String>of((String)null);
-        
+
         String resolvedString = resolvedArg.get().toString();
         return Maybe.of(Urls.encode(resolvedString));
     }
 
-    /** 
+    /**
      * Method which returns a Future containing an escaped URL string (see {@link Urls#encode(String)}).
      * The arguments can be normal objects, tasks or {@link DeferredSupplier}s.
      * tasks will be waited on (submitted if necessary) and their results substituted.
@@ -663,9 +664,9 @@ public class DependentConfiguration {
         List<TaskAdaptable<Object>> taskArgs = Lists.newArrayList();
         if (arg instanceof TaskAdaptable) taskArgs.add((TaskAdaptable<Object>)arg);
         else if (arg instanceof TaskFactory) taskArgs.add( ((TaskFactory<TaskAdaptable<Object>>)arg).newTask() );
-        
+
         return transformMultiple(
-                MutableMap.<String,String>of("displayName", "url-escaping '"+arg), 
+                MutableMap.<String,String>of("displayName", "url-escaping '"+arg),
                 new Function<List<Object>, String>() {
                     @Override
                     @Nullable
@@ -674,13 +675,39 @@ public class DependentConfiguration {
                         if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) resolvedArg = Iterables.getOnlyElement(input);
                         else if (arg instanceof DeferredSupplier) resolvedArg = ((DeferredSupplier<?>) arg).get();
                         else resolvedArg = arg;
-                        
+
                         if (resolvedArg == null) return null;
                         String resolvedString = resolvedArg.toString();
                         return Urls.encode(resolvedString);
                     }
                 },
                 taskArgs);
+    }
+
+    public static Task<Object> external(ManagementContext mgmt, final Object provider, final Object key) {
+        List<TaskAdaptable<Object>> argsNeedingAdaptation = getTaskAdaptable(provider, key);
+        return Tasks.<Object>builder()
+                .displayName("resolving external configuration: '" + key + "' from provider '" + provider + "'")
+                .dynamic(false)
+                .body(new Callable<Object>() {
+                    @Override
+                    public Object call() throws Exception {
+                        Iterator<TaskAdaptable<Object>> ai = argsNeedingAdaptation.iterator();
+                        return ((ManagementContextInternal)mgmt).getExternalConfigProviderRegistry().getConfig(
+                                resolveArgument(provider, ai),
+                                resolveArgument(key, ai));
+                    }
+                })
+                .build();
+    }
+    public static Maybe<Object> externalImmediately(ManagementContext mgmt, final Object provider, final Object key) {
+        Maybe<?> resolvedProvider = resolveImmediately(provider);
+        if (resolvedProvider.isAbsent()) return Absent.castAbsent(resolvedProvider);
+        Maybe<?> resolvedKey = resolveImmediately(key);
+        if (resolvedKey.isAbsent()) return Absent.castAbsent(resolvedKey);
+        return Maybe.of(((ManagementContextInternal)mgmt).getExternalConfigProviderRegistry().getConfig(
+                String.valueOf(resolvedProvider.get()),
+                String.valueOf(resolvedKey.get())));
     }
 
     protected static <T> Maybe<?> resolveImmediately(Object val) {
@@ -696,16 +723,16 @@ public class DependentConfiguration {
             return Maybe.of(val);
         }
     }
-    
+
     public static Maybe<String> regexReplacementImmediately(Object source, Object pattern, Object replacement) {
         Maybe<?> resolvedSource = resolveImmediately(source);
         if (resolvedSource.isAbsent()) return Absent.castAbsent(resolvedSource);
         String resolvedSourceStr = String.valueOf(resolvedSource.get());
-        
+
         Maybe<?> resolvedPattern = resolveImmediately(pattern);
         if (resolvedPattern.isAbsent()) return Absent.castAbsent(resolvedPattern);
         String resolvedPatternStr = String.valueOf(resolvedPattern.get());
-        
+
         Maybe<?> resolvedReplacement = resolveImmediately(replacement);
         if (resolvedReplacement.isAbsent()) return Absent.castAbsent(resolvedReplacement);
         String resolvedReplacementStr = String.valueOf(resolvedReplacement.get());
@@ -728,7 +755,7 @@ public class DependentConfiguration {
         Maybe<?> resolvedPattern = resolveImmediately(pattern);
         if (resolvedPattern.isAbsent()) return Absent.castAbsent(resolvedPattern);
         String resolvedPatternStr = String.valueOf(resolvedPattern.get());
-        
+
         Maybe<?> resolvedReplacement = resolveImmediately(replacement);
         if (resolvedReplacement.isAbsent()) return Absent.castAbsent(resolvedReplacement);
         String resolvedReplacementStr = String.valueOf(resolvedReplacement.get());
@@ -849,7 +876,7 @@ public class DependentConfiguration {
      *
      * If the argument is a DeferredSupplier, we will block and wait for it to resolve. If the argument is TaskAdaptable or TaskFactory,
      * we will assume that the resolved task has been queued on the {@code taskArgsIterator}, otherwise the argument has already been resolved.
-     * 
+     *
      * @param type coerces the return value to the requested type
      */
     private static <T> T resolveArgument(Object argument, Iterator<?> taskArgsIterator, Class<T> type) {
@@ -879,9 +906,9 @@ public class DependentConfiguration {
         Predicate<Object> readinessPredicate = (readiness != null) ? GroovyJavaMethods.<Object>predicateFromClosure(readiness) : JavaGroovyEquivalents.groovyTruthPredicate();
         return listAttributesWhenReady(sensor, entities, readinessPredicate);
     }
-    
-    /** returns a task for parallel execution returning a list of values of the given sensor list on the given entity, 
-     * optionally when the values satisfy a given readiness predicate (defaulting to groovy truth if not supplied) */    
+
+    /** returns a task for parallel execution returning a list of values of the given sensor list on the given entity,
+     * optionally when the values satisfy a given readiness predicate (defaulting to groovy truth if not supplied) */
     public static <T> Task<List<T>> listAttributesWhenReady(final AttributeSensor<T> sensor, Iterable<Entity> entities, Predicate<? super T> readiness) {
         if (readiness == null) readiness = JavaGroovyEquivalents.groovyTruthPredicate();
         return builder().attributeWhenReadyFromMultiple(entities, sensor, readiness).build();
@@ -891,7 +918,7 @@ public class DependentConfiguration {
     public static <T> T waitForTask(Task<T> t, Entity context) throws InterruptedException {
         return waitForTask(t, context, null);
     }
-    
+
     /** blocks until the given task completes, submitting if necessary, returning the result of that task;
      * optional contextMessage is available in status if this is running in a task
      */
@@ -903,28 +930,28 @@ public class DependentConfiguration {
             throw Throwables.propagate(e);
         }
     }
-    
+
     public static class AttributeAndSensorCondition<T> {
         protected final Entity source;
         protected final AttributeSensor<T> sensor;
         protected final Predicate<? super T> predicate;
-        
+
         public AttributeAndSensorCondition(Entity source, AttributeSensor<T> sensor, Predicate<? super T> predicate) {
             this.source = checkNotNull(source, "source");
             this.sensor = checkNotNull(sensor, "sensor");
             this.predicate = checkNotNull(predicate, "predicate");
         }
-        
+
         @Override
         public String toString() {
             return JavaClassNames.simpleClassName(this)+"["+source+"["+sensor.getName()+"] "+predicate+"]";
         }
     }
-    
+
     public static ProtoBuilder builder() {
         return new ProtoBuilder();
     }
-    
+
     /**
      * Builder for producing variants of attributeWhenReady.
      */
@@ -947,8 +974,8 @@ public class DependentConfiguration {
             return new Builder<T2,T2>(source, sensor);
         }
 
-        /** Constructs a builder for task for parallel execution returning a list of values of the given sensor list on the given entity, 
-         * optionally when the values satisfy a given readiness predicate (defaulting to groovy truth if not supplied) */ 
+        /** Constructs a builder for task for parallel execution returning a list of values of the given sensor list on the given entity,
+         * optionally when the values satisfy a given readiness predicate (defaulting to groovy truth if not supplied) */
         @Beta
         public <T> MultiBuilder<T, T, List<T>> attributeWhenReadyFromMultiple(Iterable<? extends Entity> sources, AttributeSensor<T> sensor) {
             return attributeWhenReadyFromMultiple(sources, sensor, JavaGroovyEquivalents.groovyTruthPredicate());
@@ -980,7 +1007,7 @@ public class DependentConfiguration {
             this.source = source;
             this.sensor = sensor;
         }
-        
+
         /**
          * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
          */
@@ -1079,7 +1106,7 @@ public class DependentConfiguration {
             ignoreUnmanaged = true;
             return this;
         }
-        /** take advantage of the fact that this builder can build multiple times, allowing subclasses 
+        /** take advantage of the fact that this builder can build multiple times, allowing subclasses
          * to change the source along the way */
         protected Builder<T,V> source(Entity source) {
             this.source = source;
@@ -1093,7 +1120,7 @@ public class DependentConfiguration {
         }
         public Task<V> build() {
             validate();
-            
+
             return Tasks.<V>builder().dynamic(false)
                 .displayName("waiting on "+sensor.getName())
                 .description("Waiting on sensor "+sensor.getName()+" from "+source)
@@ -1102,7 +1129,7 @@ public class DependentConfiguration {
                 .body(new WaitInTaskForAttributeReady<T,V>(this))
                 .build();
         }
-        
+
         public V runNow() {
             validate();
             return new WaitInTaskForAttributeReady<T,V>(this).call();
@@ -1125,13 +1152,13 @@ public class DependentConfiguration {
         protected final String name;
         protected final String descriptionBase;
         protected final Builder<T,V> builder;
-        // if desired, the use of this multiSource could allow different conditions; 
-        // but probably an easier API just for the caller to build the parallel task  
+        // if desired, the use of this multiSource could allow different conditions;
+        // but probably an easier API just for the caller to build the parallel task
         protected final List<AttributeAndSensorCondition<?>> multiSource = Lists.newArrayList();
         protected Function<? super List<V>, V2> postProcessFromMultiple;
-        
-        /** returns a task for parallel execution returning a list of values of the given sensor list on the given entity, 
-         * optionally when the values satisfy a given readiness predicate (defaulting to groovy truth if not supplied) */ 
+
+        /** returns a task for parallel execution returning a list of values of the given sensor list on the given entity,
+         * optionally when the values satisfy a given readiness predicate (defaulting to groovy truth if not supplied) */
         @Beta
         protected MultiBuilder(Iterable<? extends Entity> sources, AttributeSensor<T> sensor) {
             this(sources, sensor, JavaGroovyEquivalents.groovyTruthPredicate());
@@ -1140,7 +1167,7 @@ public class DependentConfiguration {
         protected MultiBuilder(Iterable<? extends Entity> sources, AttributeSensor<T> sensor, Predicate<? super T> readiness) {
             builder = new Builder<T,V>(null, sensor);
             builder.readiness(readiness);
-            
+
             for (Entity s : checkNotNull(sources, "sources")) {
                 multiSource.add(new AttributeAndSensorCondition<T>(s, sensor, readiness));
             }
@@ -1148,19 +1175,19 @@ public class DependentConfiguration {
             this.descriptionBase = "waiting on "+sensor.getName()+" "+readiness
                 +" from "+Iterables.size(sources)+" entit"+Strings.ies(sources);
         }
-        
+
         /** Apply post-processing to the entire list of results */
         public <V2b> MultiBuilder<T, V, V2b> postProcessFromMultiple(final Function<? super List<V>, V2b> val) {
             this.postProcessFromMultiple = (Function) checkNotNull(val, "postProcessFromMulitple");
             return (MultiBuilder<T,V, V2b>) this;
         }
-        /** Apply post-processing to the entire list of results 
+        /** Apply post-processing to the entire list of results
          * See {@link CollectionFunctionals#all(Predicate)} and {@link CollectionFunctionals#quorum(org.apache.brooklyn.util.collections.QuorumCheck, Predicate)
          * which allow useful arguments. */
         public MultiBuilder<T, V, Boolean> postProcessFromMultiple(final Predicate<? super List<V>> val) {
             return postProcessFromMultiple(Functions.forPredicate(val));
         }
-        
+
         /**
          * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
          */
@@ -1209,7 +1236,7 @@ public class DependentConfiguration {
             builder.onUnmanagedThrow();
             return this;
         }
-        
+
         public Task<V2> build() {
             List<Task<V>> tasks = MutableList.of();
             for (AttributeAndSensorCondition<?> source: multiSource) {
@@ -1223,7 +1250,7 @@ public class DependentConfiguration {
                 .description(descriptionBase+
                     (builder.timeout!=null ? ", timeout "+builder.timeout : ""))
                 .build();
-            
+
             if (postProcessFromMultiple == null) {
                 // V2 should be the right type in normal operations
                 return (Task<V2>) parallelTask;
@@ -1243,5 +1270,5 @@ public class DependentConfiguration {
             }
         }
     }
-    
+
 }
