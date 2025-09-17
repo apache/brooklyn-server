@@ -64,6 +64,9 @@ public class Yamls {
     private static Yaml newYaml() {
         LoaderOptions loaderOptions = new LoaderOptions();
 
+        // allow lots of aliases, as they are useful in some large catalogs
+        loaderOptions.setMaxAliasesForCollections(1000);
+
         if (BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.isEnabled()) {
             loaderOptions.setTagInspector(new TagInspector() {
                 @Override
@@ -116,13 +119,13 @@ public class Yamls {
 
     /** returns the given (yaml-parsed) object as the given yaml type.
      * <p>
-     * if the object is an iterable or iterator this method will fully expand it as a list. 
+     * if the object is an iterable or iterator this method will fully expand it as a list.
      * if the requested type is not an iterable or iterator, and the list contains a single item, this will take that single item.
      * <p>
      * in other cases this method simply does a type-check and cast (no other type coercion).
      * <p>
      * @throws IllegalArgumentException if the input is an iterable not containing a single element,
-     *   and the cast is requested to a non-iterable type 
+     *   and the cast is requested to a non-iterable type
      * @throws ClassCastException if cannot be casted */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public static <T> T getAs(Object x, Class<T> type) {
@@ -148,7 +151,7 @@ public class Yamls {
 
     /**
      * Parses the given yaml, and walks the given path to return the referenced object.
-     * 
+     *
      * @see #getAtPreParsed(Object, List)
      */
     @Beta
@@ -157,17 +160,17 @@ public class Yamls {
         Object current = result.iterator().next();
         return getAtPreParsed(current, path);
     }
-    
-    /** 
+
+    /**
      * For pre-parsed yaml, walks the maps/lists to return the given sub-item.
      * In the given path:
      * <ul>
      *   <li>A vanilla string is assumed to be a key into a map.
      *   <li>A string in the form like "[0]" is assumed to be an index into a list
      * </ul>
-     * 
+     *
      * Also see {@link Jsonya}, such as {@code Jsonya.of(current).at(path).get()}.
-     * 
+     *
      * @return The object at the given path, or {@code null} if that path does not exist.
      */
     @Beta
@@ -252,7 +255,7 @@ public class Yamls {
         }
         return result;
     }
-    
+
     @Beta
     public static class YamlExtract {
         String yaml;
@@ -260,7 +263,7 @@ public class Yamls {
         Node prev, key, focus, next;
         Exception error;
         boolean includeKey = false, includePrecedingComments = true, includeOriginalIndentation = false;
-        
+
         private int indexStart(Node node, boolean defaultIsYamlEnd) {
             if (node==null) return defaultIsYamlEnd ? yaml.length() : 0;
             return index(node.getStartMark());
@@ -292,7 +295,7 @@ public class Yamls {
                 throw new KnownClassVersionException(e);
             }
         }
-        
+
         static AtomicBoolean LOGGED_TESTNG_WARNING = new AtomicBoolean();
         static class KnownClassVersionException extends IllegalStateException {
             private static final long serialVersionUID = -1620847775786753301L;
@@ -335,7 +338,7 @@ public class Yamls {
             while (i < x.length() && x.charAt(i)==' ') i++;
             return i;
         }
-        
+
         public String getFullYamlTextOriginal() {
             return yaml;
         }
@@ -353,20 +356,20 @@ public class Yamls {
         public String getFullYamlTextWithExtractReplaced(String replacement) {
             if (!found()) throw new IllegalStateException("Cannot perform replacement when item was not matched.");
             String result = yaml.substring(0, getStartOfThis());
-            
+
             String[] newLines = replacement.split("\n");
             for (int i=1; i<newLines.length; i++)
                 newLines[i] = Strings.makePaddedString("", getStartColumnOfThis(), "", " ") + newLines[i];
             result += Strings.lines(newLines);
             if (replacement.endsWith("\n")) result += "\n";
-            
+
             int end = getEndOfThis();
             result += yaml.substring(end);
-            
+
             return result;
         }
 
-        /** Specifies whether the key should be included in the found text, 
+        /** Specifies whether the key should be included in the found text,
          * when calling {@link #getMatchedYamlText()} or {@link #getFullYamlTextWithExtractReplaced(String)},
          * if the found item is a map entry.
          * Defaults to false.
@@ -377,7 +380,7 @@ public class Yamls {
             return this;
         }
 
-        /** Specifies whether comments preceding the found item should be included, 
+        /** Specifies whether comments preceding the found item should be included,
          * when calling {@link #getMatchedYamlText()} or {@link #getFullYamlTextWithExtractReplaced(String)}.
          * This will not include comments which are indented further than the item,
          * as those will typically be aligned with the previous item
@@ -392,7 +395,7 @@ public class Yamls {
         }
 
         /** Specifies whether the original indentation should be preserved
-         * (and in the case of the first line, whether whitespace should be inserted so its start column is preserved), 
+         * (and in the case of the first line, whether whitespace should be inserted so its start column is preserved),
          * when calling {@link #getMatchedYamlText()}.
          * Defaults to false, the returned text will be outdented as far as possible.
          * @return this object, for use in a fluent constructions
@@ -420,13 +423,13 @@ public class Yamls {
                 return null;
             }
         }
-        
+
         @Beta
         public String getMatchedYamlText() {
             if (!found()) return null;
-            
+
             String[] body = yaml.substring(getStartOfThis(), getEndOfThis(true)).split("\n", -1);
-            
+
             int firstLineIndentationOfFirstThing;
             if (focusTuple!=null) {
                 firstLineIndentationOfFirstThing = focusTuple.getKeyNode().getStartMark().getColumn();
@@ -439,8 +442,8 @@ public class Yamls {
             } else {
                 firstLineIndentationToAdd = focus.getStartMark().getColumn();
             }
-            
-            
+
+
             String firstLineIndentationToAddS = Strings.makePaddedString("", firstLineIndentationToAdd, "", " ");
             String subsequentLineIndentationToRemoveS = firstLineIndentationToAddS;
 
@@ -448,7 +451,7 @@ public class Yamls {
 
 x: a
  bc
- 
+
 should become
 
 a
@@ -458,7 +461,7 @@ whereas
 
 - a: 0
   b: 1
-  
+
 selecting 0 should give
 
 a: 0
@@ -488,7 +491,7 @@ b: 1
                     }
                 }
             }
-            
+
             boolean doneFirst = false;
             for (String p: body) {
                 if (!doneFirst) {
@@ -508,30 +511,30 @@ b: 1
             }
             return Strings.join(result, "\n");
         }
-        
+
         boolean found() {
             return focus != null;
         }
-        
+
         public Exception getError() {
             return error;
         }
-        
+
         @Override
         public String toString() {
             return "Extract["+focus+";prev="+prev+";key="+key+";next="+next+"]";
         }
     }
-    
+
     private static void findTextOfYamlAtPath(YamlExtract result, int pathIndex, Object ...path) {
         if (pathIndex>=path.length) {
             // we're done
             return;
         }
-        
+
         Object pathItem = path[pathIndex];
         Node node = result.focus;
-        
+
         if (node.getNodeId()==NodeId.mapping && pathItem instanceof String) {
             // find key
             Iterator<NodeTuple> ti = ((MappingNode)node).getValue().iterator();
@@ -561,12 +564,12 @@ b: 1
                 }
             }
             throw new IllegalStateException("Did not find "+pathItem+" in "+node+" at depth "+pathIndex+" of "+Arrays.asList(path));
-            
+
         } else if (node.getNodeId()==NodeId.sequence && pathItem instanceof Number) {
             // find list item
             List<Node> nl = ((SequenceNode)node).getValue();
             int i = ((Number)pathItem).intValue();
-            if (i>=nl.size()) 
+            if (i>=nl.size())
                 throw new IllegalStateException("Index "+i+" is out of bounds in "+node+", searching for "+pathItem+" at depth "+pathIndex+" of "+Arrays.asList(path));
             if (i>0) result.prev = nl.get(i-1);
             result.key = null;
@@ -576,19 +579,19 @@ b: 1
                 if (nl.size()>i+1) result.next = nl.get(i+1);
             }
             return;
-            
+
         } else {
             throw new IllegalStateException("Node "+node+" does not match selector "+pathItem+" at depth "+pathIndex+" of "+Arrays.asList(path));
         }
-        
+
         // unreachable
     }
-    
-    
+
+
     /** Given a path, where each segment consists of a string (key) or number (element in list),
      * this will find the YAML text for that element
      * <p>
-     * If not found this will return a {@link YamlExtract} 
+     * If not found this will return a {@link YamlExtract}
      * where {@link YamlExtract#found()} is false and {@link YamlExtract#getError()} is set. */
     public static YamlExtract getTextOfYamlAtPath(String yaml, Object ...path) {
         YamlExtract result = new YamlExtract();
@@ -597,7 +600,7 @@ b: 1
             int pathIndex = 0;
             result.yaml = yaml;
             result.focus = newYaml().compose(new StringReader(yaml));
-    
+
             findTextOfYamlAtPath(result, pathIndex, path);
             return result;
         } catch (NoSuchMethodError e) {
