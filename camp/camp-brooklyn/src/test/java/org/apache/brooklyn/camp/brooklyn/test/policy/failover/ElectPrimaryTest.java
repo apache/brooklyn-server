@@ -74,7 +74,7 @@ import com.google.common.collect.ImmutableMap;
 public class ElectPrimaryTest extends AbstractYamlRebindTest {
 
     private static final Logger log = LoggerFactory.getLogger(ElectPrimaryTest.class);
-    
+
     public static AttributeSensor<Entity> PRIMARY = PrimaryDefaultSensorsAndEffectors.PRIMARY;
     public static ConfigKey<Double> WEIGHT_CONFIG = PrimaryDefaultSensorsAndEffectors.PRIMARY_WEIGHT_CONFIG;
     public static AttributeSensor<Double> WEIGHT_SENSOR = PrimaryDefaultSensorsAndEffectors.PRIMARY_WEIGHT_SENSOR;
@@ -87,17 +87,17 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
             "    item:",
             "      type: "+TestEntity.class.getName()));
     }
-    
+
     @Test
     public void testTwoChildren() throws Exception {
         setItemFromTestAsSimple();
-        
+
         Entity app = createAndStartApplication(loadYamlString("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml"));
         EntityAsserts.assertAttributeEventually(app, PRIMARY, Predicates.notNull());
         log.info("Primary sensor is: "+app.sensors().get(PRIMARY));
-        
+
         // and confirm the result with the selector directly
-        // (and show how internals can be accessed in case people want to investigate it) 
+        // (and show how internals can be accessed in case people want to investigate it)
         Asserts.assertEquals(new ElectPrimaryEffector.CheckPrimaries(app, ConfigBag.newInstance()).call(),
             app.sensors().get(PRIMARY) );
     }
@@ -106,7 +106,7 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
     public void testSetPreferredViaWeightConfigOnB() throws Exception {
         runSetPreferredViaWeightConfigOnB();
     }
-    
+
     @Test
     public void testSimpleRebind() throws Exception {
         origApp = (StartableApplication) runSetPreferredViaWeightConfigOnB();
@@ -128,11 +128,11 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
 
     protected Entity runSetPreferredViaWeightConfigOnB() throws Exception {
         setItemFromTestAsSimple();
-        
+
         Entity app = createAndStartApplication(loadYamlString("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml",
             "  brooklyn.config:",
             "    "+WEIGHT_CONFIG.getName()+": 1"));
-        
+
         EntityAsserts.assertAttributeEventually(app, PRIMARY, Predicates.notNull());
         Assert.assertEquals(app.sensors().get(PRIMARY).getDisplayName(), "b");
         EntityAsserts.assertEntityHealthyEventually(app);
@@ -142,11 +142,11 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
     @Test
     public void testSetDisallowedViaWeightConfigOnB() throws Exception {
         setItemFromTestAsSimple();
-        
+
         Entity app = createAndStartApplication(loadYamlString("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml",
             "  brooklyn.config:",
             "    "+WEIGHT_CONFIG.getName()+": -1"));
-        
+
         EntityAsserts.assertAttributeEventually(app, PRIMARY, Predicates.notNull());
         Assert.assertEquals(app.sensors().get(PRIMARY).getDisplayName(), "a");
     }
@@ -155,11 +155,11 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
     public void testFailover() throws Exception {
         Entity app = runSetPreferredViaWeightConfigOnB();
         Entity b = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("b"));
-        
+
         Entities.unmanage(b);
         EntityAsserts.assertAttributeEventually(app, PRIMARY, EntityPredicates.displayNameEqualTo("a"));
     }
-    
+
     final static AttributeSensor<String> SENSOR1 = Sensors.newStringSensor("sens1");
     final static AttributeSensor<String> SENSOR2 = Sensors.newStringSensor("sens2");
     final static AttributeSensor<String> SENSOR3 = Sensors.newStringSensor("sens3");
@@ -178,7 +178,7 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
         EntityAsserts.assertAttributeEqualsEventually(app, SENSOR2, "hi-2-1");
         // S3 not propagated
         Asserts.assertNull(app.sensors().get(SENSOR3));
-        
+
         a.sensors().set(SENSOR1, "hi-a-1");
         Entities.unmanage(b);
         EntityAsserts.assertAttributeEqualsEventually(app, PRIMARY, a);
@@ -191,35 +191,35 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
     protected Entity createAndTestSimplePropagation() throws Exception {
         setItemFromTestAsSimple();
         Entity app = createAndStartApplication(loadYamlString("classpath://org/apache/brooklyn/policy/failover/elect-primary-propagate-test.yaml"));
-        
+
         Entity b = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("b"));
-        
+
         EntityAsserts.assertAttributeEqualsEventually(b, SENSOR1, "hi1");
-        
+
         EntityAsserts.assertAttributeEventually(app, PRIMARY, Predicates.notNull());
         Assert.assertEquals(app.sensors().get(PRIMARY), b);
         EntityAsserts.assertEntityHealthyEventually(app);
         EntityAsserts.assertAttributeEqualsEventually(app, SENSOR1, "hi1");
-        
+
         return app;
     }
-    
+
     @Test
     public void testPropagateAndRebind() throws Exception {
         Entity app = createAndTestSimplePropagation();
-        
+
         app = rebind();
-        
+
         Entity a = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("a"));
         Entity b = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("b"));
-        
+
         Assert.assertEquals(app.sensors().get(PRIMARY), b);
         Assert.assertEquals(app.sensors().get(SENSOR1), "hi1");
 
         // propagation still happens
         b.sensors().set(SENSOR2, "hi2");
         EntityAsserts.assertAttributeEqualsEventually(app, SENSOR2, "hi2");
-        
+
         // now failover, clear b'sensors and pick up the one from a
         a.sensors().set(SENSOR1, "hi-a-1");
         Entities.unmanage(b);
@@ -232,7 +232,7 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
     @Test
     public void testFireCausesPromoteDemote() throws Exception {
         Entity app = runSetPreferredViaWeightConfigOnB();
-        
+
         Collection<Entity> testEntities = mgmt().<Entity>lookupAll(EntityPredicates.hasInterfaceMatching(".*TestEntity"));
         Asserts.assertSize(testEntities, 2);
         promoteDemoteEffectorMessages.clear();
@@ -240,7 +240,7 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
             new MockPromoteDemoteEffector(ElectPrimaryConfig.PrimaryDefaultSensorsAndEffectors.PROMOTE).apply((EntityLocal) entity);
             new MockPromoteDemoteEffector(ElectPrimaryConfig.PrimaryDefaultSensorsAndEffectors.DEMOTE).apply((EntityLocal) entity);
         });
-        
+
         Entity a = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("a"));
         Entity b = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("b"));
 
@@ -251,11 +251,11 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
         // TODO what's the best way for a node to say it's allowed to have failed children?
         // run a variant of this test using that, to ensure policy kicks in on down or on fire
         //ServiceProblemsLogic.updateProblemsIndicator(b, "test", "force fire");
-        
+
         EntityAsserts.assertAttributeEventually(app, PRIMARY, EntityPredicates.displayNameEqualTo("a"));
         // promotion and demotion should finish by the time the app is running again
         EntityAsserts.assertEntityHealthyEventually(app);
-        
+
         // shouldn't be necessary as app is set starting before primary set to a, so
         // above method checks not pass until promotion/demotion invocations have also completed
         //Asserts.succeedsEventually(() -> Asserts.assertSize(promoteDemoteEffectorMessages, 2));
@@ -263,10 +263,10 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
             "Missing/bad promotion message in: "+promoteDemoteEffectorMessages);
         Asserts.assertTrue(promoteDemoteEffectorMessages.stream().anyMatch((s) -> s.matches("demote .*"+b.getId()+".* args=.*")),
             "Missing/bad demotion message in: "+promoteDemoteEffectorMessages);
-        
+
         promoteDemoteEffectorMessages.clear();
     }
-    
+
     List<String> promoteDemoteEffectorMessages = Collections.synchronizedList(MutableList.of());
     private class MockPromoteDemoteEffector extends AddEffectorInitializerAbstract {
         private final Effector<String> base;
@@ -295,13 +295,13 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
     }
 
     // TODO tests for timeout configurability
-    
+
     @Test(retryAnalyzer = FlakyRetryAnalyser.class)
     public void testSelectionModeStrictReelectWithPreference() throws Exception {
         runSelectionModeTest(SelectionMode.STRICT, false);
     }
 
-    @Test
+    @Test(retryAnalyzer = FlakyRetryAnalyser.class)
     public void testSelectionModeBestReelectWithPreference() throws Exception {
         runSelectionModeTest(SelectionMode.BEST, false);
     }
@@ -311,12 +311,12 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
      * at same time as test explicitly invokes effector: it fails over to 'b' and then back
      * to 'a'. See https://github.com/apache/brooklyn-server/pull/931 to reduce this race,
      * and for more details.
-     */
-    @Test
+     */  // also note above two tests are flaky
+    @Test(retryAnalyzer = FlakyRetryAnalyser.class)
     public void testSelectionModeFailoverReelectWithPreference() throws Exception {
         runSelectionModeTest(SelectionMode.FAILOVER, false);
     }
-    
+
     @Test(groups="Integration")
     public void testSelectionModeStrictReelectWithPreferenceIntegration() throws Exception {
         runSelectionModeTest(SelectionMode.STRICT, true);
@@ -336,37 +336,37 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
         Entity app = null;
         try {
             setItemFromTestAsSimple();
-            
+
             app = createAndStartApplication(Strings.replaceAllNonRegex(
-                loadYamlString("classpath://org/apache/brooklyn/policy/failover/elect-primary-selection-mode-test.yaml"), 
+                loadYamlString("classpath://org/apache/brooklyn/policy/failover/elect-primary-selection-mode-test.yaml"),
                 "$$REPLACE$$", mode.name().toLowerCase()) );
             EntityAsserts.assertEntityHealthyEventually(app);
-    
+
             Entity a = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("a"));
             Entity b = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("b"));
             // guarantee not running until has primary - via the enricher
             EntityAsserts.assertAttributeEquals(app, PRIMARY, a);
-            
+
             b.sensors().set(WEIGHT_SENSOR, 2.0d);
             if (mode==SelectionMode.FAILOVER) {
                 // primary won't change in failover mode
                 assertPrimaryUnchanged(app, a, integration);
-                
+
                 // force election of best, overriding config mode
                 app.invoke(ElectPrimaryEffector.EFFECTOR, ConfigBag.newInstance().configure(
                     ElectPrimaryConfig.SELECTION_MODE, SelectionMode.BEST).getAllConfigRaw()).get();
             }
             EntityAsserts.assertAttributeEventually(app, PRIMARY, Predicates.equalTo(b));
-            
+
             if (mode==SelectionMode.FAILOVER) {
                 // other tests don't apply to faliover
                 return;
             }
-            
+
             b.sensors().set(WEIGHT_SENSOR, -1.0d);
             // disabling b causes revert to a
             EntityAsserts.assertAttributeEventually(app, PRIMARY, Predicates.equalTo(a));
-            
+
             b.sensors().set(WEIGHT_SENSOR, 1.0d);
             // now have a tie, should fail in strict, preserve a in best
             if (mode==SelectionMode.STRICT) {
@@ -388,22 +388,22 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
                     // tie should only fail in strict mode
                     Exceptions.propagate(e);
                 }
-                Asserts.expectedFailureContainsIgnoreCase(e, 
+                Asserts.expectedFailureContainsIgnoreCase(e,
                     "Cannot select primary", b.toString(), a.toString());
             }
-    
+
             a.sensors().set(WEIGHT_SENSOR, -1d);
             // disabling a reverts to b and makes it healthy
             EntityAsserts.assertAttributeEventually(app, PRIMARY, Predicates.equalTo(b));
             EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
-            
+
             // now disabling b causes failure
             b.sensors().set(WEIGHT_SENSOR, -1d);
             log.info("Waiting for no primary");
             EntityAsserts.assertAttributeEqualsEventually(app, PRIMARY, null);
             Object result = getLastElectionTask(app).get();
             Asserts.assertStringContainsIgnoreCase(result.toString(), ElectPrimaryEffector.ResultCode.NO_PRIMARY_AVAILABLE.toString());
-            
+
         } catch (Throwable t) {
             log.error("Failed: "+t, t);
             Dumper.dumpInfo(app);
@@ -430,12 +430,12 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
         Stopwatch sw = Stopwatch.createStarted();
         while (++count<100) {
             log.info("new test run\n\n\nTEST RUN "+count+"\n");
-            
+
 //            ElectPrimaryTest t = new ElectPrimaryTest();
 //            t.setUp();
 //            t.testFireCausesPromoteDemote();
 //            t.tearDown();
-            
+
             TestNG testNG = new TestNG();
             testNG.setTestClasses(new Class[] { ElectPrimaryTest.class });
             testNG.addListener((ITestNGListener)new LoggingVerboseReporter());
