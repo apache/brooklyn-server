@@ -52,7 +52,7 @@ import com.google.common.base.Stopwatch;
 public class Time {
 
     private static final Logger log = LoggerFactory.getLogger(Time.class);
-    
+
     public static final String DATE_FORMAT_PREFERRED_W_TZ = "yyyy-MM-dd HH:mm:ss.SSS Z";
     public static final String DATE_FORMAT_PREFERRED = "yyyy-MM-dd HH:mm:ss.SSS";
     public static final String DATE_FORMAT_STAMP = "yyyyMMdd-HHmmssSSS";
@@ -66,10 +66,10 @@ public class Time {
     public static final long MILLIS_IN_HOUR = 60*MILLIS_IN_MINUTE;
     public static final long MILLIS_IN_DAY = 24*MILLIS_IN_HOUR;
     public static final long MILLIS_IN_YEAR = 365*MILLIS_IN_DAY;
-    
+
     /** GMT/UTC/Z time zone constant */
     public static final TimeZone TIME_ZONE_UTC = TimeZone.getTimeZone("");
-    
+
     /** as {@link #makeDateString(Date)} for current date/time */
     public static String makeDateString() {
         return makeDateString(System.currentTimeMillis());
@@ -214,8 +214,8 @@ public class Time {
         return dateFormat.format(new Date(date));
     }
 
-    /** returns the current time in {@value #DATE_FORMAT_SIMPLE_STAMP} format, 
-     * suitable for machines to read but easier for humans too, 
+    /** returns the current time in {@value #DATE_FORMAT_SIMPLE_STAMP} format,
+     * suitable for machines to read but easier for humans too,
      * like {@link #makeDateStampString()} but not as precise */
     public static String makeDateSimpleStampString() {
         return makeDateSimpleStampString(System.currentTimeMillis());
@@ -295,21 +295,27 @@ public class Time {
     }
     /** @see #makeTimeString(long, boolean) */
     public static String makeTimeStringNano(long tn, boolean round) {
-        if (tn<0) return "-"+makeTimeStringNano(-tn, round);
+        if (tn<0) {
+            tn = -tn;
+            if (tn<0) tn = Duration.PRACTICALLY_FOREVER.nanos();
+            return "-"+makeTimeStringNano(tn, round);
+        } else if (tn >= Duration.ALMOST_PRACTICALLY_FOREVER.nanos()) {
+            return Duration.FOREVER_STRING;
+        }
         // units don't matter, but since ms is the usual finest granularity let's use it
         // (previously was just "0" but that was too ambiguous in contexts like "took 0")
         if (tn==0) return "0ms";
-        
+
         long tnm = tn % 1000000;
         long t = tn/1000000;
         String result = "";
-        
+
         long d = t/MILLIS_IN_DAY;  t %= MILLIS_IN_DAY;
         long h = t/MILLIS_IN_HOUR;  t %= MILLIS_IN_HOUR;
         long m = t/MILLIS_IN_MINUTE;  t %= MILLIS_IN_MINUTE;
         long s = t/MILLIS_IN_SECOND;  t %= MILLIS_IN_SECOND;
         long ms = t;
-        
+
         int segments = 0;
         if (d>0) { result += d+"d "; segments++; }
         if (h>0) { result += h+"h "; segments++; }
@@ -356,7 +362,7 @@ public class Time {
             }
             result += ms+"ms ";
         }
-        
+
         long us = tnm/1000;
         long ns = tnm % 1000;
 
@@ -406,7 +412,7 @@ public class Time {
                 return Time.makeTimeStringExact(input);
             }
         };
-        
+
     public static Function<Long, String> fromLongToTimeStringRounded() {
         return LONG_TO_TIME_STRING_ROUNDED;
     }
@@ -461,11 +467,11 @@ public class Time {
             throw Exceptions.propagate(e);
         }
     }
-    
+
     /** as {@link #sleep(long)} */
     public static void sleep(Duration duration) {
         Time.sleep(duration.toMillisecondsRoundingUp());
-    }    
+    }
 
     /**
      * Calculates the number of milliseconds past midnight for a given UTC time.
@@ -479,7 +485,7 @@ public class Time {
         int millis = gregorianCalendar.get(Calendar.MILLISECOND);
         return (((((hour * 60) + min) * 60) + sec) * 1000) + millis;
     }
-    
+
     /**
      * Calculates the number of milliseconds past epoch for a given UTC time.
      */
@@ -489,7 +495,7 @@ public class Time {
         time.set(Calendar.MILLISECOND, millis);
         return time.getTimeInMillis();
     }
-    
+
     public static long roundFromMillis(long millis, TimeUnit units) {
         if (units.compareTo(TimeUnit.MILLISECONDS) > 0) {
             double result = ((double)millis) / units.toMillis(1);
@@ -498,14 +504,14 @@ public class Time {
             return units.convert(millis, TimeUnit.MILLISECONDS);
         }
     }
-    
+
     public static long roundFromMillis(long millis, long millisPerUnit) {
         double result = ((double)millis) / millisPerUnit;
         return Math.round(result);
     }
-    
+
     /**
-     * Calculates how long until maxTime has passed since the given startTime. 
+     * Calculates how long until maxTime has passed since the given startTime.
      * However, maxTime==0 is a special case (e.g. could mean wait forever), so the result is guaranteed
      * to be only 0 if maxTime was 0; otherwise -1 will be returned.
      */
@@ -516,23 +522,23 @@ public class Time {
         long result = (startTime+maxTime) - System.currentTimeMillis();
         return (result == 0) ? -1 : result;
     }
-    
+
     /** Convenience for {@link Duration#parse(String)}. */
     public static Duration parseDuration(@Nullable String timeString) {
         return Duration.parse(timeString);
     }
-    
-    /** 
+
+    /**
      * As {@link #parseElapsedTimeAsDouble(String)}. Consider using {@link #parseDuration(String)} for a more usable return type.
-     * 
+     *
      * @throws NumberFormatException if cannot be parsed (or if null)
      */
     public static long parseElapsedTime(String timeString) {
         return (long) parseElapsedTimeAsDouble(timeString);
     }
-    
-    /** 
-     * Parses a string eg '5s' or '20m 22.123ms', returning the number of milliseconds it represents; 
+
+    /**
+     * Parses a string eg '5s' or '20m 22.123ms', returning the number of milliseconds it represents;
      * -1 on blank or never or off or false.
      * Assumes unit is millisections if no unit is specified.
      * <p>
@@ -654,7 +660,7 @@ public class Time {
     public static Calendar newCalendarFromDate(Date date) {
         return newCalendarFromMillisSinceEpochUtc(date.getTime());
     }
-    
+
     /** As {@link #parseCalendar(String)} but returning a {@link Date},
      * (i.e. a record where the time zone has been applied and forgotten). */
     public static Date parseDate(@Nullable String input) {
@@ -666,12 +672,12 @@ public class Time {
         return parseCalendarMaybe(input).get().toInstant();
     }
 
-    /** Parses dates from string, accepting many formats including ISO-8601 and http://yaml.org/type/timestamp.html, 
+    /** Parses dates from string, accepting many formats including ISO-8601 and http://yaml.org/type/timestamp.html,
      * e.g. 2015-06-15 16:00:00 +0000.
      * <p>
      * Millis since epoch (1970) is also supported to represent the epoch (0) or dates in this millenium,
      * but to prevent ambiguity of e.g. "20150615", any other dates prior to the year 2001 are not accepted.
-     * (However if a type Long is supplied, e.g. from a YAML parse, it will always be treated as millis since epoch.) 
+     * (However if a type Long is supplied, e.g. from a YAML parse, it will always be treated as millis since epoch.)
      * <p>
      * Other formats including locale-specific variants, e.g. recognising month names,
      * are supported but this may vary from platform to platform and may change between versions. */
@@ -679,7 +685,7 @@ public class Time {
         if (input==null) return null;
         return parseCalendarMaybe(input).get();
     }
-    
+
     /** as {@link #parseCalendar(String)} but returning a {@link Maybe} rather than throwing or returning null */
     public static Maybe<Calendar> parseCalendarMaybe(@Nullable String input) {
         if (input==null) return Maybe.absent("value is null");
@@ -748,33 +754,33 @@ public class Time {
     private final static String DATE_SEPARATOR = COMMON_SEPARATORS+"/ ";
     private final static String DATE_TIME_ANY_ORDER_GROUP_SEPARATOR = COMMON_SEPARATORS+":/ ";
 
-    private final static String DATE_ONLY_WITH_INNER_SEPARATORS = 
+    private final static String DATE_ONLY_WITH_INNER_SEPARATORS =
             namedGroup("year", DIGIT+DIGIT+DIGIT+DIGIT) +
             anyChar(DATE_SEPARATOR) +
             namedGroup("month", options(optionally(DIGIT)+DIGIT, anyChar(LETTER)+"+")) +
             anyChar(DATE_SEPARATOR) +
             namedGroup("day", optionally(DIGIT)+DIGIT);
-    private final static String DATE_WORDS_2 = 
+    private final static String DATE_WORDS_2 =
             namedGroup("month", anyChar(LETTER)+"+") +
             anyChar(DATE_SEPARATOR) +
             namedGroup("day", optionally(DIGIT)+DIGIT) +
             ",?"+anyChar(DATE_SEPARATOR)+"+" +
             namedGroup("year", DIGIT+DIGIT+DIGIT+DIGIT);
     // we could parse NN-NN-NNNN as DD-MM-YYYY always, but could be confusing for MM-DD-YYYY oriented people, so require month named
-    private final static String DATE_WORDS_3 = 
+    private final static String DATE_WORDS_3 =
             namedGroup("day", optionally(DIGIT)+DIGIT) +
             anyChar(DATE_SEPARATOR) +
             namedGroup("month", anyChar(LETTER)+"+") +
             ",?"+anyChar(DATE_SEPARATOR)+"+" +
             namedGroup("year", DIGIT+DIGIT+DIGIT+DIGIT);
 
-    private final static String DATE_ONLY_NO_SEPARATORS = 
+    private final static String DATE_ONLY_NO_SEPARATORS =
             namedGroup("year", DIGIT+DIGIT+DIGIT+DIGIT) +
             namedGroup("month", DIGIT+DIGIT) +
             namedGroup("day", DIGIT+DIGIT);
 
     private final static String MERIDIAN = anyChar("aApP")+optionally(anyChar("mM"));
-    private final static String TIME_ONLY_WITH_INNER_SEPARATORS = 
+    private final static String TIME_ONLY_WITH_INNER_SEPARATORS =
             namedGroup("hours", optionally(DIGIT)+DIGIT)+
             optionally(
                 anyChar(TIME_SEPARATOR)+
@@ -783,43 +789,43 @@ public class Time {
                     anyChar(TIME_SEPARATOR)+
                     namedGroup("secs", DIGIT+DIGIT+optionally( optionally("\\.")+DIGIT+"+"))))+
             optionally(" *" + namedGroup("meridian", notMatching(LETTER+LETTER+LETTER)+MERIDIAN));
-    private final static String TIME_ONLY_NO_SEPARATORS = 
+    private final static String TIME_ONLY_NO_SEPARATORS =
             namedGroup("hours", DIGIT+DIGIT)+
             namedGroup("mins", DIGIT+DIGIT)+
             optionally(
                 namedGroup("secs", DIGIT+DIGIT+optionally( optionally("\\.")+DIGIT+"+")))+
                 namedGroup("meridian", "");
 
-    private final static String TZ_CODE = 
+    private final static String TZ_CODE =
             namedGroup("tzCode",
                 notMatching(MERIDIAN+options("$", anyChar("^"+LETTER))) + // not AM or PM
                 anyChar(LETTER)+"+"+anyChar(LETTER+DIGIT+"\\/\\-\\' _")+"*");
-    private final static String TIME_ZONE_SIGNED_OFFSET = 
-            namedGroup("tz", 
+    private final static String TIME_ZONE_SIGNED_OFFSET =
+            namedGroup("tz",
                 options(
                     namedGroup("tzOffset", options("\\+", "-")+
-                        DIGIT+optionally(DIGIT)+optionally(optionally(":")+DIGIT+DIGIT)), 
+                        DIGIT+optionally(DIGIT)+optionally(optionally(":")+DIGIT+DIGIT)),
                     optionally("\\+")+TZ_CODE));
-    private final static String TIME_ZONE_OPTIONALLY_SIGNED_OFFSET = 
-            namedGroup("tz", 
+    private final static String TIME_ZONE_OPTIONALLY_SIGNED_OFFSET =
+            namedGroup("tz",
                 options(
                     namedGroup("tzOffset", options("\\+", "-", " ")+
-                        options("0"+DIGIT, "10", "11", "12")+optionally(optionally(":")+DIGIT+DIGIT)), 
+                        options("0"+DIGIT, "10", "11", "12")+optionally(optionally(":")+DIGIT+DIGIT)),
                     TZ_CODE));
 
     private static String getDateTimeSeparatorPattern(String extraChars) {
-        return 
+        return
             options(
                 " +"+optionally(anyChar(DATE_TIME_ANY_ORDER_GROUP_SEPARATOR+extraChars+",")),
                 anyChar(DATE_TIME_ANY_ORDER_GROUP_SEPARATOR+extraChars+",")) +
             anyChar(DATE_TIME_ANY_ORDER_GROUP_SEPARATOR+extraChars)+"*";
     }
-    
+
     @SuppressWarnings("deprecation")
     // we have written our own parsing because the alternatives were either too specific or too general
     // java and apache and even joda-time are too specific, and would require explosion of patterns to be flexible;
     // Natty - https://github.com/joestelmach/natty - is very cool, but it drags in ANTLR,
-    // it doesn't support dashes between date and time, and 
+    // it doesn't support dashes between date and time, and
     // it encourages relative time which would be awesome but only if we resolved it on read
     // (however there is natty code to parseDateNatty in the git history if we did want to use it)
     private static Maybe<Calendar> parseCalendarSimpleFlexibleFormatParser(String input) {
@@ -829,11 +835,11 @@ public class Time {
             DATE_ONLY_WITH_INNER_SEPARATORS,
             DATE_ONLY_NO_SEPARATORS,
             DATE_WORDS_2,
-            DATE_WORDS_3,            
+            DATE_WORDS_3,
         };
         String[] TIME_PATTERNS = new String[] {
             TIME_ONLY_WITH_INNER_SEPARATORS,
-            TIME_ONLY_NO_SEPARATORS            
+            TIME_ONLY_NO_SEPARATORS
         };
         String[] TZ_PATTERNS = new String[] {
             // space then time zone with sign (+-) or code is preferred
@@ -842,19 +848,19 @@ public class Time {
             namedGroup("tz", namedGroup("tzOffset", "")+namedGroup("tzCode", "")),
             // then any separator then offset with sign
             getDateTimeSeparatorPattern("") + TIME_ZONE_SIGNED_OFFSET,
-            
-            // try parsing with enforced separators before TZ first 
+
+            // try parsing with enforced separators before TZ first
             // (so e.g. in the case of DATE-0100, the -0100 is the time, not the timezone)
             // then relax below (e.g. in the case of DATE-TIME+0100)
-            
+
             // finally match DATE-TIME-1000 as time zone -1000
             // or DATE-TIME 1000 as TZ +1000 in case a + was supplied but converted to ' ' by web
             // (but be stricter about the format, two or four digits required, and hours <= 12 so as not to confuse with a year)
             optionally(getDateTimeSeparatorPattern("")) + TIME_ZONE_OPTIONALLY_SIGNED_OFFSET
         };
-        
+
         List<String> basePatterns = MutableList.of();
-        
+
         // patterns with date first
         String[] DATE_PATTERNS_UNCLOSED = new String[] {
             // separator before time *required* if date had separators
@@ -869,7 +875,7 @@ public class Time {
             for (String dateP: DATE_PATTERNS_UNCLOSED)
                 for (String timeP: TIME_PATTERNS)
                     basePatterns.add(dateP + timeP+")?" + tzP);
-        
+
         // also allow time first, with TZ after, then before
         for (String tzP: TZ_PATTERNS)
             for (String dateP: DATE_PATTERNS)
@@ -891,10 +897,10 @@ public class Time {
             Calendar result;
 
             String tz = m.group("tz");
-            
+
             int year = Integer.parseInt(m.group("year"));
             int day = Integer.parseInt(m.group("day"));
-            
+
             String monthS = m.group("month");
             int month;
             if (monthS.matches(DIGIT+"+")) {
@@ -906,7 +912,7 @@ public class Time {
                     return Maybe.absent("Unknown date format '"+input+"': invalid month '"+monthS+"'; try http://yaml.org/type/timestamp.html format e.g. 2015-06-15 16:00:00 +0000");
                 }
             }
-            
+
             if (Strings.isNonBlank(tz)) {
                 TimeZone tzz = null;
                 String tzCode = m.group("tzCode");
@@ -935,7 +941,7 @@ public class Time {
                 result = new GregorianCalendar();
             }
             result.clear();
-            
+
             result.set(Calendar.YEAR, year);
             result.set(Calendar.MONTH, month);
             result.set(Calendar.DAY_OF_MONTH, day);
@@ -972,18 +978,18 @@ public class Time {
                     result.set(Calendar.MILLISECOND, (int)Math.round(s*1000) % 1000);
                 }
             }
-            
+
             return Maybe.of(result);
         }
         return Maybe.absent("Unknown date format '"+input+"'; try http://yaml.org/type/timestamp.html format e.g. 2015-06-15 16:00:00 +0000");
     }
-    
+
     public static TimeZone getTimeZone(String code) {
         if (code.indexOf('/')==-1) {
             if ("Z".equals(code)) return TIME_ZONE_UTC;
             if ("UTC".equals(code)) return TIME_ZONE_UTC;
             if ("GMT".equals(code)) return TIME_ZONE_UTC;
-            
+
             // get the time zone -- most short codes aren't accepted, so accept (and prefer) certain common codes
             if ("EST".equals(code)) return getTimeZone("America/New_York");
             if ("EDT".equals(code)) return getTimeZone("America/New_York");
@@ -998,7 +1004,7 @@ public class Time {
             if ("CEST".equals(code)) return getTimeZone("Europe/Paris");
             // IST falls through to below, where it is treated as India (not Irish); IDT not recognised
         }
-        
+
         TimeZone tz = TimeZone.getTimeZone(code);
         if (tz!=null && !tz.equals(TimeZone.getTimeZone("GMT"))) {
             // recognized
@@ -1012,7 +1018,7 @@ public class Time {
         // definitely unrecognized
         return null;
     }
-    
+
     /** convert a TimeZone e.g. Europe/London to an offset string as at the given day, e.g. +0100 or +0000 depending daylight savings,
      * absent with nice error if zone unknown */
     public static Maybe<String> getTimeZoneOffsetString(String tz, int year, int month, int day) {
@@ -1020,7 +1026,7 @@ public class Time {
         if (tzz==null) return Maybe.absent("Unknown time zone code: "+tz);
         return Maybe.of(getTimeZoneOffsetString(tzz, year, month, day));
     }
-    
+
     /** as {@link #getTimeZoneOffsetString(String, int, int, int)} where the {@link TimeZone} is already instantiated */
     @SuppressWarnings("deprecation")
     public static String getTimeZoneOffsetString(TimeZone tz, int year, int month, int day) {
@@ -1044,7 +1050,7 @@ public class Time {
     private static String notMatching(String pattern) {
         return "(?!"+pattern+")";
     }
-    
+
     private static Maybe<Matcher> match(String pattern, String input) {
         Matcher m = Pattern.compile("^"+pattern+"$").matcher(input);
         if (m.find()) return Maybe.of(m);
@@ -1055,7 +1061,7 @@ public class Time {
         return parseCalendarFormat(dateString, new SimpleDateFormat(format, Locale.ROOT));
     }
     public static Maybe<Calendar> parseCalendarFormat(String dateString, DateFormat format) {
-        if (dateString == null) { 
+        if (dateString == null) {
             return Maybe.absent(() -> new NumberFormatException("GeneralHelper.parseDateString cannot parse a null string"));
         }
         try {
@@ -1077,7 +1083,7 @@ public class Time {
         }
     }
 
-    /** removes milliseconds from the date object; needed if serializing to ISO-8601 format 
+    /** removes milliseconds from the date object; needed if serializing to ISO-8601 format
      * and want to serialize back and get the same data */
     public static Date dropMilliseconds(Date date) {
         return date==null ? null : date.getTime()%1000!=0 ? new Date(date.getTime() - (date.getTime()%1000)) : date;
@@ -1087,7 +1093,7 @@ public class Time {
     public static Duration elapsedSince(long timestamp) {
         return Duration.millis(System.currentTimeMillis() - timestamp);
     }
-    
+
     /** true iff it has been longer than the given duration since the given timestamp */
     public static boolean hasElapsedSince(long timestamp, Duration duration) {
         return elapsedSince(timestamp).compareTo(duration) > 0;
@@ -1097,5 +1103,5 @@ public class Time {
     public static long now() {
         return System.currentTimeMillis();
     }
-    
+
 }

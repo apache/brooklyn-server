@@ -20,13 +20,23 @@ package org.apache.brooklyn.core.sensor;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.google.common.annotations.Beta;
-import com.google.common.base.*;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import groovy.lang.Closure;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.*;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
@@ -43,7 +53,15 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.task.*;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
+import org.apache.brooklyn.util.core.task.BasicTask;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier;
+import org.apache.brooklyn.util.core.task.ParallelTask;
+import org.apache.brooklyn.util.core.task.TaskInternal;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.NotManagedException;
@@ -64,7 +82,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
@@ -74,7 +98,7 @@ import java.util.function.BiConsumer;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /** Conveniences for making tasks which run in entity {@link ExecutionContext}s, blocking on attributes from other entities, possibly transforming those;
- * these {@link Task} instances are typically passed in {@link Entity#setConfig(ConfigKey, Object)}.
+ * these {@link Task} instances are typically passed in as values when setting config on entities.
  * <p>
  * If using a lot it may be useful to:
  * <pre>
@@ -161,7 +185,7 @@ public class DependentConfiguration {
     }
 
     public static <T> Task<T> attributeWhenReady(final Entity source, final AttributeSensor<T> sensor, AttributeWhenReadyOptions options) {
-        return builder().attributeWhenReady(source, sensor).options(options).build();
+        return builder().attributeWhenReady(source, sensor, options).build();
     }
 
     /**
@@ -957,18 +981,34 @@ public class DependentConfiguration {
      */
     @Beta
     public static class ProtoBuilder {
+        /** Alias for {@link #attributeWhenReadyDefaultOptions(Entity, AttributeSensor)} */
+        public <T2> Builder<T2,T2> attributeWhenReady(Entity source, AttributeSensor<T2> sensor) {
+            return attributeWhenReady(source, sensor, AttributeWhenReadyOptions.defaultOptions());
+        }
+
+        public <T2> Builder<T2,T2> attributeWhenReady(Entity source, AttributeSensor<T2> sensor, AttributeWhenReadyOptions options) {
+            return attributeWhenReadyNoOptions(source, sensor).options(options);
+        }
+
         /**
          * Will wait for the attribute on the given entity, with default behaviour:
          * If that entity reports {@link Lifecycle#ON_FIRE} for its {@link Attributes#SERVICE_STATE_ACTUAL} then it will abort;
          * If that entity is stopping or destroyed (see {@link Builder#timeoutIfDown(Duration)}),
          * then it will timeout after 1 minute.
          */
-        public <T2> Builder<T2,T2> attributeWhenReady(Entity source, AttributeSensor<T2> sensor) {
-            return new Builder<T2,T2>(source, sensor).options(AttributeWhenReadyOptions.defaultOptions());
+        public <T2> Builder<T2,T2> attributeWhenReadyDefaultOptions(Entity source, AttributeSensor<T2> sensor) {
+            return attributeWhenReady(source, sensor, AttributeWhenReadyOptions.defaultOptions());
         }
 
         /**
-         * Will wait for the attribute on the given entity, not aborting when it goes {@link Lifecycle#ON_FIRE}.
+         * Will wait for the attribute on the given entity, not aborting when it goes {@link Lifecycle#ON_FIRE}, no timeout.
+         */
+        public <T2> Builder<T2,T2> attributeWhenReadyNoOptions(Entity source, AttributeSensor<T2> sensor) {
+            return new Builder<T2,T2>(source, sensor);
+        }
+
+        /**
+         * Alias for {@link #attributeWhenReadyNoOptions(Entity, AttributeSensor)}
          */
         public <T2> Builder<T2,T2> attributeWhenReadyAllowingOnFire(Entity source, AttributeSensor<T2> sensor) {
             return new Builder<T2,T2>(source, sensor);
@@ -1053,13 +1093,16 @@ public class DependentConfiguration {
             timeoutIf(source, Attributes.SERVICE_STATE_ACTUAL, Predicates.in(MutableList.of(Lifecycle.STOPPING, Lifecycle.STOPPED, Lifecycle.DESTROYED, Lifecycle.ON_FIRE, Lifecycle.CREATED, null)), time);
             return this;
         }
+
+        /** Applies the given option. Note if options have already been supplied,
+         * even using the default {@link #attributeWhenReady(Entity, AttributeSensor)},
+         * this will not undo things like {@link #abortIf(Entity, AttributeSensor)}
+         * or override timeouts if not set here. */
         public Builder<T,V> options(AttributeWhenReadyOptions options) {
             if (options!=null) {
-                if (options.timeout!=null) {
-                    timeout(options.timeout);
-                }
+                if (options.timeout!=null) timeout(options.timeout);
+                if (options.timeout_if_down != null) timeoutIfDown(options.timeout_if_down);
                 if (Boolean.TRUE.equals(options.abort_if_on_fire)) abortIfOnFire();
-                if (options.timeout_if_down !=null) timeoutIfDown(options.timeout_if_down);
 
                 if (!options.wait_for_truthy) {
                     readiness = Predicates.alwaysTrue();

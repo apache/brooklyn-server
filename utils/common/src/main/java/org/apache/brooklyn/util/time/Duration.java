@@ -29,18 +29,23 @@ import com.google.common.base.Stopwatch;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.temporal.Temporal;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** simple class determines a length of time */
 public class Duration implements Comparable<Duration>, Serializable {
 
     private static final long serialVersionUID = -2303909964519279617L;
-    
+
+    private static final Logger log = LoggerFactory.getLogger(Duration.class);
+
     public static final Duration ZERO = of(0, null);
     public static final Duration ONE_MILLISECOND = of(1, TimeUnit.MILLISECONDS);
     public static final Duration ONE_SECOND = of(1, TimeUnit.SECONDS);
@@ -52,11 +57,13 @@ public class Duration implements Comparable<Duration>, Serializable {
     public static final Duration FIVE_MINUTES = of(5, TimeUnit.MINUTES);
     public static final Duration ONE_HOUR = of(1, TimeUnit.HOURS);
     public static final Duration ONE_DAY = of(1, TimeUnit.DAYS);
-    
-    /** longest supported duration, 2^{63}-1 nanoseconds, approx ten billion seconds, or 300 years */ 
+
+    /** longest supported duration, 2^{63}-1 nanoseconds, approx ten billion seconds, or 300 years */
     public static final Duration PRACTICALLY_FOREVER = of(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
     /** used to indicate forever */
-    private static final Duration ALMOST_PRACTICALLY_FOREVER = PRACTICALLY_FOREVER.subtract(Duration.days(365*50));
+    static final Duration ALMOST_PRACTICALLY_FOREVER = PRACTICALLY_FOREVER.subtract(Duration.days(365*50));
+    static final Duration MINUS_FOREVER = of(Long.MIN_VALUE, TimeUnit.NANOSECONDS);
+    public static final String FOREVER_STRING = "forever";
 
     private final long nanos;
 
@@ -78,7 +85,6 @@ public class Duration implements Comparable<Duration>, Serializable {
 
     @Override
     public String toString() {
-        if (isLongerThan(ALMOST_PRACTICALLY_FOREVER)) return "forever";
         return Time.makeTimeStringExact(this);
     }
 
@@ -147,8 +153,8 @@ public class Duration implements Comparable<Duration>, Serializable {
         return this;
     }
 
-    /** 
-     * See {@link Time#parseElapsedTime(String)}; 
+    /**
+     * See {@link Time#parseElapsedTime(String)};
      * also accepts "forever" (and for those who prefer things exceedingly accurate, "practically_forever").
      * If null or blank or 'null' is passed in, then null will be returned.
      * If no units then millis is assumed.
@@ -157,11 +163,11 @@ public class Duration implements Comparable<Duration>, Serializable {
     public static Duration parse(String textualDescription) {
         if (Strings.isBlank(textualDescription)) return null;
         if ("null".equalsIgnoreCase(textualDescription)) return null;
-        
-        if ("forever".equalsIgnoreCase(textualDescription)) return Duration.PRACTICALLY_FOREVER;
+
+        if (FOREVER_STRING.equalsIgnoreCase(textualDescription)) return Duration.PRACTICALLY_FOREVER;
         if ("practicallyforever".equalsIgnoreCase(textualDescription)) return Duration.PRACTICALLY_FOREVER;
         if ("practically_forever".equalsIgnoreCase(textualDescription)) return Duration.PRACTICALLY_FOREVER;
-        
+
         return new Duration((long) Time.parseElapsedTimeAsDouble(textualDescription), TimeUnit.MILLISECONDS);
     }
 
@@ -197,7 +203,26 @@ public class Duration implements Comparable<Duration>, Serializable {
 
     /** creates new {@link Duration} instance of the given length of time */
     public static Duration nanos(Number n) {
-        return new Duration(n.longValue(), TimeUnit.NANOSECONDS);
+        long v = n.longValue();
+        if (!n.equals(v)) {
+            double d = n.doubleValue();
+            long v2 = Math.round(d);
+            if (Math.abs(v2-v) <= 2) {
+                // close enough - longValue usu rounds down, though so prefer the rounded value
+                v = v2;
+            } else if (Math.abs(d) <= Long.MAX_VALUE / 2) {
+                // shouldn't happen
+                log.warn("Curious, duration nanos input "+n+" ("+n.getClass()+") converts to "+v+" or "+v2+" but is in the range of longs; using the former");
+            } else {
+                // out of range of longs; convert to forever
+                if (n instanceof BigInteger) v = ((BigInteger) n).signum();
+                else if (n instanceof BigDecimal) v = ((BigDecimal) n).signum();
+                else v = BigDecimal.valueOf(n.doubleValue()).signum();
+                if (v < 0) return Duration.MINUS_FOREVER;
+                return Duration.PRACTICALLY_FOREVER;
+            }
+        }
+        return new Duration(v, TimeUnit.NANOSECONDS);
     }
 
     /** creates new {@link Duration} instance from the first instant to the second */
@@ -276,15 +301,15 @@ public class Duration implements Comparable<Duration>, Serializable {
     }
 
     public Duration add(Duration other) {
-        return nanos(nanos() + other.nanos());
+        return nanos(BigInteger.valueOf(nanos()).add(BigInteger.valueOf(other.nanos())));
     }
 
     public Duration subtract(Duration other) {
-        return nanos(nanos() - other.nanos());
+        return nanos(BigInteger.valueOf(nanos()).subtract(BigInteger.valueOf(other.nanos())));
     }
 
     public Duration multiply(long x) {
-        return nanos(nanos() * x);
+        return nanos(BigInteger.valueOf(nanos()).multiply(BigInteger.valueOf(x)));
     }
 
     /** @deprecated since 0.10.0 use {@link #multiply} instead. */
@@ -295,7 +320,7 @@ public class Duration implements Comparable<Duration>, Serializable {
 
     /** as #multiply(long), but approximate due to the division (nano precision) */
     public Duration multiply(double d) {
-        return nanos(nanos() * d);
+        return nanos(BigDecimal.valueOf(nanos()).multiply(BigDecimal.valueOf(d)));
     }
 
     public Duration half() {

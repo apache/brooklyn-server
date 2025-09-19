@@ -33,7 +33,7 @@ public class DurationTest {
     }
 
     public void testAdd() {
-        Assert.assertEquals((((4*60+3)*60)+30)*1000, 
+        Assert.assertEquals((((4*60+3)*60)+30)*1000,
             new Duration(3, TimeUnit.MINUTES).
                 add(new Duration(4, TimeUnit.HOURS)).
                 add(new Duration(30, TimeUnit.SECONDS)).
@@ -41,7 +41,7 @@ public class DurationTest {
     }
 
     public void testStatics() {
-        Assert.assertEquals((((4*60+3)*60)+30)*1000, 
+        Assert.assertEquals((((4*60+3)*60)+30)*1000,
             Duration.ONE_MINUTE.multiply(3).
                 add(Duration.ONE_HOUR.multiply(4)).
                 add(Duration.THIRTY_SECONDS).
@@ -49,7 +49,7 @@ public class DurationTest {
     }
 
     public void testParse() {
-        Assert.assertEquals((((4*60+3)*60)+30)*1000, 
+        Assert.assertEquals((((4*60+3)*60)+30)*1000,
                 Duration.of("4h 3m 30s").toMilliseconds());
     }
 
@@ -76,34 +76,34 @@ public class DurationTest {
     }
 
     public void testToString() {
-        Assert.assertEquals("4h 3m 30s", 
+        Assert.assertEquals("4h 3m 30s",
                 Duration.of("4h 3m 30s").toString());
     }
 
     public void testToStringRounded() {
-        Assert.assertEquals("4h 3m", 
+        Assert.assertEquals("4h 3m",
                 Duration.of("4h 3m 30s").toStringRounded());
     }
 
     public void testParseToString() {
-        Assert.assertEquals(Duration.of("4h 3m 30s"), 
+        Assert.assertEquals(Duration.of("4h 3m 30s"),
                 Duration.parse(Duration.of("4h 3m 30s").toString()));
     }
 
     public void testRoundUp() {
-        Assert.assertEquals(Duration.nanos(1).toMillisecondsRoundingUp(), 1); 
+        Assert.assertEquals(Duration.nanos(1).toMillisecondsRoundingUp(), 1);
     }
 
     public void testRoundZero() {
-        Assert.assertEquals(Duration.ZERO.toMillisecondsRoundingUp(), 0); 
+        Assert.assertEquals(Duration.ZERO.toMillisecondsRoundingUp(), 0);
     }
 
     public void testRoundUpNegative() {
-        Assert.assertEquals(Duration.nanos(-1).toMillisecondsRoundingUp(), -1); 
+        Assert.assertEquals(Duration.nanos(-1).toMillisecondsRoundingUp(), -1);
     }
 
     public void testNotRounding() {
-        Assert.assertEquals(Duration.nanos(-1).toMilliseconds(), 0); 
+        Assert.assertEquals(Duration.nanos(-1).toMilliseconds(), 0);
     }
 
     public void testNotRoundingNegative() {
@@ -113,13 +113,31 @@ public class DurationTest {
     public void testComparison() {
         Assert.assertTrue(Duration.seconds(1.8).isLongerThan(Duration.millis(1600)));
         Assert.assertTrue(Duration.millis(1600).isShorterThan(Duration.seconds(1.8)));
-        
+
         Assert.assertTrue(Duration.seconds(1).isLongerThan(Duration.ZERO));
         Assert.assertFalse(Duration.seconds(-1).isLongerThan(Duration.ZERO));
     }
 
     public void testIsPositive() {
         Assert.assertTrue(Duration.minutes(1).isPositive());
+    }
+
+    public void testOverflows() {
+        Assert.assertEquals(Duration.PRACTICALLY_FOREVER.add(Duration.nanos(1)), Duration.PRACTICALLY_FOREVER);
+        Assert.assertEquals(Duration.PRACTICALLY_FOREVER.subtract(Duration.nanos(-1)), Duration.PRACTICALLY_FOREVER);
+        Assert.assertEquals(Duration.PRACTICALLY_FOREVER.multiply(2), Duration.PRACTICALLY_FOREVER);
+
+        Duration justLessThanForever = Duration.PRACTICALLY_FOREVER.subtract(Duration.nanos(1));
+        Asserts.assertThat(justLessThanForever, Duration::isPositive);
+        Asserts.assertEquals(justLessThanForever.toString(), "forever");
+
+        Assert.assertEquals(Duration.of(-Long.MAX_VALUE).toString(), "-forever");
+        Assert.assertEquals(Duration.of(Long.MIN_VALUE).toString(), "-forever");
+        Assert.assertEquals(Duration.of(Duration.ALMOST_PRACTICALLY_FOREVER).toString(), "forever");
+        Assert.assertEquals(Duration.of(Duration.ALMOST_PRACTICALLY_FOREVER).multiply(-1).toString(), "-forever");
+
+        // anything less than half of max value is NOT rounded to forever; beyond half of max value it might be, and close to max value is will be
+        Assert.assertEquals(Duration.of(Duration.ALMOST_PRACTICALLY_FOREVER).multiply(-0.5d).add(Duration.nanos(1)).toString(), "-44250d 23h 53m 38s 427ms 387us 904ns");
     }
 
 }
