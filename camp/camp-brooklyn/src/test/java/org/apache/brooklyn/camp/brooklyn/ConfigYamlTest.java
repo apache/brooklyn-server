@@ -33,10 +33,12 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
@@ -57,7 +59,7 @@ import java.util.concurrent.Executors;
 import static org.testng.Assert.*;
 
 public class ConfigYamlTest extends AbstractYamlTest {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger(ConfigYamlTest.class);
 
     final static String DOUBLE_MAX_VALUE_TIMES_TEN = "" + Double.MAX_VALUE + "0";
@@ -68,7 +70,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        
+
         executor = Executors.newCachedThreadPool();
     }
 
@@ -106,18 +108,18 @@ public class ConfigYamlTest extends AbstractYamlTest {
         assertNull(entity.getMyField()); // field with @SetFromFlag
         assertNull(entity.getMyField2()); // field with @SetFromFlag("myField2Alias"), set using alias
     }
-    
+
 
     @Test
     public void testRecursiveConfigFailsGracefully() throws Exception {
         doTestRecursiveConfigFailsGracefully(false);
     }
-    
+
     @Test
     public void testRecursiveConfigImmediateFailsGracefully() throws Exception {
         doTestRecursiveConfigFailsGracefully(true);
     }
-    
+
     protected void doTestRecursiveConfigFailsGracefully(boolean immediate) throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
@@ -178,18 +180,18 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
         final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-     
+
         assertEquals(entity.config().get(TestEntity.CONF_NAME), "myName"); // confName has @SetFromFlag("confName"); using full name
         assertEquals(entity.config().get(TestEntity.CONF_OBJECT), "myObj"); // confObject does not have @SetFromFlag
         assertEquals(entity.config().get(TestEntity.CONF_STRING), "myString"); // set using the @SetFromFlag alias
-        
-        // The "dynamic" config key (i.e. not defined on the entity's type) is not picked up to 
+
+        // The "dynamic" config key (i.e. not defined on the entity's type) is not picked up to
         // be set on the entity if it's not inside the "brooklyn.config" block. This isn't exactly
         // desired behaviour, but it is what happens! This test is more to demonstrate the behaviour
-        // than to say it is definitely what we want! But like the comment at the start of the 
+        // than to say it is definitely what we want! But like the comment at the start of the
         // method says, this style is discouraged so we don't really care.
         assertNull(entity.config().get(ConfigKeys.newStringConfigKey("test.confDynamic"))); // not defined on entity
-        
+
         // Again this isn't exactly desired behaviour, just a demonstration of what happens!
         // The names used in YAML correspond to fields with @SetFromFlag. The values end up in the
         // {@link EntitySpec#config} rather than {@link EntitySpec#flags}. The field is not set.
@@ -212,13 +214,13 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
         final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-     
+
         // Task that resolves quickly
         assertEquals(entity.config().get(TestEntity.CONF_MAP_PLAIN), ImmutableMap.of("mykey", "myval"));
         assertEquals(entity.config().get(TestEntity.CONF_LIST_PLAIN), ImmutableList.of("myval"));
         assertEquals(entity.config().get(TestEntity.CONF_SET_PLAIN), ImmutableSet.of("myval"));
     }
-    
+
     /**
      * This tests config keys of type {@link org.apache.brooklyn.core.config.MapConfigKey}, etc.
      * It sets the value all in one go (as opposed to explicit sub-keys).
@@ -244,7 +246,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
         final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-     
+
         // Task that resolves quickly
         assertEquals(entity.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mykey", "myval"));
         assertEquals(entity.config().get(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.of("mykey", "myval"));
@@ -253,7 +255,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
         assertEquals(entity.config().get(TestEntity.CONF_SET_THING), ImmutableSet.of("myval"));
         assertEquals(entity.config().get(TestEntity.CONF_SET_OBJ_THING), ImmutableSet.of("myval"));
     }
-    
+
     /**
      * This tests config keys of type {@link org.apache.brooklyn.core.config.MapConfigKey}, etc.
      * It sets the value of each sub-key explicitly, rather than all in one go.
@@ -273,7 +275,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
         final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-     
+
         // Task that resolves quickly
         assertEquals(entity.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mykey", "myval"));
         assertEquals(entity.config().get(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.of("mykey", "myval"));
@@ -282,7 +284,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
         assertEquals(entity.config().get(TestEntity.CONF_SET_THING), ImmutableSet.of("myval"));
         assertEquals(entity.config().get(TestEntity.CONF_SET_OBJ_THING), ImmutableSet.of("myval"));
     }
-    
+
     @Test
     public void testDeferredSupplierToConfig() throws Exception {
         String yaml = Joiner.on("\n").join(
@@ -307,7 +309,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
         final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-     
+
         assertEquals(entity.config().get(TestEntity.CONF_NAME), "myOther");
         assertEquals(entity.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mykey", "myOther"));
         assertEquals(entity.config().get(TestEntity.CONF_LIST_THING), ImmutableList.of("myOther"));
@@ -316,7 +318,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
         assertEquals(entity.config().get(TestEntity.CONF_LIST_PLAIN), ImmutableList.of("myOther"));
         assertEquals(entity.config().get(TestEntity.CONF_SET_PLAIN), ImmutableSet.of("myOther"));
     }
-    
+
     @Test
     public void testDeferredSupplierToAttributeWhenReady() throws Exception {
         String yaml = Joiner.on("\n").join(
@@ -342,7 +344,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
         // Non-blocking calls will now return with the value
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_NAME).get(), "myOther");
     }
-    
+
     /**
      * This tests config keys of type {@link org.apache.brooklyn.core.config.MapConfigKey}, etc.
      * For plain maps, see {@link #testDeferredSupplierToAttributeWhenReadyInPlainCollections()}
@@ -387,10 +389,10 @@ public class ConfigYamlTest extends AbstractYamlTest {
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_LIST_THING).get(), ImmutableList.of("myOther"));
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_SET_THING).get(), ImmutableSet.of("myOther"));
     }
-    
+
     /**
      * This tests config keys of type {@link java.util.Map}, etc.
-     * For special types (e.g. {@link org.apache.brooklyn.core.config.MapConfigKey}), see 
+     * For special types (e.g. {@link org.apache.brooklyn.core.config.MapConfigKey}), see
      * {@link #testDeferredSupplierToAttributeWhenReadyInPlainCollections()}.
      */
     @Test
@@ -453,8 +455,8 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
     @Test
     public void testAttributeWhenReadyOptionsBasicOnOtherEntity() throws Exception {
-        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: 10ms } ] } ] }";
-        String v1 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { \"timeout\": \"10ms\" } ] } ] }";
+        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: 10ms, timeout_if_on_fire: 0 } ] } ] }";
+        String v1 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { \"timeout\": \"10ms\", \"timeout_if_on_fire\": 0 } ] } ] }";
 
         String yaml = Joiner.on("\n").join(
                 "services:",
@@ -484,8 +486,9 @@ public class ConfigYamlTest extends AbstractYamlTest {
         sw = Stopwatch.createStarted();
         Asserts.assertFailsWith(() -> entity1.config().get(TestEntity.CONF_NAME),
                 Asserts.expectedFailureContainsIgnoreCase("Cannot resolve", "$brooklyn:chain", " attributeWhenReady", "test.name", "0", "Resolving config test.confName",
-//                        "Unsatisfied after ",
-                        "Abort due to", "on-fire"));
+//                        "Unsatisfied after "
+                        "Abort due to"
+                        , "on-fire"));
         Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isShorterThan(Duration.millis(999)));
 
         // and source code
@@ -571,8 +574,8 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
     @Test
     public void testAttributeWhenReadyOptionsTimeoutIfDownResetsAndAbortsIfOnFire() throws Exception {
-        // was 10ms, but that is too short as there are 10ms sleeps while stopping; 50ms is better
-        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: forever, timeout_if_down: 50ms } ] } ] }";
+        // was 10ms, but that is too short as there are 10ms sleeps while stopping
+        String v0 = "{ $brooklyn:chain: [ $brooklyn:entity(\"entity2\"), { attributeWhenReady: [ \"test.name\", { timeout: forever, timeout_if_down: 250ms, timeout_if_on_fire: 0 } ] } ] }";
 
         String yaml = Joiner.on("\n").join(
                 "services:",
@@ -589,8 +592,9 @@ public class ConfigYamlTest extends AbstractYamlTest {
         entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
         Stopwatch sw = Stopwatch.createStarted();
         new Thread(()->{
-            Time.sleep(Duration.millis(10));
+            Time.sleep(Duration.millis(10));  // 100 to force detection after start
             entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
+//            Time.sleep(Duration.millis(100));  // + additional delay to force timer running
             entity2.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);  // will clear the timeout
 
             Time.sleep(Duration.millis(10));
@@ -673,6 +677,12 @@ public class ConfigYamlTest extends AbstractYamlTest {
         entity2.sensors().set(TestEntity.NAME, "x");
         EntityAsserts.assertConfigEquals(entity1, TestEntity.CONF_NAME, "x");
         Asserts.assertThat(Duration.of(sw.elapsed()), d -> d.isShorterThan(Duration.millis(999)));
+    }
+
+    @Test
+    public void testAttributeWhenReadyOptionsCoercion() throws Exception {
+        DependentConfiguration.AttributeWhenReadyOptions o = TypeCoercions.coerce(DependentConfiguration.AttributeWhenReadyOptions.allowingOnFireMap(), DependentConfiguration.AttributeWhenReadyOptions.class);
+        Asserts.assertFalse(o.abort_if_on_fire);
     }
 
     @Test

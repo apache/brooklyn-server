@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.google.common.base.Stopwatch;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -67,10 +68,10 @@ import com.google.common.util.concurrent.Callables;
 public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
 
     private static final Logger log = LoggerFactory.getLogger(DependentConfigurationTest.class);
-    
+
     public static final int SHORT_WAIT_MS = 100;
     public static final int TIMEOUT_MS = 30*1000;
-    
+
     private TestEntity entity;
     private TestEntity entity2;
 
@@ -81,11 +82,11 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         entity2 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
     }
-    
+
     @Test
     public void testTransform() throws Exception {
         Task<Integer> t = DependentConfiguration.transform(
-                new BasicTask<Integer>(Callables.returning(2)), 
+                new BasicTask<Integer>(Callables.returning(2)),
                 incrementerFunction());
         submit(t);
         assertEquals(t.get(TIMEOUT_MS, TimeUnit.MILLISECONDS), Integer.valueOf(3));
@@ -97,12 +98,12 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
                 return val + 1;
             }};
     }
-    
+
     @Test
     public void testFormatString() throws Exception {
         Task<String> t = DependentConfiguration.formatString("%s://%s:%d/",
                 "http",
-                new BasicTask<String>(Callables.returning("localhost")), 
+                new BasicTask<String>(Callables.returning("localhost")),
                 DependentConfiguration.transform(new BasicTask<Integer>(Callables.returning(8080)), incrementerFunction()));
         submit(t);
         Assert.assertEquals(t.get(TIMEOUT_MS, TimeUnit.MILLISECONDS), "http://localhost:8081/");
@@ -157,7 +158,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
     public void testAttributeWhenReady() throws Exception {
         final Task<String> t = submit(DependentConfiguration.attributeWhenReady(entity, TestEntity.NAME));
         assertNotDoneContinually(t);
-        
+
         entity.sensors().set(TestEntity.NAME, "myval");
         assertEquals(assertDoneEventually(t), "myval");
     }
@@ -165,10 +166,10 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testAttributeWhenReadyWithPredicate() throws Exception {
         final Task<String> t = submit(DependentConfiguration.attributeWhenReady(entity, TestEntity.NAME, Predicates.equalTo("myval2")));
-        
+
         entity.sensors().set(TestEntity.NAME, "myval");
         assertNotDoneContinually(t);
-        
+
         entity.sensors().set(TestEntity.NAME, "myval2");
         assertEquals(assertDoneEventually(t), "myval2");
     }
@@ -177,7 +178,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
     public void testAttributeWhenReadyWithPostProcessing() throws Exception {
         final Task<String> t = submit(DependentConfiguration.valueWhenAttributeReady(entity, TestEntity.SEQUENCE, Functions.toStringFunction()));
         assertNotDoneContinually(t);
-        
+
         entity.sensors().set(TestEntity.SEQUENCE, 1);
         assertEquals(assertDoneEventually(t), "1");
     }
@@ -190,7 +191,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
                 .build());
 
         assertNotDoneContinually(t);
-        
+
         entity.sensors().set(TestEntity.SEQUENCE, 1);
         assertEquals(assertDoneEventually(t), "1");
     }
@@ -207,7 +208,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
             }});
 
         assertNotDoneContinually(t);
-        
+
         entity.sensors().set(TestEntity.SEQUENCE, 1);
         assertEquals(assertDoneEventually(t), "1");
     }
@@ -219,7 +220,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
                 .abortIf(entity2, TestEntity.SEQUENCE, Predicates.equalTo(1))
                 .build());
         assertNotDoneContinually(t);
-        
+
         entity.sensors().set(TestEntity.NAME, "myval");
         assertEquals(assertDoneEventually(t), "myval");
     }
@@ -320,41 +321,41 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testAttributeWhenReadyAbortsWhenOnFireByDefault() {
+    public void testAttributeWhenReadyAbortsWhenOnFireImmediately() {
         log.info("starting test "+JavaClassNames.niceClassAndMethod());
         final Task<String> t = submit(DependentConfiguration.builder()
-                .attributeWhenReady(entity, TestEntity.NAME)
+                .attributeWhenReady(entity, TestEntity.NAME).abortIfOnFire()
                 .build());
 
         ServiceStateLogic.setExpectedState(entity, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        
+
         try {
             assertDoneEventually(t);
             fail("Should have failed already!");
         } catch (Throwable e) {
-            if (e.toString().contains("Aborted waiting for ready")) 
-                return;
-            
+            if (e.toString().contains("Aborted waiting for ready")) return;
+//            if (e.toString().contains("Unsatisfied after")) return;
+
             log.warn("Did not abort as expected: "+e, e);
             Dumper.dumpInfo(entity);
-            
+
             throw Exceptions.propagate(e);
         }
     }
 
     @Test(invocationCount=100, groups = "Integration")
     public void testAttributeWhenReadyAbortsWhenOnfireByDefaultManyTimes() {
-        testAttributeWhenReadyAbortsWhenOnFireByDefault();
+        testAttributeWhenReadyAbortsWhenOnFireImmediately();
     }
-    
+
     @Test
-    public void testAttributeWhenReadyAbortsWhenAlreadyOnFireByDefault() throws Exception {
+    public void testAttributeWhenReadyAbortsWhenAlreadyOnFireImmediately() throws Exception {
         ServiceStateLogic.setExpectedState(entity, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        
+
         final Task<String> t = submit(DependentConfiguration.builder()
-                .attributeWhenReady(entity, TestEntity.NAME)
+                .attributeWhenReady(entity, TestEntity.NAME).abortIfOnFire()
                 .build());
 
         try {
@@ -366,15 +367,35 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
+    public void testAttributeWhenReadyAbortsWhenAlreadyOnFireAfterMillis() throws Exception {
+        ServiceStateLogic.setExpectedState(entity, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+
+        Stopwatch timer = Stopwatch.createStarted();
+        final Task<String> t = submit(DependentConfiguration.builder()
+                .attributeWhenReady(entity, TestEntity.NAME).timeoutIfOnFire(Duration.ZERO, Duration.millis(100))
+                .build());
+
+        try {
+            assertDoneEventually(t);
+            fail();
+        } catch (Exception e) {
+            if (e.toString().contains("Aborted waiting for ready")) return;
+//            if (e.toString().contains("Unsatisfied after")) return;
+            Asserts.assertThat(timer, tt -> Duration.of(tt).isLongerThan(Duration.millis(99)));
+        }
+    }
+
+    @Test
     public void testListAttributeWhenReadyFromMultipleEntities() throws Exception {
         final Task<List<String>> t = submit(DependentConfiguration.builder()
                 .attributeWhenReadyFromMultiple(ImmutableList.of(entity, entity2), TestEntity.NAME)
                 .build());
         assertNotDoneContinually(t);
-        
+
         entity.sensors().set(TestEntity.NAME, "myval");
         assertNotDoneContinually(t);
-        
+
         entity2.sensors().set(TestEntity.NAME, "myval2");
         assertEquals(ImmutableSet.copyOf(assertDoneEventually(t)), ImmutableSet.of("myval", "myval2"));
     }
@@ -384,11 +405,11 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
         final Task<List<String>> t = submit(DependentConfiguration.builder()
                 .attributeWhenReadyFromMultiple(ImmutableList.of(entity, entity2), TestEntity.NAME, StringPredicates.startsWith("myval"))
                 .build());
-        
+
         entity.sensors().set(TestEntity.NAME, "wrongval");
         entity2.sensors().set(TestEntity.NAME, "wrongval2");
         assertNotDoneContinually(t);
-        
+
         entity.sensors().set(TestEntity.NAME, "myval");
         assertNotDoneContinually(t);
         entity2.sensors().set(TestEntity.NAME, "myval2");
@@ -410,7 +431,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
                             }
                         }})
                 .build());
-        
+
         entity.sensors().set(TestEntity.SEQUENCE, 1);
         entity2.sensors().set(TestEntity.SEQUENCE, 2);
         assertEquals(assertDoneEventually(t), "1,2");
@@ -426,7 +447,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
             }
         });
     }
-    
+
     private <T> T assertDoneEventually(final Task<T> t) throws Exception {
         final AtomicReference<ExecutionException> exception = new AtomicReference<ExecutionException>();
         T result = Asserts.succeedsEventually(MutableMap.of("timeout", Duration.FIVE_SECONDS), new Callable<T>() {
@@ -449,11 +470,11 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
         return result;
     }
 
-    
+
     private <T> Task<T> submit(Task<T> task) {
         return app.getExecutionContext().submit(task);
     }
-    
+
     private <T> Task<T> submit(Callable<T> job) {
         return app.getExecutionContext().submit(new BasicTask<T>(job));
     }

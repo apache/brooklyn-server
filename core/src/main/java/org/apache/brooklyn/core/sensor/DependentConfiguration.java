@@ -25,7 +25,6 @@ import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -38,9 +37,6 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.api.sensor.SensorEvent;
-import org.apache.brooklyn.api.sensor.SensorEventListener;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -72,12 +68,10 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.Absent;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Urls;
-import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.StringFunctions.RegexReplacer;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -163,24 +157,38 @@ public class DependentConfiguration {
     }
 
     public static class AttributeWhenReadyOptions {
+        public Duration timeout;
+
         @JsonAlias("timeoutIfDown")
         public Duration timeout_if_down;
-        public Duration timeout;
+        @JsonAlias("timeoutIfDownInitial")
+        public Duration timeout_if_down_initial;
+
+        @JsonAlias("timeoutIfOnFire")
+        public Duration timeout_if_on_fire;
+        @JsonAlias("timeoutIfOnFireInitial")
+        public Duration timeout_if_on_fire_initial;
 
         @JsonAlias("abortIfOnFire")
         public boolean abort_if_on_fire = true;
         @JsonAlias("waitForTruthy")
         public boolean wait_for_truthy = true;
 
+        // we might want an additional wait_on_timeout_conditions to prevent resolution if any of the timeout conditions are true;
+        // that could be used to prevent a value from an on-fire or down entity being used;
+        // not generally needed though as call pattern can be to wait on service lifecycle being explicitly RUNNING, eg via latches
+
         public static AttributeWhenReadyOptions defaultOptions() {
             AttributeWhenReadyOptions result = new AttributeWhenReadyOptions();
             result.abort_if_on_fire = true;
+            result.timeout_if_on_fire = Duration.ZERO;
+            result.timeout_if_on_fire_initial = Duration.seconds(15);  // plenty of time for concurrently started dependencies to transition to started
             result.timeout_if_down = Duration.ONE_MINUTE;
             return result;
         }
 
         public static Map allowingOnFireMap() {
-            return MutableMap.of("timeout", "forever");
+            return MutableMap.of("timeout", "forever", "abort_if_on_fire", false);
         }
     }
 
@@ -227,7 +235,7 @@ public class DependentConfiguration {
      */
     @Deprecated
     public static <T,V> Task<V> attributePostProcessedWhenReady(final Entity source, final AttributeSensor<T> sensor, final Predicate<? super T> ready, final Closure<V> postProcess) {
-        return attributePostProcessedWhenReady(source, sensor, ready, GroovyJavaMethods.<T,V>functionFromClosure(postProcess));
+        return attributePostProcessedWhenReady(source, sensor, ready, GroovyJavaMethods.functionFromClosure(postProcess));
     }
 
     @SuppressWarnings("unchecked")
@@ -245,19 +253,23 @@ public class DependentConfiguration {
         return builder.build();
     }
 
+    @Deprecated // since 1.1 use builder
     public static <T> T waitInTaskForAttributeReady(Entity source, AttributeSensor<T> sensor, Predicate<? super T> ready) {
-        return waitInTaskForAttributeReady(source, sensor, ready, ImmutableList.<AttributeAndSensorCondition<?>>of());
+        return waitInTaskForAttributeReady(source, sensor, ready, ImmutableList.of());
     }
 
+    @Deprecated // since 1.1 use builder
     public static <T> T waitInTaskForAttributeReady(final Entity source, final AttributeSensor<T> sensor, Predicate<? super T> ready, List<AttributeAndSensorCondition<?>> abortConditions) {
-        String blockingDetails = "Waiting for ready from "+source+" "+sensor+" (subscription)";
-        return waitInTaskForAttributeReady(source, sensor, ready, abortConditions, blockingDetails);
+        return (T) waitInTaskForAttributeReady(source, sensor, ready, (List) abortConditions, "Waiting for ready from "+source+" "+sensor+" (subscription)");
     }
 
     // TODO would be nice to have an easy semantics for whenServiceUp (cf DynamicWebAppClusterImpl.whenServiceUp)
 
-    public static <T> T waitInTaskForAttributeReady(final Entity source, final AttributeSensor<T> sensor, Predicate<? super T> ready, List<AttributeAndSensorCondition<?>> abortConditions, String blockingDetails) {
-        return new WaitInTaskForAttributeReady<T,T>(source, sensor, ready, abortConditions, blockingDetails).call();
+    @Deprecated // since 1.1 use builder
+    public static <T> T waitInTaskForAttributeReady(final Entity source, final AttributeSensor<T> sensor, Predicate<? super T> ready, List<AttributeAndSensorCondition> abortConditions, String blockingDetails) {
+        Builder<T,T> b = builder().attributeWhenReadyNoOptions(source, sensor).readiness(ready).blockingDetails(blockingDetails).timeout(Duration.PRACTICALLY_FOREVER);
+        if (abortConditions!=null) abortConditions.forEach(c -> b.abortIf(c.source, c.sensor, c.predicate));
+        return new WaitInTaskForAttributeReady<>(b).call();
     }
 
     protected static class WaitInTaskForAttributeReady<T,V> implements Callable<V> {
@@ -271,8 +283,7 @@ public class DependentConfiguration {
         protected final Entity source;
         protected final AttributeSensor<T> sensor;
         protected final Predicate<? super T> ready;
-        protected final List<AttributeAndSensorCondition<?>> abortSensorConditions;
-        protected List<Pair<AttributeAndSensorCondition<Object>,Duration>> timeoutIfTimeoutSensorConditions = null;
+        protected List<AttributeAndSensorConditionWithTimeouts<Object>> timeoutIfTimeoutSensorConditions;
         protected final String blockingDetails;
         protected final Function<? super T,? extends V> postProcess;
         protected final Duration timeout;
@@ -285,7 +296,6 @@ public class DependentConfiguration {
             this.source = builder.source;
             this.sensor = builder.sensor;
             this.ready = builder.readiness;
-            this.abortSensorConditions = builder.abortSensorConditions;
             this.timeoutIfTimeoutSensorConditions = builder.timeoutIfTimeoutSensorConditions;
             this.blockingDetails = builder.blockingDetails;
             this.postProcess = builder.postProcess;
@@ -293,22 +303,6 @@ public class DependentConfiguration {
             this.onTimeout = builder.onTimeout;
             this.ignoreUnmanaged = builder.ignoreUnmanaged;
             this.onUnmanaged = builder.onUnmanaged;
-        }
-
-        private WaitInTaskForAttributeReady(Entity source, AttributeSensor<T> sensor, Predicate<? super T> ready,
-                List<AttributeAndSensorCondition<?>> abortConditions, String blockingDetails) {
-            this.source = source;
-            this.sensor = sensor;
-            this.ready = ready;
-            this.abortSensorConditions = abortConditions;
-            this.blockingDetails = blockingDetails;
-
-            this.timeout = Duration.PRACTICALLY_FOREVER;
-            this.timeoutIfTimeoutSensorConditions = null;
-            this.onTimeout = Maybe.absent();
-            this.ignoreUnmanaged = DEFAULT_IGNORE_UNMANAGED;
-            this.onUnmanaged = Maybe.absent();
-            this.postProcess = null;
         }
 
         @SuppressWarnings("unchecked")
@@ -338,17 +332,27 @@ public class DependentConfiguration {
                 throw new RuntimeTimeoutException("Waiting not permitted");
             }
 
-            final List<Exception> abortionExceptions = Lists.newCopyOnWriteArrayList();
             long start = System.currentTimeMillis();
 
-            for (AttributeAndSensorCondition abortCondition : abortSensorConditions) {
-                Object currentValue = abortCondition.source.getAttribute(abortCondition.sensor);
-                if (abortCondition.predicate.apply(currentValue)) {
-                    abortionExceptions.add(new Exception("Abort due to "+abortCondition+": "+currentValue));
+            final List<Exception> abortImmediatelyExceptions = Lists.newCopyOnWriteArrayList();
+            Map<Integer,Duration> customTimeouts = MutableMap.of();
+            if (timeoutIfTimeoutSensorConditions!=null) {
+                for (int i=0; i<timeoutIfTimeoutSensorConditions.size(); i++) {
+                    AttributeAndSensorConditionWithTimeouts<Object> timeoutIfCondition = timeoutIfTimeoutSensorConditions.get(i);
+                    if (timeoutIfCondition.timeoutInitial!=null) {
+                        Object currentValue = timeoutIfCondition.source.getAttribute(timeoutIfCondition.sensor);
+                        if (timeoutIfCondition.predicate.apply(currentValue)) {
+                            if (Duration.ZERO.equals(timeoutIfCondition.timeoutInitial)) {
+                                abortImmediatelyExceptions.add(new Exception("Abort due to " + timeoutIfCondition + ": " + currentValue));
+                            } else {
+                                customTimeouts.put(i, timeoutIfCondition.timeoutInitial);
+                            }
+                        }
+                    }
                 }
             }
-            if (!abortionExceptions.isEmpty()) {
-                throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortionExceptions);
+            if (!abortImmediatelyExceptions.isEmpty()) {
+                throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortImmediatelyExceptions);
             }
 
             TaskInternal<?> current = (TaskInternal<?>) Tasks.current();
@@ -357,83 +361,77 @@ public class DependentConfiguration {
             if (entity == null) throw new IllegalStateException("Should only be invoked in a running task with an entity tag; "+
                 current+" has no entity tag ("+current.getStatusDetail(false)+")");
 
-            final LinkedList<T> publishedValues = new LinkedList<T>();
+            final LinkedList<T> publishedValues = new LinkedList<>();
             final Semaphore semaphore = new Semaphore(0); // could use Exchanger
             SubscriptionHandle subscription = null;
             List<SubscriptionHandle> thisWaitSubscriptions = Lists.newArrayList();
 
             try {
-                subscription = entity.subscriptions().subscribe(source, sensor, new SensorEventListener<T>() {
-                    @Override public void onEvent(SensorEvent<T> event) {
-                        synchronized (publishedValues) { publishedValues.add(event.getValue()); }
-                        semaphore.release();
-                    }});
+                subscription = entity.subscriptions().subscribe(source, sensor, event -> {
+                    synchronized (publishedValues) { publishedValues.add(event.getValue()); }
+                    semaphore.release();
+                });
 
-                for (final AttributeAndSensorCondition abortCondition : abortSensorConditions) {
-                    thisWaitSubscriptions.add(entity.subscriptions().subscribe(abortCondition.source, abortCondition.sensor, new SensorEventListener<Object>() {
-                        @Override public void onEvent(SensorEvent<Object> event) {
-                            if (abortCondition.predicate.apply(event.getValue())) {
-                                abortionExceptions.add(new Exception("Abort due to "+abortCondition+": "+event.getValue()));
-                                semaphore.release();
-                            }
-                        }}));
-                    Object currentValue = abortCondition.source.getAttribute(abortCondition.sensor);
-                    if (abortCondition.predicate.apply(currentValue)) {
-                        abortionExceptions.add(new Exception("Abort due to "+abortCondition+": "+currentValue));
-                    }
-                }
-                if (!abortionExceptions.isEmpty()) {
-                    throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortionExceptions);
-                }
+                final CountdownTimer timer = timeout!=null ? timeout.countdownTimer() : Duration.PRACTICALLY_FOREVER.countdownTimer();
 
-                CountdownTimer timer = timeout!=null ? timeout.countdownTimer() : Duration.PRACTICALLY_FOREVER.countdownTimer();
-
-                Map<Integer,Duration> customTimeouts = MutableMap.of();
                 BiConsumer<Integer,Object> checkValueAtIndex = (index, val) -> {
                     synchronized (customTimeouts) {
-                        Pair<AttributeAndSensorCondition<Object>, Duration> timeoutIfCondition = timeoutIfTimeoutSensorConditions.get(index);
-                        if (timeoutIfCondition.getLeft().predicate.apply(val)) {
-                            if (!customTimeouts.containsKey(index)) {
-                                // start timer from this point
-                                customTimeouts.put(index, timer.getDurationElapsed().add(timeoutIfCondition.getRight()));
+                        AttributeAndSensorConditionWithTimeouts<Object> timeoutIfCondition = timeoutIfTimeoutSensorConditions.get(index);
+                        if (timeoutIfCondition.predicate.apply(val)) {
+                            if (timeoutIfCondition.timeout!=null) {
+                                if (!customTimeouts.containsKey(index)) {
+                                    // start timer from this point
+                                    Duration customTimeout = Duration.ZERO.equals(timeoutIfCondition.timeout) ? Duration.ZERO : timer.getDurationElapsed().add(timeoutIfCondition.timeout);
+                                    if (timeoutIfCondition.timeoutInitial!=null) customTimeout = Duration.max(timeoutIfCondition.timeoutInitial, customTimeout);
+                                    if (Duration.ZERO.equals(customTimeout)) {
+                                        abortImmediatelyExceptions.add(new Exception("Abort due to " + timeoutIfCondition + ": " + val));
+                                    } else {
+                                        customTimeouts.put(index, customTimeout);
+                                    }
+                                }
+                            } else {
+                                // if timeout not set, it is only enabled for 'initial'; don't do anything (only remove if condition becomes false)
                             }
                         } else {
                             customTimeouts.remove(index);
                         }
                     }
                 };
-
                 if (timeoutIfTimeoutSensorConditions!=null) {
                     for (int i=0; i<timeoutIfTimeoutSensorConditions.size(); i++) {
                         int index = i;
-                        Pair<AttributeAndSensorCondition<Object>, Duration> timeoutIfCondition = timeoutIfTimeoutSensorConditions.get(index);
+                        AttributeAndSensorConditionWithTimeouts<Object> timeoutIfCondition = timeoutIfTimeoutSensorConditions.get(index);
 
-                        thisWaitSubscriptions.add(entity.subscriptions().subscribe(timeoutIfCondition.getLeft().source, timeoutIfCondition.getLeft().sensor, new SensorEventListener<Object>() {
-                            @Override public void onEvent(SensorEvent<Object> event) {
-                                checkValueAtIndex.accept(index, event.getValue());
-                            }}));
+                        thisWaitSubscriptions.add(entity.subscriptions().subscribe(timeoutIfCondition.source, timeoutIfCondition.sensor, event -> {
+                            checkValueAtIndex.accept(index, event.getValue());
+                            semaphore.release();  // indicate that timeouts need to be checked again
+                        }));
 
-                        Object val = timeoutIfCondition.getLeft().source.getAttribute(timeoutIfCondition.getLeft().sensor);
+                        Object val = timeoutIfCondition.source.getAttribute(timeoutIfCondition.sensor);
                         checkValueAtIndex.accept(index, val);
+                    }
+                    if (!abortImmediatelyExceptions.isEmpty()) {
+                        throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortImmediatelyExceptions);
                     }
                 }
 
                 Duration maxPeriod = ValueResolver.PRETTY_QUICK_WAIT;
                 Duration nextPeriod = ValueResolver.REAL_QUICK_PERIOD;
-                while (true) {
+                outer: while (true) {
                     // check the source on initial run (could be done outside the loop)
                     // and also (optionally) on each iteration in case it is more recent
                     value = source.getAttribute(sensor);
                     if (ready(value)) break;
 
-                    if (timer!=null) {
-                        if (timer.getDurationRemaining().isShorterThan(nextPeriod)) {
-                            nextPeriod = timer.getDurationRemaining();
+                    if (timer.getDurationRemaining().isShorterThan(nextPeriod)) {
+                        nextPeriod = timer.getDurationRemaining();
+                    }
+                    if (timer.isExpired()) {
+                        if (!abortImmediatelyExceptions.isEmpty()) {
+                            throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortImmediatelyExceptions);
                         }
-                        if (timer.isExpired()) {
-                            if (onTimeout.isPresent()) return onTimeout.get();
-                            throw new RuntimeTimeoutException("Unsatisfied after "+Duration.sinceUtc(start));
-                        }
+                        if (onTimeout.isPresent()) return onTimeout.get();
+                        throw new RuntimeTimeoutException("Unsatisfied after "+Duration.sinceUtc(start));
                     }
 
                     String prevBlockingDetails = current.setBlockingDetails(blockingDetails);
@@ -454,17 +452,19 @@ public class DependentConfiguration {
                             if (publishedValues.isEmpty()) break;
                             value = publishedValues.pop();
                         }
-                        if (ready(value)) break;
+                        if (ready(value)) break outer;
+                        if (!abortImmediatelyExceptions.isEmpty()) {
+                            throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortImmediatelyExceptions);
+                        }
+                    }
+                    if (!abortImmediatelyExceptions.isEmpty()) {
+                        throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortImmediatelyExceptions);
                     }
 
                     // if unmanaged then ignore the other abort conditions
                     if (!ignoreUnmanaged && Entities.isNoLongerManaged(entity)) {
                         if (onUnmanaged.isPresent()) return onUnmanaged.get();
                         throw new NotManagedException(entity);
-                    }
-
-                    if (!abortionExceptions.isEmpty()) {
-                        throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortionExceptions);
                     }
 
                     Set<Map.Entry<Integer, Duration>> timeoutsHere = null;
@@ -477,13 +477,16 @@ public class DependentConfiguration {
                         for (Map.Entry<Integer, Duration> entry : timeoutsHere) {
                             Integer index = entry.getKey();
                             Duration specialTimeout = entry.getValue();
-                            Pair<AttributeAndSensorCondition<Object>, Duration> timeoutIfCondition = timeoutIfTimeoutSensorConditions.get(index);
+                            AttributeAndSensorConditionWithTimeouts<Object> timeoutIfCondition = timeoutIfTimeoutSensorConditions.get(index);
                             if (timer.getDurationElapsed().isLongerThan(specialTimeout)) {
-                                Object val = timeoutIfCondition.getLeft().source.getAttribute(timeoutIfCondition.getLeft().sensor);
-                                if (timeoutIfCondition.getLeft().predicate.apply(val)) {
+                                Object val = timeoutIfCondition.source.getAttribute(timeoutIfCondition.sensor);
+                                if (timeoutIfCondition.predicate.apply(val)) {
+                                    if (!abortImmediatelyExceptions.isEmpty()) {
+                                        throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortImmediatelyExceptions);
+                                    }
                                     if (onTimeout.isPresent()) continue;
                                     throw new RuntimeTimeoutException("Unsatisfied after " + Duration.sinceUtc(start) + " (tighter timeout due to " +
-                                            timeoutIfCondition.getLeft() + ", with value " + val + ")");
+                                            timeoutIfCondition + ", with value " + val + ")");
                                 }
                             }
                         }
@@ -513,14 +516,14 @@ public class DependentConfiguration {
      */
     @Deprecated
     public static <T> Task<T> whenDone(Callable<T> job) {
-        return new BasicTask<T>(MutableMap.of("tag", "whenDone", "displayName", "waiting for job"), job);
+        return new BasicTask<>(MutableMap.of("tag", "whenDone", "displayName", "waiting for job"), job);
     }
 
     /**
      * Returns a {@link Task} which waits for the result of first parameter, then applies the function in the second
      * parameter to it, returning that result.
-     *
-     * Particular useful in Entity configuration where config will block until Tasks have completed,
+     * <p>
+     * Particularly useful in Entity configuration where config will block until Tasks have completed,
      * allowing for example an {@link #attributeWhenReady(Entity, AttributeSensor, Predicate)} expression to be
      * passed in the first argument then transformed by the function in the second argument to generate
      * the value that is used for the configuration
@@ -545,14 +548,12 @@ public class DependentConfiguration {
      */
     @SuppressWarnings({ "rawtypes" })
     public static <U,T> Task<T> transform(final Map flags, final TaskAdaptable<U> task, final Function<U,T> transformer) {
-        return new BasicTask<T>(flags, new Callable<T>() {
-            @Override
-            public T call() throws Exception {
-                if (!task.asTask().isSubmitted()) {
-                    BasicExecutionContext.getCurrentExecutionContext().submit(task);
-                }
-                return transformer.apply(task.asTask().get());
-            }});
+        return new BasicTask<>(flags, () -> {
+            if (!task.asTask().isSubmitted()) {
+                BasicExecutionContext.getCurrentExecutionContext().submit(task);
+            }
+            return transformer.apply(task.asTask().get());
+        });
     }
 
     /** Returns a task which waits for multiple other tasks (submitting if necessary)
@@ -600,7 +601,7 @@ public class DependentConfiguration {
                 }
             });
         }
-        return transform(flags, new ParallelTask<U>(tasks), transformer);
+        return transform(flags, new ParallelTask<>(tasks), transformer);
     }
 
 
@@ -629,9 +630,8 @@ public class DependentConfiguration {
         }
 
         return transformMultiple(
-            MutableMap.<String,String>of("displayName", "formatting '"+spec.toString()+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")),
-            new Function<List<Object>, String>() {
-                @Override public String apply(List<Object> input) {
+            MutableMap.of("displayName", "formatting '"+spec.toString()+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")),
+                input -> {
                     Iterator<?> tri = input.iterator();
                     Object[] vv = new Object[newArgs.length];
                     int i=0;
@@ -642,7 +642,7 @@ public class DependentConfiguration {
                         i++;
                     }
                     return String.format(vv[0].toString(), Arrays.copyOfRange(vv, 1, vv.length));
-                }},
+                },
             taskArgs);
     }
 
@@ -659,7 +659,7 @@ public class DependentConfiguration {
         List<Object> resolvedArgs = Lists.newArrayList();
         for (Object arg : args) {
             Maybe<?> argVal = resolveImmediately(arg);
-            if (argVal.isAbsent()) return  Maybe.Absent.castAbsent(argVal);
+            if (argVal.isAbsent()) return  Absent.castAbsent(argVal);
             resolvedArgs.add(argVal.get());
         }
 
@@ -672,7 +672,7 @@ public class DependentConfiguration {
     public static Maybe<String> urlEncodeImmediately(Object arg) {
         Maybe<?> resolvedArg = resolveImmediately(arg);
         if (resolvedArg.isAbsent()) return Absent.castAbsent(resolvedArg);
-        if (resolvedArg.isNull()) return Maybe.<String>of((String)null);
+        if (resolvedArg.isNull()) return Maybe.of((String)null);
 
         String resolvedString = resolvedArg.get().toString();
         return Maybe.of(Urls.encode(resolvedString));
@@ -690,13 +690,13 @@ public class DependentConfiguration {
         else if (arg instanceof TaskFactory) taskArgs.add( ((TaskFactory<TaskAdaptable<Object>>)arg).newTask() );
 
         return transformMultiple(
-                MutableMap.<String,String>of("displayName", "url-escaping '"+arg),
+                MutableMap.of("displayName", "url-escaping '"+arg),
                 new Function<List<Object>, String>() {
                     @Override
                     @Nullable
                     public String apply(@Nullable List<Object> input) {
                         Object resolvedArg;
-                        if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) resolvedArg = Iterables.getOnlyElement(input);
+                        if (input != null && (arg instanceof TaskAdaptable || arg instanceof TaskFactory)) resolvedArg = Iterables.getOnlyElement(input);
                         else if (arg instanceof DeferredSupplier) resolvedArg = ((DeferredSupplier<?>) arg).get();
                         else resolvedArg = arg;
 
@@ -710,17 +710,14 @@ public class DependentConfiguration {
 
     public static Task<Object> external(ManagementContext mgmt, final Object provider, final Object key) {
         List<TaskAdaptable<Object>> argsNeedingAdaptation = getTaskAdaptable(provider, key);
-        return Tasks.<Object>builder()
+        return Tasks.builder()
                 .displayName("resolving external configuration: '" + key + "' from provider '" + provider + "'")
                 .dynamic(false)
-                .body(new Callable<Object>() {
-                    @Override
-                    public Object call() throws Exception {
-                        Iterator<TaskAdaptable<Object>> ai = argsNeedingAdaptation.iterator();
-                        return ((ManagementContextInternal)mgmt).getExternalConfigProviderRegistry().getConfig(
-                                resolveArgument(provider, ai),
-                                resolveArgument(key, ai));
-                    }
+                .body(() -> {
+                    Iterator<TaskAdaptable<Object>> ai = argsNeedingAdaptation.iterator();
+                    return ((ManagementContextInternal)mgmt).getExternalConfigProviderRegistry().getConfig(
+                            resolveArgument(provider, ai),
+                            resolveArgument(key, ai));
                 })
                 .build();
     }
@@ -761,7 +758,7 @@ public class DependentConfiguration {
         if (resolvedReplacement.isAbsent()) return Absent.castAbsent(resolvedReplacement);
         String resolvedReplacementStr = String.valueOf(resolvedReplacement.get());
 
-        String result = new StringFunctions.RegexReplacer(resolvedPatternStr, resolvedReplacementStr).apply(resolvedSourceStr);
+        String result = new RegexReplacer(resolvedPatternStr, resolvedReplacementStr).apply(resolvedSourceStr);
         return Maybe.of(result);
     }
 
@@ -784,8 +781,8 @@ public class DependentConfiguration {
         if (resolvedReplacement.isAbsent()) return Absent.castAbsent(resolvedReplacement);
         String resolvedReplacementStr = String.valueOf(resolvedReplacement.get());
 
-        RegexReplacer result = new StringFunctions.RegexReplacer(resolvedPatternStr, resolvedReplacementStr);
-        return Maybe.<Function<String, String>>of(result);
+        RegexReplacer result = new RegexReplacer(resolvedPatternStr, resolvedReplacementStr);
+        return Maybe.of(result);
     }
 
     public static Task<Function<String, String>> regexReplacement(Object pattern, Object replacement) {
@@ -804,7 +801,7 @@ public class DependentConfiguration {
         Integer resolvedMaxThreadsInt = TypeCoercions.coerce(resolvedMaxThreads, Integer.class);
 
         ReleaseableLatch result = ReleaseableLatch.Factory.newMaxConcurrencyLatch(resolvedMaxThreadsInt);
-        return Maybe.<ReleaseableLatch>of(result);
+        return Maybe.of(result);
     }
 
     public static Task<ReleaseableLatch> maxConcurrency(Object maxThreads) {
@@ -845,11 +842,12 @@ public class DependentConfiguration {
         @Nullable
         @Override
         public String apply(@Nullable List<Object> input) {
+            if (input==null) return null;
             Iterator<?> taskArgsIterator = input.iterator();
             String resolvedSource = resolveArgument(source, taskArgsIterator);
             String resolvedPattern = resolveArgument(pattern, taskArgsIterator);
             String resolvedReplacement = resolveArgument(replacement, taskArgsIterator);
-            return new StringFunctions.RegexReplacer(resolvedPattern, resolvedReplacement).apply(resolvedSource);
+            return new RegexReplacer(resolvedPattern, resolvedReplacement).apply(resolvedSource);
         }
     }
 
@@ -866,8 +864,9 @@ public class DependentConfiguration {
 
         @Override
         public Function<String, String> apply(List<Object> input) {
+            if (input==null) return null;
             Iterator<?> taskArgsIterator = input.iterator();
-            return new StringFunctions.RegexReplacer(resolveArgument(pattern, taskArgsIterator), resolveArgument(replacement, taskArgsIterator));
+            return new RegexReplacer(resolveArgument(pattern, taskArgsIterator), resolveArgument(replacement, taskArgsIterator));
         }
 
     }
@@ -881,6 +880,7 @@ public class DependentConfiguration {
 
         @Override
         public ReleaseableLatch apply(List<Object> input) {
+            if (input==null) return null;
             Iterator<?> taskArgsIterator = input.iterator();
             Integer maxThreadsNum = resolveArgument(maxThreads, taskArgsIterator, Integer.class);
             return ReleaseableLatch.Factory.newMaxConcurrencyLatch(maxThreadsNum);
@@ -897,7 +897,7 @@ public class DependentConfiguration {
 
     /**
      * Resolves the argument as follows:
-     *
+     * <p>
      * If the argument is a DeferredSupplier, we will block and wait for it to resolve. If the argument is TaskAdaptable or TaskFactory,
      * we will assume that the resolved task has been queued on the {@code taskArgsIterator}, otherwise the argument has already been resolved.
      *
@@ -927,7 +927,7 @@ public class DependentConfiguration {
      */
     @Deprecated
     public static <T> Task<List<T>> listAttributesWhenReady(AttributeSensor<T> sensor, Iterable<Entity> entities, Closure<Boolean> readiness) {
-        Predicate<Object> readinessPredicate = (readiness != null) ? GroovyJavaMethods.<Object>predicateFromClosure(readiness) : JavaGroovyEquivalents.groovyTruthPredicate();
+        Predicate<Object> readinessPredicate = (readiness != null) ? GroovyJavaMethods.predicateFromClosure(readiness) : JavaGroovyEquivalents.groovyTruthPredicate();
         return listAttributesWhenReady(sensor, entities, readinessPredicate);
     }
 
@@ -951,7 +951,7 @@ public class DependentConfiguration {
         try {
             return (T) Tasks.resolveValue(t, Object.class, ((EntityInternal)context).getExecutionContext(), contextMessage);
         } catch (ExecutionException e) {
-            throw Throwables.propagate(e);
+            throw Exceptions.propagate(e);
         }
     }
 
@@ -969,6 +969,20 @@ public class DependentConfiguration {
         @Override
         public String toString() {
             return JavaClassNames.simpleClassName(this)+"["+source+"["+sensor.getName()+"] "+predicate+"]";
+        }
+    }
+
+    public static class AttributeAndSensorConditionWithTimeouts<T> extends AttributeAndSensorCondition<T> {
+        /** timeout used once subscription is established, subject to any timeoutInitial; if unset the condition is only checked at start */
+        protected final Duration timeout;
+        /** timeout used if condition is true prior to subscription being established, and also used as a minimum period from subscription start
+         *  to which any {@link #timeout} is extended; eg if this is 5m but timeout is 1m, a failure at the 3m mark will wait 2m;
+         *  after 4m all failures will wait 1m. */
+        protected final Duration timeoutInitial;
+        public AttributeAndSensorConditionWithTimeouts(Entity source, AttributeSensor<T> sensor, Predicate<? super T> predicate, Duration timeout, Duration timeoutInitial) {
+            super(source, sensor, predicate);
+            this.timeout = timeout;
+            this.timeoutInitial = timeoutInitial;
         }
     }
 
@@ -1004,14 +1018,14 @@ public class DependentConfiguration {
          * Will wait for the attribute on the given entity, not aborting when it goes {@link Lifecycle#ON_FIRE}, no timeout.
          */
         public <T2> Builder<T2,T2> attributeWhenReadyNoOptions(Entity source, AttributeSensor<T2> sensor) {
-            return new Builder<T2,T2>(source, sensor);
+            return new Builder<>(source, sensor);
         }
 
         /**
          * Alias for {@link #attributeWhenReadyNoOptions(Entity, AttributeSensor)}
          */
         public <T2> Builder<T2,T2> attributeWhenReadyAllowingOnFire(Entity source, AttributeSensor<T2> sensor) {
-            return new Builder<T2,T2>(source, sensor);
+            return new Builder<>(source, sensor);
         }
 
         /** Constructs a builder for task for parallel execution returning a list of values of the given sensor list on the given entity,
@@ -1023,7 +1037,7 @@ public class DependentConfiguration {
         /** As {@link #attributeWhenReadyFromMultiple(Iterable, AttributeSensor)} with an explicit readiness test. */
         @Beta
         public <T> MultiBuilder<T, T, List<T>> attributeWhenReadyFromMultiple(Iterable<? extends Entity> sources, AttributeSensor<T> sensor, Predicate<? super T> readiness) {
-            return new MultiBuilder<T, T, List<T>>(sources, sensor, readiness);
+            return new MultiBuilder<>(sources, sensor, readiness);
         }
     }
 
@@ -1035,8 +1049,7 @@ public class DependentConfiguration {
         protected AttributeSensor<T> sensor;
         protected Predicate<? super T> readiness;
         protected Function<? super T, ? extends V> postProcess;
-        protected List<AttributeAndSensorCondition<?>> abortSensorConditions = Lists.newArrayList();
-        protected List<Pair<AttributeAndSensorCondition<Object>,Duration>> timeoutIfTimeoutSensorConditions = null;
+        protected List<AttributeAndSensorConditionWithTimeouts<Object>> timeoutIfTimeoutSensorConditions = null;
         protected String blockingDetails;
         protected Duration timeout;
         protected Maybe<V> onTimeout = Maybe.absent();
@@ -1078,8 +1091,7 @@ public class DependentConfiguration {
             return abortIf(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate());
         }
         public <T2> Builder<T,V> abortIf(Entity source, AttributeSensor<T2> sensor, Predicate<? super T2> predicate) {
-            abortSensorConditions.add(new AttributeAndSensorCondition<T2>(source, sensor, predicate));
-            return this;
+            return timeoutIf(source, sensor, predicate, Duration.ZERO, Duration.ZERO);
         }
         /** Causes the depender to abort immediately if {@link Attributes#SERVICE_STATE_ACTUAL}
          * is {@link Lifecycle#ON_FIRE}. */
@@ -1087,10 +1099,19 @@ public class DependentConfiguration {
             abortIf(source, Attributes.SERVICE_STATE_ACTUAL, Predicates.equalTo(Lifecycle.ON_FIRE));
             return this;
         }
+        public Builder<T,V> timeoutIfOnFire(Duration time, Duration timeInitial) {
+            if (time==null && timeInitial==null) return this;
+            timeoutIf(source, Attributes.SERVICE_STATE_ACTUAL, Predicates.equalTo(Lifecycle.ON_FIRE), time, timeInitial);
+            return this;
+        }
         /** Causes the depender to timeout after the given time if {@link Attributes#SERVICE_STATE_ACTUAL}
          * is not starting or running */
         public Builder<T,V> timeoutIfDown(Duration time) {
-            timeoutIf(source, Attributes.SERVICE_STATE_ACTUAL, Predicates.in(MutableList.of(Lifecycle.STOPPING, Lifecycle.STOPPED, Lifecycle.DESTROYED, Lifecycle.ON_FIRE, Lifecycle.CREATED, null)), time);
+            return timeoutIfDown(time, null);
+        }
+        public Builder<T,V> timeoutIfDown(Duration time, Duration timeInitial) {
+            if (time==null && timeInitial==null) return this;
+            timeoutIf(source, Attributes.SERVICE_STATE_ACTUAL, Predicates.in(MutableList.of(Lifecycle.STOPPING, Lifecycle.STOPPED, Lifecycle.DESTROYED, Lifecycle.ON_FIRE, Lifecycle.CREATED, null)), time, timeInitial);
             return this;
         }
 
@@ -1101,8 +1122,17 @@ public class DependentConfiguration {
         public Builder<T,V> options(AttributeWhenReadyOptions options) {
             if (options!=null) {
                 if (options.timeout!=null) timeout(options.timeout);
-                if (options.timeout_if_down != null) timeoutIfDown(options.timeout_if_down);
-                if (Boolean.TRUE.equals(options.abort_if_on_fire)) abortIfOnFire();
+                timeoutIfDown(options.timeout_if_down, options.timeout_if_down_initial);
+
+                if (options.timeout_if_on_fire==null && options.timeout_if_on_fire_initial==null) {
+                    if (Boolean.TRUE.equals(options.abort_if_on_fire)) {
+                        AttributeWhenReadyOptions defaultOptions = AttributeWhenReadyOptions.defaultOptions();
+                        timeoutIfOnFire(defaultOptions.timeout_if_on_fire, defaultOptions.timeout_if_on_fire_initial);
+                    }
+                    // otherwise nothing
+                } else {
+                    timeoutIfOnFire(options.timeout_if_on_fire, options.timeout_if_on_fire_initial);
+                }
 
                 if (!options.wait_for_truthy) {
                     readiness = Predicates.alwaysTrue();
@@ -1121,9 +1151,12 @@ public class DependentConfiguration {
             return this;
         }
         /** specifies the supplied timeout if the condition is met */
-        public <T2> Builder<T,V> timeoutIf(Entity source, AttributeSensor<T2> sensor, Predicate<? super T2> predicate, Duration val) {
+        public <T2> Builder<T,V> timeoutIf(Entity source, AttributeSensor<T2> sensor, Predicate<? super T2> predicate, Duration timeout) {
+            return timeoutIf(source, sensor, predicate, timeout, timeout);
+        }
+        public <T2> Builder<T,V> timeoutIf(Entity source, AttributeSensor<T2> sensor, Predicate<? super T2> predicate, Duration timeout, Duration timeoutInitial) {
             if (timeoutIfTimeoutSensorConditions==null) timeoutIfTimeoutSensorConditions = MutableList.of();
-            timeoutIfTimeoutSensorConditions.add(Pair.of(new AttributeAndSensorCondition(source, sensor, predicate), val));
+            timeoutIfTimeoutSensorConditions.add(new AttributeAndSensorConditionWithTimeouts(source, sensor, predicate, timeout, timeoutInitial));
             return this;
         }
         public Builder<T,V> onTimeoutReturn(V val) {
@@ -1131,7 +1164,7 @@ public class DependentConfiguration {
             return this;
         }
         public Builder<T,V> onTimeoutThrow() {
-            onTimeout = Maybe.<V>absent();
+            onTimeout = Maybe.absent();
             return this;
         }
         public Builder<T,V> onUnmanagedReturn(V val) {
@@ -1139,7 +1172,7 @@ public class DependentConfiguration {
             return this;
         }
         public Builder<T,V> onUnmanagedThrow() {
-            onUnmanaged = Maybe.<V>absent();
+            onUnmanaged = Maybe.absent();
             return this;
         }
         /** @since 0.7.0 included in case old behaviour of not checking whether the entity is managed is required
@@ -1169,13 +1202,13 @@ public class DependentConfiguration {
                 .description("Waiting on sensor "+sensor.getName()+" from "+source)
                 .tag("attributeWhenReady")
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
-                .body(new WaitInTaskForAttributeReady<T,V>(this))
+                .body(new WaitInTaskForAttributeReady<>(this))
                 .build();
         }
 
         public V runNow() {
             validate();
-            return new WaitInTaskForAttributeReady<T,V>(this).call();
+            return new WaitInTaskForAttributeReady<>(this).call();
         }
         @SuppressWarnings({ "unchecked", "rawtypes" })
         private void validate() {
@@ -1208,11 +1241,11 @@ public class DependentConfiguration {
         }
         @Beta
         protected MultiBuilder(Iterable<? extends Entity> sources, AttributeSensor<T> sensor, Predicate<? super T> readiness) {
-            builder = new Builder<T,V>(null, sensor);
+            builder = new Builder<>(null, sensor);
             builder.readiness(readiness);
 
             for (Entity s : checkNotNull(sources, "sources")) {
-                multiSource.add(new AttributeAndSensorCondition<T>(s, sensor, readiness));
+                multiSource.add(new AttributeAndSensorCondition<>(s, sensor, readiness));
             }
             this.name = "waiting on "+sensor.getName();
             this.descriptionBase = "waiting on "+sensor.getName()+" "+readiness
@@ -1300,14 +1333,12 @@ public class DependentConfiguration {
             } else {
                 return Tasks.<V2>builder().displayName(name).description(descriptionBase)
                     .tag("attributeWhenReady")
-                    .body(new Callable<V2>() {
-                        @Override public V2 call() throws Exception {
-                            List<V> prePostProgress = DynamicTasks.queue(parallelTask).get();
-                            return DynamicTasks.queue(
-                                Tasks.<V2>builder().displayName("post-processing").description("Applying "+postProcessFromMultiple)
-                                    .body(Functionals.callable(postProcessFromMultiple, prePostProgress))
-                                    .build()).get();
-                        }
+                    .body(() -> {
+                        List<V> prePostProgress = DynamicTasks.queue(parallelTask).get();
+                        return DynamicTasks.queue(
+                            Tasks.<V2>builder().displayName("post-processing").description("Applying "+postProcessFromMultiple)
+                                .body(Functionals.callable(postProcessFromMultiple, prePostProgress))
+                                .build()).get();
                     })
                     .build();
             }
