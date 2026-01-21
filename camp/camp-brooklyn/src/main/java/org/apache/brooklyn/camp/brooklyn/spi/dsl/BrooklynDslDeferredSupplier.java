@@ -20,7 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import java.io.Serializable;
-import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -57,7 +57,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * from multiple threads and no locking is done as all extending objects are assumed to be stateless.
  * <p>
  * Subclasses which return a deferred value are typically only
- * resolvable in the context of a {@link Task} on an {@link Entity}; 
+ * resolvable in the context of a {@link Task} on an {@link Entity};
  * these should be only used as the value of a {@link ConfigKey} set in the YAML,
  * and should not accessed until after the components / entities are created
  * and are being started.
@@ -98,7 +98,7 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
             lastSourceNode.set(Pair.of(sourceNode.hashCode(), this));
         }
     }
-    
+
     /** returns the current entity; for use in implementations of {@link #get()} */
     protected final static EntityInternal entity() {
         return (EntityInternal) BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
@@ -146,7 +146,7 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
 
     @Override
     public abstract Task<T> newTask();
-    
+
     protected void checkAndTagForRecursiveReference(Entity targetEntity, String tag) {
         Task<?> ancestor = Tasks.current();
         if (ancestor!=null) {
@@ -154,11 +154,11 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
         }
         while (ancestor!=null) {
             if (TaskTags.hasTag(ancestor, tag)) {
-                throw new IllegalStateException("Recursive reference "+tag); 
+                throw new IllegalStateException("Recursive reference "+tag);
             }
             ancestor = ancestor.getSubmittedByTask();
         }
-        
+
         Tasks.addTagDynamically(tag);
     }
 
@@ -171,4 +171,13 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
     }
 
     public abstract String toDslString(boolean yamlAllowed);
+
+    /** allows caller to modify this element or any of its children (nested elements) by passing a visitor.
+     *  the visitor will be invoked depth-first, with leaf nodes called first,
+     *  and may return the original (unchanged), a new object (changed), or null (to be removed);
+     *  this method will then copy the parent using the new children if anything is changed,
+     *  then invoke the visitor on the (possibly copied and changed) parent
+     */
+    public abstract BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor);
+
 }

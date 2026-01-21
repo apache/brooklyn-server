@@ -21,9 +21,9 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.Configurable;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslCopyHelpers;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslToStringHelpers;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.PropertyAccess;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
@@ -36,11 +36,11 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.function.Function;
 
 /**
  * TODO parser return objects that we CAN recognise as being interpreted to form the thing below.
@@ -66,6 +66,13 @@ public class DslDeferredPropertyAccess extends BrooklynDslDeferredSupplier {
     public DslDeferredPropertyAccess(BrooklynDslDeferredSupplier target, Object index) {
         this.target = target;
         this.index = index;
+    }
+//    @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+    // not sure why IJ complains about generics above having different erasures; they look the same to me
+    @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function visitor) {
+        return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                vh -> new DslDeferredPropertyAccess(vh.r(target), vh.r(index)),
+                target, index);
     }
 
     public BrooklynDslDeferredSupplier getTarget() {

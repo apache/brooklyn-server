@@ -19,7 +19,6 @@
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -50,7 +49,6 @@ import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.core.objs.AbstractConfigurationSupportInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
@@ -89,6 +87,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -248,11 +247,13 @@ public class BrooklynDslCommon {
         private Object keyName;
 
         public DslBrooklynObjectConfigSupplier(BrooklynObjectInternal obj, Object keyName) {
-            checkNotNull(obj, "obj");
-            checkNotNull(keyName, "keyName");
-
-            this.obj = obj;
-            this.keyName = keyName;
+            this.obj = checkNotNull(obj, "obj");
+            this.keyName = checkNotNull(keyName, "keyName");
+        }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new DslBrooklynObjectConfigSupplier(vh.r(obj), vh.r(keyName)),
+                    obj, keyName);
         }
 
         public BrooklynObjectInternal getObj() {
@@ -477,8 +478,16 @@ public class BrooklynDslCommon {
         private DslLiteral() { this(null); }
 
         public DslLiteral(Object input) {
-            this.literalString = input instanceof String ? (String)input : null;
-            this.literalObjectJson = (input==null || input instanceof String) ? null : Jsonya.render(input);
+            this(input instanceof String ? (String)input : null, (input==null || input instanceof String) ? null : Jsonya.render(input));
+        }
+        protected DslLiteral(String literalString, String literalObjectJson) {
+            this.literalString = literalString;
+            this.literalObjectJson = literalObjectJson;
+        }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new DslLiteral(vh.r(literalString), vh.r(literalObjectJson)),
+                    literalString, literalObjectJson);
         }
 
         public String getLiteralObjectJson() {
@@ -567,6 +576,11 @@ public class BrooklynDslCommon {
         public DslUrlEncode(Object arg) {
             this.arg = arg;
         }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new DslUrlEncode(vh.r(arg)),
+                    arg);
+        }
 
         @Override @JsonIgnore
         public final Maybe<String> getImmediately() {
@@ -612,6 +626,11 @@ public class BrooklynDslCommon {
         public DslFormatString(Object pattern, Object ...args) {
             this.pattern = pattern;
             this.args = args;
+        }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new DslFormatString(vh.r(pattern), vh.r(args)),
+                    pattern, args);
         }
 
         public Object getPattern() {
@@ -664,6 +683,11 @@ public class BrooklynDslCommon {
             this.pattern = pattern;
             this.replacement = replacement;
             this.source = source;
+        }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new DslRegexReplacement(vh.r(pattern), vh.r(replacement), vh.r(source)),
+                    pattern, replacement, source);
         }
 
         public Object getSource() {
@@ -734,13 +758,9 @@ public class BrooklynDslCommon {
                 List<Object> constructorArgs,
                 Map<String, Object> fields,
                 Map<String, Object> config) {
-            this.typeName = checkNotNull(typeName, "typeName");
-            this.type = null;
-            this.constructorArgs = checkNotNull(constructorArgs, "constructorArgs");
-            this.factoryMethodName = null;
-            this.factoryMethodArgs = ImmutableList.of();
-            this.fields = MutableMap.copyOf(fields);
-            this.config = MutableMap.copyOf(config);
+            this(checkNotNull(typeName, "typeName"), null, checkNotNull(constructorArgs, "constructorArgs"),
+                    null, null,
+                    fields, config);
         }
 
         public DslObject(
@@ -748,13 +768,9 @@ public class BrooklynDslCommon {
                 List<Object> constructorArgs,
                 Map<String, Object> fields,
                 Map<String, Object> config) {
-            this.typeName = null;
-            this.type = checkNotNull(type, "type");
-            this.constructorArgs = checkNotNull(constructorArgs, "constructorArgs");
-            this.factoryMethodName = null;
-            this.factoryMethodArgs = ImmutableList.of();
-            this.fields = MutableMap.copyOf(fields);
-            this.config = MutableMap.copyOf(config);
+            this(null, checkNotNull(type, "type"), checkNotNull(constructorArgs, "constructorArgs"),
+                    null, null,
+                    fields, config);
         }
 
         public DslObject(
@@ -763,13 +779,9 @@ public class BrooklynDslCommon {
                 List<Object> factoryMethodArgs,
                 Map<String, Object> fields,
                 Map<String, Object> config) {
-            this.typeName = checkNotNull(typeName, "typeName");
-            this.type = null;
-            this.constructorArgs = ImmutableList.of();
-            this.factoryMethodName = factoryMethodName;
-            this.factoryMethodArgs = checkNotNull(factoryMethodArgs, "factoryMethodArgs");
-            this.fields = MutableMap.copyOf(fields);
-            this.config = MutableMap.copyOf(config);
+            this(checkNotNull(typeName, "typeName"), null, null,
+                    factoryMethodName, checkNotNull(factoryMethodArgs, "factoryMethodArgs"),
+                    fields, config);
         }
 
         public DslObject(
@@ -778,15 +790,32 @@ public class BrooklynDslCommon {
                 List<Object> factoryMethodArgs,
                 Map<String, Object> fields,
                 Map<String, Object> config) {
-            this.typeName = null;
-            this.type = checkNotNull(type, "type");
-            this.constructorArgs = ImmutableList.of();
+            this(null, checkNotNull(type, "type"), null,
+                factoryMethodName, checkNotNull(factoryMethodArgs, "factoryMethodArgs"),
+                fields, config);
+        }
+        // full constructor
+        protected DslObject(
+                String typeName,
+                Class<?> type,
+                List<Object> constructorArgs,
+                String factoryMethodName,
+                List<Object> factoryMethodArgs,
+                Map<String, Object> fields,
+                Map<String, Object> config) {
+            this.typeName = typeName;
+            this.type = type;
+            this.constructorArgs = constructorArgs==null ? ImmutableList.of() : constructorArgs;
             this.factoryMethodName = factoryMethodName;
-            this.factoryMethodArgs = checkNotNull(factoryMethodArgs, "factoryMethodArgs");
+            this.factoryMethodArgs = factoryMethodArgs==null ? ImmutableList.of() : factoryMethodArgs;
             this.fields = MutableMap.copyOf(fields);
             this.config = MutableMap.copyOf(config);
         }
-
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new DslObject(vh.r(typeName), vh.r(type), vh.r(constructorArgs), vh.r(factoryMethodName), vh.r(factoryMethodArgs), vh.r(fields), vh.r(config)),
+                    typeName, type, constructorArgs, factoryMethodName, factoryMethodArgs, fields, config);
+        }
 
         @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
@@ -796,14 +825,12 @@ public class BrooklynDslCommon {
             final Class<?> clazz = getOrLoadType();
             final ExecutionContext executionContext = entity().getExecutionContext();
 
-            final Function<Object, Object> resolver = new Function<Object, Object>() {
-                @Override public Object apply(Object value) {
-                    Maybe<Object> result = Tasks.resolving(value, Object.class).context(executionContext).deep().immediately(true).getMaybe();
-                    if (result.isAbsent()) {
-                        throw new ImmediateValueNotAvailableException();
-                    } else {
-                        return result.get();
-                    }
+            final com.google.common.base.Function<Object, Object> resolver = value -> {
+                Maybe<Object> result = Tasks.resolving(value, Object.class).context(executionContext).deep().immediately(true).getMaybe();
+                if (result.isAbsent()) {
+                    throw new ImmediateValueNotAvailableException();
+                } else {
+                    return result.get();
                 }
             };
 
@@ -830,35 +857,31 @@ public class BrooklynDslCommon {
             final Class<?> clazz = getOrLoadType();
             final ExecutionContext executionContext = entity().getExecutionContext();
 
-            final Function<Object, Object> resolver = new Function<Object, Object>() {
-                @Override public Object apply(Object value) {
-                    try {
-                        return Tasks.resolveDeepValueWithoutCoercion(value, executionContext);
-                    } catch (ExecutionException | InterruptedException e) {
-                        throw Exceptions.propagate(e);
-                    }
+            final com.google.common.base.Function<Object, Object> resolver = value -> {
+                try {
+                    return Tasks.resolveDeepValueWithoutCoercion(value, executionContext);
+                } catch (ExecutionException | InterruptedException e) {
+                    throw Exceptions.propagate(e);
                 }
             };
 
             return Tasks.builder().displayName("building instance of '"+clazz+"'")
                     .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                     .dynamic(false)
-                    .body(new Callable<Object>() {
-                        @Override
-                        public Object call() throws Exception {
-                            // TODO de-dupe with getImmediately
+                    .body(() -> {
+                        // TODO de-dupe with getImmediately
 
-                            Map<String, Object> resolvedFields = MutableMap.copyOf(Maps.transformValues(fields, resolver));
-                            Map<String, Object> resolvedConfig = MutableMap.copyOf(Maps.transformValues(config, resolver));
-                            List<Object> resolvedConstructorArgs = MutableList.copyOf(Lists.transform(constructorArgs, resolver));
-                            List<Object> resolvedFactoryMethodArgs = MutableList.copyOf(Lists.transform(factoryMethodArgs, resolver));
+                        Map<String, Object> resolvedFields = MutableMap.copyOf(Maps.transformValues(fields, resolver));
+                        Map<String, Object> resolvedConfig = MutableMap.copyOf(Maps.transformValues(config, resolver));
+                        List<Object> resolvedConstructorArgs = MutableList.copyOf(Lists.transform(constructorArgs, resolver));
+                        List<Object> resolvedFactoryMethodArgs = MutableList.copyOf(Lists.transform(factoryMethodArgs, resolver));
 
-                            if (factoryMethodName == null) {
-                                return create(clazz, resolvedConstructorArgs, resolvedFields, resolvedConfig);
-                            } else {
-                                return create(clazz, factoryMethodName, resolvedFactoryMethodArgs, resolvedFields, resolvedConfig);
-                            }
-                        }})
+                        if (factoryMethodName == null) {
+                            return create(clazz, resolvedConstructorArgs, resolvedFields, resolvedConfig);
+                        } else {
+                            return create(clazz, factoryMethodName, resolvedFactoryMethodArgs, resolvedFields, resolvedConfig);
+                        }
+                    })
                     .build();
         }
 
@@ -988,6 +1011,11 @@ public class BrooklynDslCommon {
             this.providerName = providerName;
             this.key = key;
         }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new DslExternal(vh.r(providerName), vh.r(key)),
+                    providerName, key);
+        }
 
         public Object getProviderName() {
             return providerName;
@@ -1093,15 +1121,22 @@ public class BrooklynDslCommon {
                 this.pattern = pattern;
                 this.replacement = replacement;
             }
+            @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+                return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                        vh -> new DslRegexReplacer(vh.r(pattern), vh.r(replacement)),
+                        pattern, replacement);
+            }
 
             @Override @JsonIgnore
             public Maybe<Function<String, String>> getImmediately() {
-                return DependentConfiguration.regexReplacementImmediately(pattern, replacement);
+                // old Guava Function extends java.util.Function so this is safe, but covariance not automatically detected as such
+                return Maybe.cast(DependentConfiguration.regexReplacementImmediately(pattern, replacement));
             }
 
             @Override
             public Task<Function<String, String>> newTask() {
-                return DependentConfiguration.regexReplacement(pattern, replacement);
+                // old Guava Function extends java.util.Function so this is safe, but covariance not automatically detected as such
+                return (Task) DependentConfiguration.regexReplacement(pattern, replacement);
             }
 
             @Override

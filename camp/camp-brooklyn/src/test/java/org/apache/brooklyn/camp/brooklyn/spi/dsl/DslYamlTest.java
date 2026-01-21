@@ -291,9 +291,8 @@ public class DslYamlTest extends AbstractYamlTest {
                 "brooklyn.config:",
                 "  v: 2");
         Entity child = Iterables.get(app.getChildren(), 0);
-        // TODO - these should both be 1, but scopeRoot for the simple-item goes to the blueprint where it is used; see notes in CampResolver.fixScopeRoot
-        Asserts.assertEquals( child.getConfig(ConfigKeys.newConfigKey(Object.class, "refInDsl")), "2" );
-        Asserts.assertEquals( child.getConfig(ConfigKeys.newConfigKey(Object.class, "refInMap")), MutableMap.of("v", 2) );
+        Asserts.assertEquals( child.getConfig(ConfigKeys.newConfigKey(Object.class, "refInDsl")), "1" );
+        Asserts.assertEquals( child.getConfig(ConfigKeys.newConfigKey(Object.class, "refInMap")), MutableMap.of("v", 1) );
     }
 
     @Test

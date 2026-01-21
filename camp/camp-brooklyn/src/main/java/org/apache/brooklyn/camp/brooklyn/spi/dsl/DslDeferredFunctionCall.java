@@ -23,12 +23,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslCopyHelpers;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslToStringHelpers;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
@@ -52,10 +53,15 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
     private String fnName;
     private List<?> args;
 
-    public DslDeferredFunctionCall(Object o, String fn, List<Object> args) {
+    public DslDeferredFunctionCall(Object o, String fn, List<?> args) {
         this.object = o;
         this.fnName = fn;
         this.args = args;
+    }
+    @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+        return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                vh -> new DslDeferredFunctionCall(vh.r(object), vh.r(fnName), vh.r(args)),
+                object, fnName, args);
     }
 
     @Override @JsonIgnore
@@ -70,7 +76,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
         if (args==null) return "";
         return args.toString();
     }
-    
+
     @Override
     public Task<Object> newTask() {
         return Tasks.builder()
@@ -92,7 +98,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
             Object instance = resolvedMaybe.get();
 
             if (instance == null) {
-                throw new IllegalArgumentException("Deferred function call not found: " + 
+                throw new IllegalArgumentException("Deferred function call not found: " +
                         object + " evaluates to null (wanting to call " + toStringF(fnName, args) + ")");
             }
 
@@ -117,30 +123,30 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
     protected static Maybe<Object> invokeOn(Object obj, String fnName, List<?> args) {
         return new Invoker(obj, fnName, args).invoke();
     }
-    
+
     protected static class Invoker {
         final Object obj;
         final String fnName;
         final List<?> args;
-        
+
         Maybe<Method> method;
         Object instance;
         List<?> instanceArgs;
-        
+
         protected Invoker(Object obj, String fnName, List<?> args) {
             this.fnName = fnName;
             this.obj = obj;
             this.args = args;
         }
-        
+
         protected Maybe<Object> invoke() {
             findMethod();
-            
+
             if (method.isPresent()) {
                 Method m = method.get();
-    
+
                 checkCallAllowed(m);
-    
+
                 try {
                     // Value is most likely another BrooklynDslDeferredSupplier - let the caller handle it,
                     return Maybe.of(Reflections.invokeMethodFromArgs(instance, m, instanceArgs));
@@ -154,11 +160,11 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
                 // new Invoker(obj, fnName, replaceSuppliersWithNull(args)).findMethod()
                 // then return a
                 // new DslDeferredFunctionCall(...)
-                
+
                 return Maybe.absent(new IllegalArgumentException("No such function '"+fnName+"' taking args "+args+" (on "+obj+")"));
             }
         }
-    
+
         protected void findMethod() {
             method = Reflections.getMethodFromArgs(obj, fnName, args);
             if (method.isPresent()) {
@@ -166,7 +172,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
                 this.instanceArgs = args;
                 return ;
             }
-                
+
             instance = BrooklynDslCommon.class;
             instanceArgs = ImmutableList.builder().add(obj).addAll(args).build();
             method = Reflections.getMethodFromArgs(instance, fnName, instanceArgs);
@@ -184,18 +190,18 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
             } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException e) {
                 facade = Maybe.absent();
             }
-    
+
             if (facade.isPresent()) {
                 instance = facade.get();
                 instanceArgs = args;
                 method = Reflections.getMethodFromArgs(instance, fnName, instanceArgs);
                 if (method.isPresent()) return ;
             }
-            
+
             method = Maybe.absent();
         }
     }
-    
+
     protected Maybe<?> resolve(Object object, boolean immediate, boolean dslFunctionSource) {
         ValueResolver<Object> r = Tasks.resolving(object, Object.class)
                 .context(entity().getExecutionContext())

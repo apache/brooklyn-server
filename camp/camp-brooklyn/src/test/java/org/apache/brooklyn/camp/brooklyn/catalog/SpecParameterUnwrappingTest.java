@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import static org.apache.brooklyn.core.objs.SpecParameterPredicates.labelEqualTo;
 import static org.apache.brooklyn.core.objs.SpecParameterPredicates.nameEqualTo;
+import static org.apache.brooklyn.test.Asserts.assertNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -42,6 +43,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
@@ -60,8 +62,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 public class SpecParameterUnwrappingTest extends AbstractYamlTest {
-    
-    // Expect app to have the following config keys already: 
+
+    // Expect app to have the following config keys already:
     // "application.stop.shouldDestroy", "defaultDisplayName", "quorum.running", "quorum.up", "latch.start"
     public static final int NUM_APP_DEFAULT_CONFIG_KEYS = 5;
     // "defaultDisplayName"
@@ -70,7 +72,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
     public static final int NUM_POLICY_DEFAULT_CONFIG_KEYS = 0;
     // various ssh things...
     public static final int NUM_LOCATION_DEFAULT_CONFIG_KEYS = 5;
-    
+
     private static final String SYMBOLIC_NAME = "my.catalog.app.id.load";
 
     private static final ConfigKey<String> SHARED_CONFIG = ConfigKeys.newStringConfigKey("sample.config");
@@ -157,7 +159,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         assertTrue(Iterables.tryFind(params, nameEqualTo(SHARED_CONFIG.getName())).isPresent());
         // it is surprising to have all the application config keys when the app was only ever for wrapper purposes;
         // perhaps those will be removed in time (but they aren't causing much harm)
-        assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + ConfigEntityForTest.NUM_CONFIG_KEYS_DEFINED_HERE + NUM_CONFIG_KEYS_FROM_TEST_BLUEPRINT, 
+        assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + ConfigEntityForTest.NUM_CONFIG_KEYS_DEFINED_HERE + NUM_CONFIG_KEYS_FROM_TEST_BLUEPRINT,
             "params="+params);
     }
 
@@ -552,7 +554,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         assertEquals(params.size(), NUM_ENTITY_DEFAULT_CONFIG_KEYS + ConfigEntityForTest.NUM_CONFIG_KEYS_DEFINED_HERE + NUM_CONFIG_KEYS_FROM_WITH_PARAMS_TEST_BLUEPRINT,
             "params="+params);
         assertTrue(Iterables.tryFind(params, nameEqualTo("num")).isPresent());
-        
+
         Application app = (Application) createAndStartApplication(
                 "services:",
                 "  - type: " + ver(SYMBOLIC_NAME));
@@ -621,5 +623,61 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         } else {
             throw new IllegalArgumentException("Class" + testClass + " not an entity, policy or location");
         }
+    }
+
+    @Test
+    public void testParameterDefaultsKeptWhenCatalogTypeHas1Child() throws Exception {
+        testParameterDefaultsKeptWhenCatalogTypeHasChild(true, false);
+    }
+    @Test
+    public void testParameterDefaultsKeptWhenCatalogTypeHas2Children() throws Exception {
+        testParameterDefaultsKeptWhenCatalogTypeHasChild(true, true);
+    }
+    @Test
+    public void testParameterDefaultsKeptWhenCatalogTypeHas1ChildAndCallerHasOnlyOneChild() throws Exception {
+        testParameterDefaultsKeptWhenCatalogTypeHasChild(false, false);
+    }
+    @Test
+    public void testParameterDefaultsKeptWhenCatalogTypeHas2ChildrenAndCallerHasOnlyOneChild() throws Exception {
+        testParameterDefaultsKeptWhenCatalogTypeHasChild(false, true);
+    }
+    public void testParameterDefaultsKeptWhenCatalogTypeHasChild(boolean extraChildInCaller, boolean extraChildInTemplate) throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "    - id: plato.concat",
+                "      item:",
+                "        brooklyn.parameters:",
+                "          - name: num",
+                "            default: abc",
+                "        services:",
+                "          - type: "+ConfigEntityForTest.class.getName(),
+                "            brooklyn.config:",
+                "              num_config: $brooklyn:config(\"num\")",
+                "              target0: $brooklyn:formatString(\"test_%s\", config(\"num\"))",
+                "              target: $brooklyn:formatString(\"test_%s\", scopeRoot().config(\"num\"))",
+                // the extra child prevents the node from being collapsed
+                // when it is collapsed, scopeRoot needs special treatment
+                "          " + (extraChildInTemplate ? "- type: "+ConfigEntityForTest.class.getName() : ""),
+                ""
+                );
+
+        Application app = createAndStartApplication(
+                "services:",
+                "  - type: plato.concat",
+                "  " + (extraChildInCaller ? "- type: plato.concat" : ""),
+                ""
+                );
+
+        Entities.dumpInfo(app);
+
+        assertEquals(app.getChildren().iterator().next().config().get(ConfigKeys.newConfigKey(Object.class, "num")), "abc");
+
+        Entity leaf = app;
+        while (leaf.getChildren().size()>0) leaf = leaf.getChildren().iterator().next();
+        assertEquals(leaf.config().get(ConfigKeys.newConfigKey(Object.class, "num")), "abc");
+        assertEquals(leaf.config().get(ConfigKeys.newConfigKey(Object.class, "target0")), "test_abc");
+        assertEquals(leaf.config().get(ConfigKeys.newConfigKey(Object.class, "target")), "test_abc");
     }
 }
