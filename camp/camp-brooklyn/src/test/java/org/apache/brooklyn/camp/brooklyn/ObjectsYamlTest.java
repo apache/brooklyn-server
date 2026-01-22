@@ -134,7 +134,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         private Object object;
         private Double value;
         BasicConfigurationSupport configSupport = new BasicConfigurationSupport();
-        
+
         public ConfigurableObject() { }
 
         public String getString() { return string; }
@@ -150,15 +150,15 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         public <T> T getConfig(ConfigKey<T> key) {
             return config().get(key);
         }
-        
+
         @Override
         public ConfigurationSupport config() {
             return configSupport;
         }
-        
+
         private class BasicConfigurationSupport implements ConfigurationSupport {
             private final ConfigBag bag = new ConfigBag();
-            
+
             @Override public <T> T get(ConfigKey<T> key) {
                 return bag.get(key);
             }
@@ -197,12 +197,12 @@ public class ObjectsYamlTest extends AbstractYamlTest {
             public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter) {
             	return MutableSet.copyOf(Iterables.filter(bag.getAllConfigAsConfigKeyMap().keySet(), filter));
             }
-            
+
             @Override
             public Set<ConfigKey<?>> findKeysPresent(Predicate<? super ConfigKey<?>> filter) {
             	return findKeysDeclared(filter);
             }
-            
+
         }
     }
 
@@ -395,7 +395,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         assertEquals(testObject.getNumber(), Integer.valueOf(1));
         assertEquals(testObject.getObject(), "myDefaultThird");
     }
-    
+
     @Test
     public void testBrooklynObjectWithFactoryMethodWithArgCoercion() throws Exception {
         Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
@@ -412,7 +412,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         String val = (String) testEntity.getConfig(TestEntity.CONF_OBJECT);
         assertEquals(val, "1970-01-01T00:00:01");
     }
-    
+
     @Test
     public void testFieldsAsDeferredSuppliers() throws Exception {
         // all fields as deferred suppliers
@@ -429,7 +429,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
                 "          string: $brooklyn:config(\"mystring\")",
                 "          list: ",
                 "          - $brooklyn:config(\"mystring\")");
-    
+
             TestObject testObject = (TestObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
             Assert.assertEquals(testObject.getNumber(), Integer.valueOf(123));
             Assert.assertEquals(testObject.getString(), "myval");
@@ -448,12 +448,12 @@ public class ObjectsYamlTest extends AbstractYamlTest {
                     "        object.fields:",
                     "          number: $brooklyn:config(\"myint\")",
                     "          string: myval");
-    
+
                 TestObject testObject = (TestObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
                 Assert.assertEquals(testObject.getNumber(), Integer.valueOf(123));
                 Assert.assertEquals(testObject.getString(), "myval");
         }
-        
+
         // Only second field as deferred supplier
         {
             Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
@@ -466,7 +466,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
                     "        object.fields:",
                     "          number: 7",
                     "          string: $brooklyn:config(\"mystring\")");
-    
+
                 TestObject testObject = (TestObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
                 Assert.assertEquals(testObject.getNumber(), Integer.valueOf(7));
                 Assert.assertEquals(testObject.getString(), "myval");
@@ -488,14 +488,14 @@ public class ObjectsYamlTest extends AbstractYamlTest {
                 "        object.fields:",
                 "          list: ",
                 "          - $brooklyn:config(\"mystring\")");
-    
+
             TestObject testObject = (TestObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
             Assert.assertEquals(testObject.getList(), ImmutableList.of("myval"));
         }
     }
-    
+
     // TODO See https://issues.apache.org/jira/browse/BROOKLYN-565
-    @Test(groups="Broken")
+    @Test(groups="Broken")  // the object contains the deferred supplier, which is maybe okay, but TBC
     public void testFieldOfTypeListAsDeferredSuppliers() throws Exception {
         {
             // See https://issues.apache.org/jira/browse/BROOKLYN-565
@@ -510,12 +510,12 @@ public class ObjectsYamlTest extends AbstractYamlTest {
                 "        object.fields:",
                 "          list: ",
                 "          - $brooklyn:config(\"mystring\")");
-    
+
             TestObject testObject = (TestObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
             Assert.assertEquals(testObject.getList(), ImmutableList.of("myval"));
         }
     }
-    
+
     @Test
     public void testConfigAsDeferredSuppliers() throws Exception {
         // all fields as deferred suppliers
@@ -533,13 +533,13 @@ public class ObjectsYamlTest extends AbstractYamlTest {
                 "        brooklyn.config:",
                 "          flag: $brooklyn:config(\"mystring\")",
                 "          config.number: $brooklyn:config(\"myint\")");
-    
+
             ConfigurableObject testObject = (ConfigurableObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
             assertEquals(testObject.getDouble(), Double.valueOf(1.4));
             assertEquals(testObject.getString(), "myval");
             assertEquals(testObject.getNumber(), Integer.valueOf(123));
         }
-        
+
         // Only only fields (and not config) as deferred supplier
         {
             Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
@@ -555,13 +555,13 @@ public class ObjectsYamlTest extends AbstractYamlTest {
                     "        brooklyn.config:",
                     "          flag: myval",
                     "          config.number: 123");
-        
+
                 ConfigurableObject testObject = (ConfigurableObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
                 assertEquals(testObject.getDouble(), Double.valueOf(1.4));
                 assertEquals(testObject.getString(), "myval");
                 assertEquals(testObject.getNumber(), Integer.valueOf(123));
         }
-        
+
         // Only config (and not fields) as deferred supplier
         {
             Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
@@ -577,7 +577,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
                     "        brooklyn.config:",
                     "          flag: $brooklyn:config(\"mystring\")",
                     "          config.number: $brooklyn:config(\"myint\")");
-        
+
                 ConfigurableObject testObject = (ConfigurableObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
                 assertEquals(testObject.getDouble(), Double.valueOf(1.4));
                 assertEquals(testObject.getString(), "myval");
@@ -605,7 +605,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         assertEquals(testObject.getString(), "myval");
         assertEquals(testObject.getObject(), "myThirdParam");
     }
-    
+
     @Test
     public void testFactorArgsAsDeferredSuppliers() throws Exception {
         Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
@@ -661,7 +661,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
             "        factoryMethod.name: call",
             "        factoryMethod.args:",
             "        - myval");
-        
+
         // Nothing has called config().get() yet; but expect it to have been evaluated immediate, on entity construction
         assertEquals(CallRecorder.getCalls(), ImmutableList.of("myval"));
 
@@ -683,7 +683,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
             "        factoryMethod.name: call",
             "        factoryMethod.args:",
             "        - $brooklyn:config(\"anotherConfig\")");
-        
+
         // The value is a DeferredSupplier; nothing in the blueprint will have called config().get() yet.
         // However, verification will have called it! Therefore not doing:
         //   assertEquals(CallRecorder.getCalls(), ImmutableList.of());
@@ -693,7 +693,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         Object val = entity.config().get(TestEntity.CONF_OBJECT);
         assertEquals(val, "myval");
         assertEquals(CallRecorder.getCalls(), ImmutableList.of("myval"));
-        
+
         // Retrieving the config value a second time will resolve it again
         Object val2 = entity.config().get(TestEntity.CONF_OBJECT);
         assertEquals(val2, "myval");
@@ -712,7 +712,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
             "        factoryMethod.name: call",
             "        factoryMethod.args:",
             "        - myval");
-        
+
         // The value is a DeferredSupplier; nothing in the blueprint will have called config().get() yet.
         // However, verification will have called it! Therefore not doing:
         //   assertEquals(CallRecorder.getCalls(), ImmutableList.of());
@@ -722,7 +722,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         Object val = entity.config().get(TestEntity.CONF_OBJECT);
         assertEquals(val, "myval");
         assertEquals(CallRecorder.getCalls(), ImmutableList.of("myval"));
-        
+
         // Retrieving the config value a second time will resolve it again
         Object val2 = entity.config().get(TestEntity.CONF_OBJECT);
         assertEquals(val2, "myval");
@@ -780,16 +780,16 @@ public class ObjectsYamlTest extends AbstractYamlTest {
 
     public static class CallRecorder {
         private static final List<String> calls = Collections.synchronizedList(Lists.<String>newArrayList());
-        
+
         public static String call(String val) {
             calls.add(val);
             return val;
         }
-        
+
         public static void clear() {
             calls.clear();
         }
-        
+
         public static List<String> getCalls() {
             synchronized (calls) {
                 return MutableList.copyOf(calls);

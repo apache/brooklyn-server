@@ -43,8 +43,10 @@ import org.apache.brooklyn.camp.CampPlatform;
 import org.apache.brooklyn.camp.brooklyn.api.AssemblyTemplateSpecInstantiator;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslCopyHelpers;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.instantiate.AssemblyTemplateInstantiator;
 import org.apache.brooklyn.config.ConfigKey;
@@ -78,7 +80,7 @@ class CampResolver {
 //     * to promote it */
 //    boolean allowApplicationFullSyntax = true;
 //
-//    /** whether to allow parsing of the legacy 'full' syntax, 
+//    /** whether to allow parsing of the legacy 'full' syntax,
 //     * where a non-application items are wrapped:
 //     * <li> in a "services:" block for entities,
 //     * <li> in a "brooklyn.locations" or "brooklyn.policies" block for locations and policies */
@@ -231,7 +233,7 @@ class CampResolver {
             EntitySpec<? extends Application> appSpec = ((AssemblyTemplateSpecInstantiator)instantiator).createApplicationSpec(at, camp, loader, encounteredTypes);
 
             // above will unwrap but only if it's an Application (and it's permitted);
-            // but it doesn't know whether we need an App or if an Entity is okay  
+            // but it doesn't know whether we need an App or if an Entity is okay
             EntitySpec<? extends Entity> result = !isApplication ? EntityManagementUtils.unwrapEntity(appSpec) : appSpec;
             // if we need an App then definitely *don't* unwrap here because
             // the instantiator will have done that, and it knows if the plan
@@ -248,9 +250,7 @@ class CampResolver {
             }
             throw new IllegalStateException("Unable to instantiate YAML; invalid type or parameters in plan:\n"+plan);
         }
-
     }
-
 
     static void fixScopeRootAtRoot(ManagementContext mgmt, EntitySpec<?> node) {
         node.getConfig().entrySet().forEach(entry -> {
@@ -262,35 +262,16 @@ class CampResolver {
     }
 
     private static void fixScopeRoot(ManagementContext mgmt, Object value, Consumer<Object> updater) {
-        java.util.function.Function<String,String> fixString = v -> "$brooklyn:self()" + Strings.removeFromStart((String)v, "$brooklyn:scopeRoot()");
-        // TODO better approach to replacing scopeRoot
-        // we could replace within maps and strings, and inside DSL; currently only supported at root of config or flags
-        // but that's hard, we'd need to rebuild those maps and strings, which might be inside objects;
-        // and we'd need to replace references to scopeRoot inside a DSL, eg formatString;
-        // better would be to collect the DSL items we just created, and convert those if they belong to the now-root node (possibly promoted);
-        // it is a rare edge case however, so for now we use this poor-man's logic which captures the most common case --
-        // see DslYamlTest.testDslScopeRootEdgeCases
-        if (value instanceof BrooklynDslDeferredSupplier) {
-            if (value.toString().startsWith("$brooklyn:scopeRoot()")) {
-                updater.accept(DslUtils.parseBrooklynDsl(mgmt, fixString.apply(value.toString())));
-                return;
+        Object v2 = DslCopyHelpers.visitRecursively(value, BrooklynDslDeferredSupplier.class,
+                dsl -> dsl.applyModificationVisitor(v -> {
+            // cf DslComponent newInstanceChangingScope
+            if (v instanceof DslComponent && ((DslComponent) v).getScope() == Scope.SCOPE_ROOT) {
+                return ((DslComponent) v).newInstanceChangingScope(Scope.THIS);
+            } else {
+                return v;
             }
-        }
-
-        // don't think blocks below here ever get used...
-        if (value instanceof String) {
-            if (((String)value).startsWith("$brooklyn:scopeRoot()")) {
-                updater.accept( fixString.apply((String)value) );
-            }
-            return;
-        }
-
-        if (value instanceof DslComponent) {
-            // superseded by above - no longer used
-            if ( ((DslComponent)value).getScope() == Scope.SCOPE_ROOT ) {
-                updater.accept( DslComponent.newInstanceChangingScope(Scope.THIS, (DslComponent) value, fixString) );
-            }
-            return;
-        }
+        }));
+        if (v2!=value) updater.accept(v2);
     }
+
 }

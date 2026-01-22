@@ -77,7 +77,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     private static final Logger log = LoggerFactory.getLogger(DslComponent.class);
 
     private static final long serialVersionUID = -7715984495268724954L;
-    
+
     private final String componentId;
     private final DeferredSupplier<?> componentIdSupplier;
     private final DslComponent scopeComponent;
@@ -85,7 +85,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
     /**
      * Checks the type of {@code componentId} to create the right kind of {@link DslComponent}
-     * (based on whether the componentId is already resolved. Accepts either a {@link String} or a 
+     * (based on whether the componentId is already resolved. Accepts either a {@link String} or a
      * {@link DeferredSupplier}.
      */
     public static DslComponent newInstance(DslComponent scopeComponent, Scope scope, Object componentId) {
@@ -99,7 +99,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
     /**
      * Checks the type of {@code componentId} to create the right kind of {@link DslComponent}
-     * (based on whether the componentId is already resolved. Accepts either a {@link String} or a 
+     * (based on whether the componentId is already resolved. Accepts either a {@link String} or a
      * {@link DeferredSupplier}.
      */
     public static DslComponent newInstance(Scope scope, Object componentId) {
@@ -111,23 +111,18 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         }
     }
 
-    public static DslComponent newInstanceChangingScope(Scope scope, DslComponent old, Function<String,String> dslUpdateFn) {
-        DslComponent result;
-        if (old.componentIdSupplier!=null) result = new DslComponent(scope, old.componentIdSupplier);
-        else if (old.componentId!=null) result = new DslComponent(scope, old.componentId);
-        else result = new DslComponent(scope);
-
-        if (dslUpdateFn!=null && old.dsl instanceof String) {
-            result.dsl = dslUpdateFn.apply((String) old.dsl);
-        } else {
-            result.dsl = old.dsl;
-        }
+    public DslComponent newInstanceChangingScope(Scope newScope) {
+        DslComponent result = new DslComponent(scopeComponent, componentId, componentIdSupplier, newScope);
+        result.dsl = result.toDslString(false);
+        // could do something more clever but no need?
+//        if (dsl!=null && dsl.toString().startsWith("$brooklyn:scopeRoot()")) {
+//            result.dsl = "$brooklyn:self()" + Strings.removeFromStart((String) dsl.toString(), "$brooklyn:scopeRoot()");
         return result;
     }
 
     /**
      * Resolve componentId in the {@link Scope#GLOBAL} scope.
-     * 
+     *
      * @deprecated since 0.10.0; pass the {@link Scope} explicitly.
      */
     @Deprecated
@@ -136,9 +131,9 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     }
 
     /**
-     * Resolve in scope relative to the current 
+     * Resolve in scope relative to the current
      * {@link BrooklynTaskTags#getTargetOrContextEntity) target or context} entity
-     * (where the scope defines an unambiguous relationship that will resolve to a single 
+     * (where the scope defines an unambiguous relationship that will resolve to a single
      * component - e.g. "parent").
      */
     public DslComponent(Scope scope) {
@@ -147,13 +142,13 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
     /**
      * Resolve in scope relative to {@code scopeComponent} entity
-     * (where the scope defines an unambiguous relationship that will resolve to a single 
+     * (where the scope defines an unambiguous relationship that will resolve to a single
      * component - e.g. "parent").
      */
     public DslComponent(DslComponent scopeComponent, Scope scope) {
         this(scopeComponent, scope, (String)null);
     }
-    
+
     /**
      * Resolve componentId in scope relative to the current
      * {@link BrooklynTaskTags#getTargetOrContextEntity) target or context} entity.
@@ -178,22 +173,31 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
      * Resolve componentId in scope relative to scopeComponent.
      */
     public DslComponent(DslComponent scopeComponent, Scope scope, String componentId) {
-        Preconditions.checkNotNull(scope, "scope");
         this.scopeComponent = scopeComponent;
         this.componentId = componentId;
         this.componentIdSupplier = null;
-        this.scope = scope;
+        this.scope = Preconditions.checkNotNull(scope, "scope");
     }
 
     /**
      * Resolve componentId in scope relative to scopeComponent.
      */
     public DslComponent(DslComponent scopeComponent, Scope scope, DeferredSupplier<?> componentIdSupplier) {
-        Preconditions.checkNotNull(scope, "scope");
         this.scopeComponent = scopeComponent;
         this.componentId = null;
         this.componentIdSupplier = componentIdSupplier;
+        this.scope = Preconditions.checkNotNull(scope, "scope");
+    }
+    protected DslComponent(DslComponent scopeComponent, String componentId, DeferredSupplier<?> componentIdSupplier, Scope scope) {
+        this.scopeComponent = scopeComponent;
+        this.componentId = componentId;
+        this.componentIdSupplier = componentIdSupplier;
         this.scope = scope;
+    }
+    @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+        return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                vh -> new DslComponent(vh.r(scopeComponent), vh.r(componentId), vh.r(componentIdSupplier), vh.r(scope)),
+                scopeComponent, componentId, componentIdSupplier, scope);
     }
 
     // ---------------------------
@@ -227,7 +231,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 .body(new EntityInScopeFinder(scopeComponent, scope, componentId, componentIdSupplier))
                 .build();
     }
-    
+
     protected static class EntityInScopeFinder implements Callable<Entity>, ImmediateSupplier<Entity> {
         protected final DslComponent scopeComponent;
         protected final Scope scope;
@@ -258,7 +262,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 throw Exceptions.propagate(e);
             }
         }
-        
+
         @Override
         public Entity call() throws Exception {
             return callImpl(false).get();
@@ -525,7 +529,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
             return resolver.resolve();
         }
-        
+
         private ExecutionContext getExecutionContext() {
             return findExecutionContext(this);
         }
@@ -542,7 +546,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     // -------------------------------
 
     // DSL words which move to a new component
-    
+
     @DslAccessible
     public DslComponent entity(Object id) {
         return DslComponent.newInstance(this, Scope.GLOBAL, id);
@@ -571,23 +575,23 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     public DslComponent scopeRoot() {
         return new DslComponent(this, Scope.SCOPE_ROOT);
     }
-    
+
     @Deprecated /** @deprecated since 0.7.0 */
     @DslAccessible
     public DslComponent component(Object id) {
         return DslComponent.newInstance(this, Scope.GLOBAL, id);
     }
-    
+
     @DslAccessible
     public DslComponent self() {
         return new DslComponent(this, Scope.THIS);
     }
-    
+
     @DslAccessible
     public DslComponent parent() {
         return new DslComponent(this, Scope.PARENT);
     }
-    
+
     @DslAccessible
     public DslComponent component(String scope, Object id) {
         if (!DslComponent.Scope.isValid(scope)) {
@@ -619,6 +623,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         public EntityId(DslComponent component) {
             this.component = Preconditions.checkNotNull(component);
         }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new EntityId(vh.r(component)),
+                    component);
+        }
 
         @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
@@ -628,7 +637,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
             return Maybe.of(targetEntity.getId());
         }
-        
+
         @Override
         public Task<Object> newTask() {
             Entity targetEntity = component.get();
@@ -681,9 +690,14 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this(component, sensorName, null);
         }
         public AttributeWhenReady(DslComponent component, Object sensorName, Map opts) {
-            this.component = Preconditions.checkNotNull(component);
+            this.component = sensorName!=null || opts!=null ? Preconditions.checkNotNull(component) : component;
             this.sensorName = sensorName;
             this.options = opts;
+        }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new AttributeWhenReady(vh.r(component), vh.r(sensorName), vh.r(options)),
+                    component, sensorName, options);
         }
 
         public Object getSensorName() {
@@ -698,7 +712,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (sensorName instanceof String) {
                 return (String)sensorName;
             }
-            
+
             return Tasks.resolving(sensorName)
                 .as(String.class)
                 .context(findExecutionContext(this))
@@ -706,7 +720,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 .description("Resolving sensorName from " + sensorName)
                 .get();
         }
-        
+
         @Override @JsonIgnore
         public final Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
@@ -727,7 +741,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         @Override
         public Task<Object> newTask() {
             Entity targetEntity = component.get();
-            
+
             String sensorNameS = resolveSensorName(false);
             Sensor<?> targetSensor = targetEntity.getEntityType().getSensor(sensorNameS);
             if (!(targetSensor instanceof AttributeSensor<?>)) {
@@ -776,8 +790,13 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             keyName = null;
         }
         public DslConfigSupplier(DslComponent component, Object keyName) {
-            this.component = Preconditions.checkNotNull(component);
+            this.component = keyName!=null ? Preconditions.checkNotNull(component) : component;
             this.keyName = keyName;
+        }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new DslConfigSupplier(vh.r(component), vh.r(keyName)),
+                    component, keyName);
         }
 
         public Object getKeyName() {
@@ -792,7 +811,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (keyName instanceof String) {
                 return (String)keyName;
             }
-            
+
             return Tasks.resolving(keyName)
                 .as(String.class)
                 .context(findExecutionContext(this))
@@ -800,7 +819,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 .description("Resolving key name from " + keyName)
                 .get();
         }
-        
+
         @Override @JsonIgnore
         public final Maybe<Object> getImmediately() {
             Maybe<Object> maybeWrappedMaybe = findExecutionContext(this).getImmediately(newCallableReturningImmediateMaybeOrNonImmediateValue(true));
@@ -824,14 +843,14 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 @Override
                 public Object call() throws Exception {
                     Entity targetEntity;
-                    if (immediate) { 
+                    if (immediate) {
                         Maybe<Entity> targetEntityMaybe = component.getImmediately();
                         if (targetEntityMaybe.isAbsent()) return Maybe.<Object>cast(targetEntityMaybe);
                         targetEntity = (EntityInternal) targetEntityMaybe.get();
                     } else {
                         targetEntity = component.get();
                     }
-                    
+
                     // this is always run in a new dedicated task (possibly a fake task if immediate), so no need to clear
                     String tag = "DSL:entity('"+targetEntity.getId()+"').config('"+keyName+"')";
                     checkAndTagForRecursiveReference(targetEntity, tag);
@@ -847,7 +866,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 }
             };
         }
-        
+
         @Override
         public int hashCode() {
             return Objects.hashCode(component, keyName);
@@ -885,6 +904,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.component = Preconditions.checkNotNull(component);
             this.sensorName = sensorIndicator;
         }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new DslSensorSupplier(vh.r(component), vh.r(sensorName)),
+                    component, sensorName);
+        }
 
         public Object getSensorName() {
             return sensorName;
@@ -898,7 +922,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         public Maybe<Sensor<?>> getImmediately() {
             return getImmediately(sensorName, false);
         }
-        
+
         protected Maybe<Sensor<?>> getImmediately(Object si, boolean resolved) {
             if (si instanceof Sensor) {
                 return Maybe.<Sensor<?>>of((Sensor<?>)si);
@@ -923,7 +947,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             }
             throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor (got type "+(si == null ? "null" : si.getClass().getName()+")"));
         }
-        
+
         @Override
         public Task<Sensor<?>> newTask() {
             return Tasks.<Sensor<?>>builder()
@@ -934,7 +958,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                         public Sensor<?> call() throws Exception {
                             return resolve(sensorName, false);
                         }
-                        
+
                         public Sensor<?> resolve(Object si, boolean resolved) throws ExecutionException, InterruptedException {
                             if (si instanceof Sensor) return (Sensor<?>)si;
                             if (si instanceof String) {
@@ -981,7 +1005,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     public BrooklynDslDeferredSupplier<Object> location() {
         return new DslLocationSupplier(this, 0);
     }
-    
+
     @DslAccessible
     public BrooklynDslDeferredSupplier<Object> location(Object index) {
         return new DslLocationSupplier(this, index);
@@ -991,10 +1015,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         private static final long serialVersionUID = 5597335296158584040L;
         private final DslComponent component;
         private final Object index;
-        
+
         public DslLocationSupplier(DslComponent component, Object index) {
             this.component = Preconditions.checkNotNull(component);
             this.index = index;
+        }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new DslLocationSupplier(vh.r(component), vh.r(index)),
+                    component, index);
         }
 
         public Object getIndex() {
@@ -1012,9 +1041,9 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     Maybe<Entity> targetEntityMaybe = component.getImmediately();
                     if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity not available: "+component, targetEntityMaybe);
                     Entity targetEntity = targetEntityMaybe.get();
-        
+
                     int indexI = resolveIndex(true);
-                    
+
                     Collection<Location> locations = getLocations(targetEntity);
                     if (locations.isEmpty()) {
                         throw new ImmediateValueNotAvailableException("Target entity has no locations: "+component);
@@ -1028,7 +1057,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     return result;
                 }
             };
-            
+
             return findExecutionContext(this).getImmediately(job);
         }
 
@@ -1036,14 +1065,14 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         @Override
         public Task<Object> newTask() {
             boolean immediate = false;
-            
+
             Callable<Object> job = new Callable<Object>() {
                 @Override
                 public Object call() throws Exception {
                     Entity targetEntity = component.get();
-                    
+
                     int indexI = resolveIndex(immediate);
-                    
+
                     // this is always run in a new dedicated task (possibly a fake task if immediate), so no need to clear
                     String tag = "DSL:entity('"+targetEntity.getId()+"').location('"+indexI+"')";
                     checkAndTagForRecursiveReference(targetEntity, tag);
@@ -1060,7 +1089,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     return result;
                 }
             };
-            
+
             return Tasks.builder()
                     .displayName("retrieving locations["+index+"] for "+component)
                     .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
@@ -1072,7 +1101,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (index instanceof String || index instanceof Number) {
                 return TypeCoercions.coerce(index, Integer.class);
             }
-            
+
             Integer result = Tasks.resolving(index)
                 .as(Integer.class)
                 .context(findExecutionContext(this))
@@ -1081,12 +1110,12 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 .get();
             return result;
         }
-        
+
         private Collection<Location> getLocations(Entity entity) {
             // TODO Arguably this should not look at ancestors. For example, in a `SoftwareProcess`
-            // then after start() its location with be a `MachineLocation`. But before start has 
+            // then after start() its location with be a `MachineLocation`. But before start has
             // completed, we'll retrieve the `MachineProvisioningLocation` from its parent.
-            
+
             Collection<? extends Location> locations = entity.getLocations();
             locations = Locations.getLocationsCheckingAncestors(locations, entity);
             return ImmutableList.copyOf(locations);
@@ -1125,13 +1154,17 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         private Map<?, ?> substitutions;
 
         public DslTemplate(DslComponent component, Object template) {
-            this(component, template, ImmutableMap.of());
+            this(component, template, null);
         }
-
         public DslTemplate(DslComponent component, Object template, Map<?, ?> substitutions) {
             this.component = component;
             this.template = template;
-            this.substitutions = substitutions;
+            this.substitutions = substitutions==null ? ImmutableMap.of() : substitutions;
+        }
+        @Override public BrooklynDslDeferredSupplier<?> applyModificationVisitor(Function<BrooklynDslDeferredSupplier<?>,BrooklynDslDeferredSupplier<?>> visitor) {
+            return DslCopyHelpers.applyModificationVisitor(this, visitor,
+                    vh -> new DslTemplate(vh.r(component), vh.r(template), vh.r(substitutions)),
+                    component, template, substitutions);
         }
 
         public DslComponent getComponent() {
@@ -1150,7 +1183,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (template instanceof String) {
                 return (String)template;
             }
-            
+
             return Tasks.resolving(template)
                 .as(String.class)
                 .context(findExecutionContext(this))
@@ -1158,7 +1191,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 .description("Resolving template from " + template)
                 .get();
         }
-        
+
         @SuppressWarnings("unchecked")
         private Map<String, ?> resolveSubstitutions(boolean immediately) {
             return (Map<String, ?>) Tasks.resolving(substitutions)
@@ -1264,18 +1297,19 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     @Override
     public String toDslString(boolean yamlAllowed) {
         Object component = componentId != null ? componentId : componentIdSupplier;
-        
+
         if (scope==Scope.GLOBAL) {
             return DslToStringHelpers.fn1(yamlAllowed, "entity", component);
         }
-        
+
         if (scope==Scope.THIS) {
             if (scopeComponent!=null) {
                 return scopeComponent.toString();
             }
-            return DslToStringHelpers.fn(yamlAllowed, "entity", "this", "");
+//            return DslToStringHelpers.fn(yamlAllowed, "entity", "this", "");
+            return DslToStringHelpers.fn(yamlAllowed, "self");
         }
-        
+
         String remainder;
         if (component==null || "".equals(component)) {
             return DslToStringHelpers.chainFunctionOnComponent(yamlAllowed, scopeComponent, scope.toString());
@@ -1284,5 +1318,5 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         }
 
     }
-    
+
 }
