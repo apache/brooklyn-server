@@ -519,7 +519,8 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
     @Override
     public Response createPoly(byte[] inputToAutodetectType) {
-        return createWithFormat(new String(inputToAutodetectType, StandardCharsets.UTF_8), null);
+        String format = uriInfo.getQueryParameters().getFirst("format");
+        return createWithFormat(new String(inputToAutodetectType, StandardCharsets.UTF_8), format);
     }
 
     @Override

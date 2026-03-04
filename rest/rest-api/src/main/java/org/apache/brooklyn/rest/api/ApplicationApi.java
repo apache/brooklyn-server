@@ -286,7 +286,8 @@ public interface ApplicationApi {
     public Response createPoly(
             @ApiParam(
                     name = "applicationSpec",
-                    value = "App spec in JSON, YAML, or other (auto-detected) format",
+                    value = "App spec in JSON, YAML, or other (auto-detected) format; "
+                            + "an optional query parameter 'format' may be supplied to explicitly specify the plan format",
                     required = true)
             byte[] autodetectedInput);
 
