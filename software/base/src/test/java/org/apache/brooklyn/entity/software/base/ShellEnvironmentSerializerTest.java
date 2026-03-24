@@ -16,6 +16,8 @@
 package org.apache.brooklyn.entity.software.base;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import java.util.Date;
 
@@ -68,6 +70,24 @@ public class ShellEnvironmentSerializerTest extends BrooklynAppUnitTestSupport {
         // https://issues.apache.org/jira/browse/BROOKLYN-304
         assertSerialize(getClass().getClassLoader(), "{\"type\":\""+getClass().getClassLoader().getClass().getCanonicalName()+"\"}");
         assertSerialize(getClass(), getClass().getName());
+    }
+
+    @Test
+    public void testSerializeYamlStringNormalizedToJson() {
+        // YAML list → JSON array
+        assertEquals(ser.serialize("- item1\n- item2\n"), "[\"item1\",\"item2\"]");
+
+        // YAML list of maps → JSON array of objects
+        String yamlList = "- name: element1\n  password: s3cr3t\n";
+        String jsonResult = ser.serialize(yamlList);
+        assertTrue(jsonResult.startsWith("["), "Expected JSON array, got: " + jsonResult);
+        assertFalse(jsonResult.contains("- name:"), "Should not contain YAML list syntax: " + jsonResult);
+
+        // Plain string → unchanged
+        assertEquals(ser.serialize("plain string value"), "plain string value");
+
+        // JSON string → unchanged (already JSON, re-serialization produces same output)
+        assertEquals(ser.serialize("[\"a\",\"b\"]"), "[\"a\",\"b\"]");
     }
 
     private void assertSerialize(Object actual, String expected) {

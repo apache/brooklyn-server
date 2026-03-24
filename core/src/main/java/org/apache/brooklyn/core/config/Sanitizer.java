@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
@@ -212,13 +213,46 @@ public final class Sanitizer {
             for (Map.Entry<?, ?> kv : env.entrySet()) {
                 String stringValue = kv.getValue() != null ? kv.getValue().toString() : "";
                 if (!stringValue.isEmpty()) {
-                    stringValue = Sanitizer.suppressIfSecret(kv.getKey(), stringValue);
-                    stringValue = sanitizeMultilineString(stringValue);
+                    if (Sanitizer.IS_SECRET_PREDICATE.apply(kv.getKey())) {
+                        // key name is a secret token: suppress the entire value
+                        stringValue = suppress(stringValue);
+                    } else {
+                        // key is not a secret name, but the value might be JSON with nested secret fields
+                        stringValue = suppressNestedSecretsInJsonString(stringValue);
+                        stringValue = sanitizeMultilineString(stringValue);
+                    }
                     stringValue = BashStringEscapes.wrapBash(stringValue);
                 }
                 sb.append(kv.getKey()).append("=").append(stringValue).append("\n");
             }
         }
+    }
+
+    /**
+     * If the string is a JSON object or array, parses it and suppresses any nested secret fields
+     * (fields whose key names match {@link #IS_SECRET_PREDICATE}).
+     * If it is not a JSON object/array (or is malformed JSON), returns the original string unchanged.
+     * <p>
+     * This prevents nested passwords from leaking when a complex value is serialized to a JSON string
+     * and stored as an environment variable whose top-level key name does not itself contain a secret token.
+     */
+    static String suppressNestedSecretsInJsonString(String stringValue) {
+        if (stringValue == null || stringValue.isEmpty()) return stringValue;
+        char first = stringValue.charAt(0);
+        if (first != '{' && first != '[') {
+            // fast path: not a JSON object/array, skip parsing
+            return stringValue;
+        }
+        try {
+            Object parsed = new Gson().fromJson(stringValue, Object.class);
+            if (parsed instanceof Map || parsed instanceof Iterable) {
+                Object suppressed = suppressNestedSecretsJson(parsed, false);
+                return new GsonBuilder().disableHtmlEscaping().create().toJson(suppressed);
+            }
+        } catch (Exception e) {
+            // not valid JSON or unexpected structure; return original
+        }
+        return stringValue;
     }
 
     /** applies to strings, sets, lists, maps */

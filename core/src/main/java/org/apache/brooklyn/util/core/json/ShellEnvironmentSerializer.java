@@ -17,6 +17,7 @@ package org.apache.brooklyn.util.core.json;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.Maps;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -25,11 +26,14 @@ import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
 
 public class ShellEnvironmentSerializer {
+    private static final YAMLMapper YAML_MAPPER = new YAMLMapper();
+
     private ObjectMapper mapper;
     private final Function<Object, Object> resolver;
 
@@ -43,7 +47,20 @@ public class ShellEnvironmentSerializer {
 
     public String serialize(Object value) {
         if (value == null) return null;
-        if (value instanceof String) return (String)value;
+        if (value instanceof String) {
+            String str = (String) value;
+            // If the string is a YAML/JSON-serialized complex type (List or Map), normalize to JSON.
+            // This handles effector parameters submitted as YAML strings from the UI.
+            try {
+                Object parsed = YAML_MAPPER.readValue(str, Object.class);
+                if (parsed instanceof Map || parsed instanceof List) {
+                    return mapper.writeValueAsString(parsed);
+                }
+            } catch (Exception e) {
+                // not parseable as a YAML/JSON complex type; return as-is
+            }
+            return str;
+        }
         try {
             if (value instanceof DeferredSupplier) {
                 if (resolver!=null) {
