@@ -50,21 +50,21 @@ public class SanitizerTest {
                 .putAll(Maps.transformValues(map, Sanitizer::suppress))
                 .put("mykey", "myval")
                 .build();
-        
+
         Map<String, Object> sanitized = Sanitizer.sanitize(ConfigBag.newInstance(map));
         assertEquals(sanitized, expected);
-        
+
         Map<String, Object> sanitized2 = Sanitizer.sanitize(map);
         assertEquals(sanitized2, expected);
     }
-    
+
     @Test
     public void testSanitizeWithNullKey() throws Exception {
         MutableMap<?, ?> map = MutableMap.of(null, null);
         Map<?, ?> sanitized = Sanitizer.sanitize(map);
         assertEquals(sanitized, map);
     }
-    
+
     @Test
     public void testSanitizeWithNull() throws Exception {
         assertEquals(Sanitizer.sanitize((ConfigBag)null), null);
@@ -136,7 +136,7 @@ public class SanitizerTest {
     @Test
     public void testSuppressNestedSecretsInJsonString_jsonArray() {
         String input = "[{\"name\":\"e1\",\"password\":\"secret123\"}]";
-        String result = Sanitizer.suppressNestedSecretsInJsonString(input);
+        String result = Sanitizer.suppressNestedSecretsInJsonStringOrMultiline(input);
         assertFalse(result.contains("secret123"), "Password should be suppressed");
         assertTrue(result.contains("e1"), "Non-secret field should remain");
     }
@@ -144,13 +144,13 @@ public class SanitizerTest {
     @Test
     public void testSuppressNestedSecretsInJsonString_nonJsonPassthrough() {
         String input = "just a plain string";
-        assertEquals(Sanitizer.suppressNestedSecretsInJsonString(input), input);
+        assertEquals(Sanitizer.suppressNestedSecretsInJsonStringOrMultiline(input), input);
     }
 
     @Test
     public void testSuppressNestedSecretsInJsonString_malformedJsonPassthrough() {
         String input = "[malformed";
-        assertEquals(Sanitizer.suppressNestedSecretsInJsonString(input), input);
+        assertEquals(Sanitizer.suppressNestedSecretsInJsonStringOrMultiline(input), input);
     }
 
     @Test

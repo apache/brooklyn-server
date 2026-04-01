@@ -41,6 +41,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.osgi.Osgis;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.internal.StringSystemProperty;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.stream.Streams;
@@ -59,12 +60,12 @@ public final class Sanitizer {
      * indicates that it may be private, so should not be logged etc.
      */
     public static final List<String> DEFAULT_SENSITIVE_FIELDS_TOKENS = ImmutableList.of(
-            "password", 
-            "passwd", 
-            "credential", 
-            "secret", 
+            "password",
+            "passwd",
+            "credential",
+            "secret",
             "private",
-            "access.cert", 
+            "access.cert",
             "access.key");
 
     /** @deprecated since 1.1 use {@link #DEFAULT_SENSITIVE_FIELDS_TOKENS} or {@link #getSensitiveFieldsTokens(Boolean)} */
@@ -208,6 +209,10 @@ public final class Sanitizer {
         }).collect(Collectors.joining("\n"));
     }
 
+    /// Takes a map and sanitizes it for the purposes of displaying (tags and logs);
+    /// this supports maps where the values have been JSON-converted such as for shell environments,
+    /// and will attempt a simple JSON parse (to maps and lists, not to types) if appropriate,
+    /// then format the output as for bash.
     public static void sanitizeMapToString(Map<?, ?> env, StringBuilder sb) {
         if (env!=null) {
             for (Map.Entry<?, ?> kv : env.entrySet()) {
@@ -217,9 +222,8 @@ public final class Sanitizer {
                         // key name is a secret token: suppress the entire value
                         stringValue = suppress(stringValue);
                     } else {
-                        // key is not a secret name, but the value might be JSON with nested secret fields
-                        stringValue = suppressNestedSecretsInJsonString(stringValue);
-                        stringValue = sanitizeMultilineString(stringValue);
+                        // key is not a secret name, but the value might be JSON with nested secret fields, or might be multi-line
+                        stringValue = suppressNestedSecretsInJsonStringOrMultiline(stringValue);
                     }
                     stringValue = BashStringEscapes.wrapBash(stringValue);
                 }
@@ -236,23 +240,30 @@ public final class Sanitizer {
      * This prevents nested passwords from leaking when a complex value is serialized to a JSON string
      * and stored as an environment variable whose top-level key name does not itself contain a secret token.
      */
-    static String suppressNestedSecretsInJsonString(String stringValue) {
-        if (stringValue == null || stringValue.isEmpty()) return stringValue;
+    static String suppressNestedSecretsInJsonStringOrMultiline(String stringValue) {
+        Maybe<Object> json = parseComplexJson(stringValue);
+        if (json.isAbsent()) {
+            return sanitizeMultilineString(stringValue);
+        } else {
+            Object suppressed = suppressNestedSecretsJson(json.get(), false);
+            // not sure why GSON defaults to HTML escaping, but without disabling that we get weird output
+            return new GsonBuilder().disableHtmlEscaping().create().toJson(suppressed);
+        }
+    }
+
+    static Maybe<Object> parseComplexJson(String stringValue) {
+        if (stringValue == null || stringValue.isEmpty()) return Maybe.absent("Empty or null");
         char first = stringValue.charAt(0);
         if (first != '{' && first != '[') {
             // fast path: not a JSON object/array, skip parsing
-            return stringValue;
+            return Maybe.absent("Does not start with { or [");
         }
         try {
-            Object parsed = new Gson().fromJson(stringValue, Object.class);
-            if (parsed instanceof Map || parsed instanceof Iterable) {
-                Object suppressed = suppressNestedSecretsJson(parsed, false);
-                return new GsonBuilder().disableHtmlEscaping().create().toJson(suppressed);
-            }
+            return Maybe.of(new Gson().fromJson(stringValue, Object.class));
         } catch (Exception e) {
             // not valid JSON or unexpected structure; return original
+            return Maybe.absent(e);
         }
-        return stringValue;
     }
 
     /** applies to strings, sets, lists, maps */
@@ -297,7 +308,7 @@ public final class Sanitizer {
 
     /**
      * Kept only in case this anonymous inner class has made it into any persisted state.
-     * 
+     *
      * @deprecated since 0.7.0
      */
     @Deprecated
@@ -318,7 +329,7 @@ public final class Sanitizer {
     public static Sanitizer newInstance(Predicate<Object> sanitizingNeededCheck) {
         return new Sanitizer(sanitizingNeededCheck);
     }
-    
+
     public static Sanitizer newInstance(){
         return newInstance(IS_SECRET_PREDICATE);
     }
@@ -334,7 +345,7 @@ public final class Sanitizer {
     static <K> Map<K, Object> sanitize(Map<K, ?> input, Set<Object> visited) {
         return (input == null) ? null : (Map) newInstance().apply(input, visited);
     }
-    
+
     private Predicate<Object> predicate;
 
     private Sanitizer(Predicate<Object> sanitizingNeededCheck) {
@@ -376,12 +387,12 @@ public final class Sanitizer {
             if (e.getKey() != null && predicate.apply(e.getKey())){
                 result.put(e.getKey(), suppress(e.getValue()));
                 continue;
-            } 
+            }
             result.put(e.getKey(), apply(e.getValue(), visited));
         }
         return result;
     }
-    
+
     private List<Object> applyIterable(Iterable<?> input, Set<Object> visited){
         List<Object> result = Lists.newArrayList();
         for(Object o : input){
@@ -404,11 +415,11 @@ public final class Sanitizer {
         }
         return result;
     }
-    
+
     private List<Object> applyList(List<?> input, Set<Object> visited) {
        return applyIterable(input, visited);
     }
-    
+
     private Set<Object> applySet(Set<?> input, Set<Object> visited) {
         return MutableSet.copyOf(applyIterable(input, visited));
     }
