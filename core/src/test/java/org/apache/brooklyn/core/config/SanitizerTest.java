@@ -27,6 +27,8 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import org.testng.annotations.Test;
 
 public class SanitizerTest {
@@ -48,26 +50,107 @@ public class SanitizerTest {
                 .putAll(Maps.transformValues(map, Sanitizer::suppress))
                 .put("mykey", "myval")
                 .build();
-        
+
         Map<String, Object> sanitized = Sanitizer.sanitize(ConfigBag.newInstance(map));
         assertEquals(sanitized, expected);
-        
+
         Map<String, Object> sanitized2 = Sanitizer.sanitize(map);
         assertEquals(sanitized2, expected);
     }
-    
+
     @Test
     public void testSanitizeWithNullKey() throws Exception {
         MutableMap<?, ?> map = MutableMap.of(null, null);
         Map<?, ?> sanitized = Sanitizer.sanitize(map);
         assertEquals(sanitized, map);
     }
-    
+
     @Test
     public void testSanitizeWithNull() throws Exception {
         assertEquals(Sanitizer.sanitize((ConfigBag)null), null);
         assertEquals(Sanitizer.sanitize((Map<?,?>)null), null);
         assertEquals(Sanitizer.newInstance().apply((Map<?,?>)null), null);
+    }
+
+    @Test
+    public void testSanitizeMapToString_nestedPasswordInJsonArray() {
+        // MY_DATA key doesn't contain a secret token, but its JSON value contains a "password" field
+        Map<String, Object> env = ImmutableMap.of(
+            "MY_DATA", "[{\"name\":\"element1\",\"password\":\"s3cr3t\",\"a_list\":[\"x\"]}]"
+        );
+        StringBuilder sb = new StringBuilder();
+        Sanitizer.sanitizeMapToString(env, sb);
+        String result = sb.toString();
+
+        assertFalse(result.contains("s3cr3t"), "Nested password should be suppressed, got: " + result);
+        assertTrue(result.contains("element1"), "Non-secret field should remain visible, got: " + result);
+        assertTrue(result.contains("suppressed"), "Should show suppressed marker, got: " + result);
+        assertFalse(result.contains("\\u003c"), "Suppressed marker should not be HTML-escaped, got: " + result);
+        assertTrue(result.contains("<suppressed>") || result.contains("<suppressed "), "Suppressed marker should use literal angle brackets, got: " + result);
+    }
+
+    @Test
+    public void testSanitizeMapToString_nestedPasswordInJsonObject() {
+        Map<String, Object> env = ImmutableMap.of(
+            "MY_DATA", "{\"name\":\"element1\",\"password\":\"s3cr3t\"}"
+        );
+        StringBuilder sb = new StringBuilder();
+        Sanitizer.sanitizeMapToString(env, sb);
+        String result = sb.toString();
+
+        assertFalse(result.contains("s3cr3t"), "Nested password in JSON object should be suppressed, got: " + result);
+        assertTrue(result.contains("element1"), "Non-secret field should remain visible, got: " + result);
+    }
+
+    @Test
+    public void testSanitizeMapToString_secretKeyStillSuppressesEntireValue() {
+        // When the key itself is a secret, the entire value is suppressed (existing behaviour)
+        Map<String, Object> env = ImmutableMap.of(
+            "SECRET_FIELD", "[{\"name\":\"toto\",\"password\":\"s3cr3t\"}]"
+        );
+        StringBuilder sb = new StringBuilder();
+        Sanitizer.sanitizeMapToString(env, sb);
+        String result = sb.toString();
+
+        assertFalse(result.contains("s3cr3t"), "Password should be suppressed, got: " + result);
+        assertFalse(result.contains("toto"), "Entire value should be suppressed for secret key, got: " + result);
+    }
+
+    @Test
+    public void testSanitizeMapToString_plainStringUnchanged() {
+        Map<String, Object> env = ImmutableMap.of("MY_VAR", "hello world");
+        StringBuilder sb = new StringBuilder();
+        Sanitizer.sanitizeMapToString(env, sb);
+        assertTrue(sb.toString().contains("hello world"), "Plain string should be unchanged");
+    }
+
+    @Test
+    public void testSanitizeMapToString_nonJsonStringStartingWithBrace() {
+        // A string that starts with { but is not valid JSON should be returned unchanged
+        Map<String, Object> env = ImmutableMap.of("MY_VAR", "{not valid json");
+        StringBuilder sb = new StringBuilder();
+        Sanitizer.sanitizeMapToString(env, sb);
+        assertTrue(sb.toString().contains("{not valid json"), "Invalid JSON should pass through unchanged");
+    }
+
+    @Test
+    public void testSuppressNestedSecretsInJsonString_jsonArray() {
+        String input = "[{\"name\":\"e1\",\"password\":\"secret123\"}]";
+        String result = Sanitizer.suppressNestedSecretsInJsonStringOrMultiline(input);
+        assertFalse(result.contains("secret123"), "Password should be suppressed");
+        assertTrue(result.contains("e1"), "Non-secret field should remain");
+    }
+
+    @Test
+    public void testSuppressNestedSecretsInJsonString_nonJsonPassthrough() {
+        String input = "just a plain string";
+        assertEquals(Sanitizer.suppressNestedSecretsInJsonStringOrMultiline(input), input);
+    }
+
+    @Test
+    public void testSuppressNestedSecretsInJsonString_malformedJsonPassthrough() {
+        String input = "[malformed";
+        assertEquals(Sanitizer.suppressNestedSecretsInJsonStringOrMultiline(input), input);
     }
 
     @Test
