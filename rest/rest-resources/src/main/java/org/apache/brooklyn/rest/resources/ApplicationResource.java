@@ -414,6 +414,10 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     protected Response createFromYaml(String yaml, String format, Optional<String> appId) {
+        // Pre check DEPLOY_APPLICATION before computing `spec`
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, null)) {
+            throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), yaml);
+        }
         // First of all, see if it's a URL
         Preconditions.checkNotNull(yaml, "Blueprint must not be null");
         URI uri = null;
@@ -545,6 +549,10 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     public Response createWithFormat(String inputToAutodetectType, String format) {
+        // Pre check DEPLOY_APPLICATION before computing `spec`
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, null)) {
+            throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), inputToAutodetectType);
+        }
         if (format!=null) format = format.trim();
         log.debug("Creating app from autodetecting input");
 
