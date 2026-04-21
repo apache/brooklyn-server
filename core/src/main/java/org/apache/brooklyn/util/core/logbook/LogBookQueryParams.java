@@ -50,6 +50,9 @@ public class LogBookQueryParams {
 
     private String entityId;
 
+    /** The logger/class name prefix to filter log items by, e.g. "o.a.b.SSH" */
+    private String loggerName;
+
     public Integer getNumberOfItems() {
         return numberOfItems;
     }
@@ -120,5 +123,13 @@ public class LogBookQueryParams {
 
     public void setEntityId(String entityId) {
         this.entityId = entityId;
+    }
+
+    public String getLoggerName() {
+        return loggerName;
+    }
+
+    public void setLoggerName(String loggerName) {
+        this.loggerName = loggerName;
     }
 }

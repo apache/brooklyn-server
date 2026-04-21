@@ -196,6 +196,11 @@ public class FileLogStore implements LogStore {
                     if (Strings.isBlank(brooklynLogEntry.getMessage()) || !brooklynLogEntry.getMessage().contains(params.getSearchPhrase())) return false;
                 }
 
+                // Check logger/class name prefix.
+                if (Strings.isNonBlank(params.getLoggerName())) {
+                    if (Strings.isBlank(brooklynLogEntry.getClazz()) || !brooklynLogEntry.getClazz().startsWith(params.getLoggerName())) return false;
+                }
+
                 return true;
             };
 
