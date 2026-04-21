@@ -355,9 +355,39 @@ public class TypeCoercionsTest {
     public void testYamlMapsDontGoTooFarWhenWantingListOfString() {
         List<?> s = TypeCoercions.coerce("[ a: 1, b: 2 ]", List.class);
         assertEquals(s, ImmutableList.of(MutableMap.of("a", 1), MutableMap.of("b", 2)));
-        
+
         s = TypeCoercions.coerce("[ a: 1, b : 2 ]", new TypeToken<List<String>>() {});
         assertEquals(s, ImmutableList.of("a: 1", "b : 2"));
+    }
+
+    @SuppressWarnings("serial")
+    @Test
+    public void testYamlBlockListCoercionToStringList() {
+        // YAML block list syntax should be parsed correctly for List<String>
+        List<?> s = TypeCoercions.coerce("- a\n- b", new TypeToken<List<String>>() {});
+        assertEquals(s, ImmutableList.of("a", "b"));
+
+        s = TypeCoercions.coerce("- a\n- b\n- c", new TypeToken<List<String>>() {});
+        assertEquals(s, ImmutableList.of("a", "b", "c"));
+
+        // single item
+        s = TypeCoercions.coerce("- a", new TypeToken<List<String>>() {});
+        assertEquals(s, ImmutableList.of("a"));
+
+        // multi-word items
+        s = TypeCoercions.coerce("- hello world\n- foo bar", new TypeToken<List<String>>() {});
+        assertEquals(s, ImmutableList.of("hello world", "foo bar"));
+
+        // numeric items should coerce to strings
+        s = TypeCoercions.coerce("- 1\n- 2", new TypeToken<List<String>>() {});
+        assertEquals(s, ImmutableList.of("1", "2"));
+
+        // comma-separated and bracket forms still work for List<String>
+        s = TypeCoercions.coerce("a, b, c", new TypeToken<List<String>>() {});
+        assertEquals(s, ImmutableList.of("a", "b", "c"));
+
+        s = TypeCoercions.coerce("[a, b]", new TypeToken<List<String>>() {});
+        assertEquals(s, ImmutableList.of("a", "b"));
     }
 
     @Test

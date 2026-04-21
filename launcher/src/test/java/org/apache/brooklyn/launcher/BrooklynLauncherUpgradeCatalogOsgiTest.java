@@ -406,7 +406,106 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
         assertEquals(resultWithoutForceCode, ResultCode.IGNORING_BUNDLE_FORCIBLY_REMOVED);
         assertEquals(resultWithoutForce.get().getMetadata().getVersionedName(), bundleV2.getVersionedName());
         assertTrue(resultWithoutForceMessage.contains("Bundle "+bundleV1.getVersionedName()+" forcibly removed, upgraded to 2.0.0"), "msg="+resultWithoutForceMessage);
-        
+
+        launcher.terminate();
+    }
+
+    // Upgrade headers must be processed when br catalog add is used at runtime (no AMP restart).
+    // This tests that installing v2 with upgrade headers immediately removes v1 and builds
+    // type upgrade mappings so new deployments with the old type id resolve to v2.
+    @Test
+    public void testForceUpgradeBundleAtRuntime() throws Exception {
+        VersionedName one_1_0_0 = VersionedName.fromString("one:1.0.0");
+        VersionedName one_2_0_0 = VersionedName.fromString("one:2.0.0");
+
+        BundleFile bundleV1 = bundleBuilder()
+                .name("org.example.testForceUpgradeBundleAtRuntime", "1.0.0")
+                .catalogBom(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_1_0_0))
+                .build();
+
+        BundleFile bundleV2 = bundleBuilder()
+                .name(bundleV1.getVersionedName().getSymbolicName(), "2.0.0")
+                .catalogBom(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_2_0_0))
+                .manifestLines(ImmutableMap.<String, String>builder()
+                        .put(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\"*\"")
+                        .put(MANIFEST_HEADER_UPGRADE_FOR_BUNDLES, "\"*\"")
+                        .build())
+                .build();
+
+        // Only v1 starts in persisted state; v2 is installed at runtime (simulating `br catalog add v2`).
+        newPersistedStateInitializer()
+                .bundle(bundleV1)
+                .initState();
+
+        BrooklynLauncher launcher = newLauncherForTests(CATALOG_EMPTY_INITIAL);
+        launcher.start();
+        assertCatalogConsistsOfIds(launcher, ImmutableList.of(one_1_0_0));
+
+        // Install v2 at runtime — no restart.
+        ReferenceWithError<OsgiBundleInstallationResult> installResult = installBundle(launcher, bundleV2.getFile(), false);
+        Assert.assertEquals(installResult.get().getCode(), ResultCode.INSTALLED_NEW_BUNDLE);
+
+        // v1 should be gone, v2 should be present.
+        assertCatalogConsistsOfIds(launcher, ImmutableList.of(one_2_0_0));
+        assertManagedBundle(launcher, bundleV2.getVersionedName(), ImmutableSet.<VersionedName>of(one_2_0_0));
+        assertNotManagedBundle(launcher, bundleV1.getVersionedName());
+
+        // Deploying with old type id should resolve to v2 via the runtime type upgrade mapping.
+        Application app = createAndStartApplication(launcher.getManagementContext(),
+                "services: [ { type: 'one:1.0.0' } ]");
+        Entity one = Iterables.getOnlyElement(app.getChildren());
+        Assert.assertEquals(one.getCatalogItemId(), "one:2.0.0");
+
+        launcher.terminate();
+    }
+
+    // Regression test: running entities deployed against v1 must have their catalogItemId migrated
+    // to v2 when v2 is installed at runtime, so that classpath:// resources are resolved from v2's
+    // OSGi bundle (not the removed v1 bundle).
+    @Test
+    public void testForceUpgradeBundleAtRuntimeMigratesRunningEntities() throws Exception {
+        VersionedName one_1_0_0 = VersionedName.fromString("one:1.0.0");
+        VersionedName one_2_0_0 = VersionedName.fromString("one:2.0.0");
+
+        BundleFile bundleV1 = bundleBuilder()
+                .name("org.example.testMigratesRunningEntities", "1.0.0")
+                .catalogBom(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_1_0_0))
+                .build();
+
+        BundleFile bundleV2 = bundleBuilder()
+                .name(bundleV1.getVersionedName().getSymbolicName(), "2.0.0")
+                .catalogBom(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_2_0_0))
+                .manifestLines(ImmutableMap.<String, String>builder()
+                        .put(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\"*\"")
+                        .put(MANIFEST_HEADER_UPGRADE_FOR_BUNDLES, "\"*\"")
+                        .build())
+                .build();
+
+        newPersistedStateInitializer()
+                .bundle(bundleV1)
+                .initState();
+
+        BrooklynLauncher launcher = newLauncherForTests(CATALOG_EMPTY_INITIAL);
+        launcher.start();
+
+        // Deploy an app using v1 type — entity is running with v1 catalogItemId.
+        Application app = createAndStartApplication(launcher.getManagementContext(),
+                "services: [ { type: 'one:1.0.0' } ]");
+        Entity one = Iterables.getOnlyElement(app.getChildren());
+        Assert.assertEquals(one.getCatalogItemId(), "one:1.0.0");
+
+        // Install v2 at runtime — no restart.
+        ReferenceWithError<OsgiBundleInstallationResult> installResult = installBundle(launcher, bundleV2.getFile(), false);
+        Assert.assertEquals(installResult.get().getCode(), ResultCode.INSTALLED_NEW_BUNDLE);
+
+        // v1 gone, v2 present.
+        assertCatalogConsistsOfIds(launcher, ImmutableList.of(one_2_0_0));
+        assertNotManagedBundle(launcher, bundleV1.getVersionedName());
+
+        // The previously running entity must have its catalogItemId migrated to v2,
+        // so its classloader resolves classpath:// resources from v2's bundle.
+        Assert.assertEquals(one.getCatalogItemId(), "one:2.0.0");
+
         launcher.terminate();
     }
 }

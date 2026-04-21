@@ -34,7 +34,9 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.BrooklynVersion;
@@ -145,7 +147,55 @@ public class BrooklynBomOsgiArchiveInstaller {
     private ManagementContextInternal mgmt() {
         return (ManagementContextInternal) osgiManager.getManagementContext();
     }
-    
+
+    private void removeSupersededBundlesAfterUpgrade(ManagedBundle installedBundle) {
+        // Migrate running entities to v2 catalog context BEFORE removing v1's OSGi bundle,
+        // so classpath:// resource lookups (e.g. scripts) use v2's classloader.
+        migrateRunningEntitiesToUpgradedCatalogItems();
+
+        Collection<ManagedBundle> snapshot = new ArrayList<>(osgiManager.getManagedBundles().values());
+        for (ManagedBundle mb : snapshot) {
+            if (mb.getVersionedName().equals(installedBundle.getVersionedName())) continue;
+            Maybe<VersionedName> replacement = CatalogUpgrades.tryGetBundleForcedReplaced(mgmt(), mb.getVersionedName());
+            if (replacement.isPresent()) {
+                log.info("Bundle {} superseded by {} at runtime, removing", mb.getVersionedName(), replacement.get());
+                osgiManager.uninstallUploadedBundle(mb);
+            }
+        }
+    }
+
+    private void migrateRunningEntitiesToUpgradedCatalogItems() {
+        CatalogUpgrades upgrades = CatalogUpgrades.getFromManagementContext(mgmt());
+        Collection<Entity> allEntities = MutableList.copyOf(mgmt().getEntityManager().getEntities());
+        for (Entity entity : allEntities) {
+            String oldCatalogId = entity.getCatalogItemId();
+            if (oldCatalogId == null) continue;
+
+            VersionedName oldVName;
+            try { oldVName = VersionedName.fromString(oldCatalogId); }
+            catch (Exception e) { continue; }
+
+            Set<VersionedName> targets = upgrades.getUpgradesForType(oldVName);
+            if (targets.isEmpty()) continue;
+
+            String newCatalogId = targets.iterator().next().toOsgiString();
+
+            List<String> newSearchPath = new ArrayList<>();
+            for (String pathEntry : entity.getCatalogItemIdSearchPath()) {
+                try {
+                    VersionedName pathVName = VersionedName.fromString(pathEntry);
+                    Set<VersionedName> pathTargets = upgrades.getUpgradesForType(pathVName);
+                    newSearchPath.add(pathTargets.isEmpty() ? pathEntry : pathTargets.iterator().next().toOsgiString());
+                } catch (Exception e) {
+                    newSearchPath.add(pathEntry);
+                }
+            }
+
+            log.info("Migrating entity {} catalog context at runtime from {} to {}", entity, oldCatalogId, newCatalogId);
+            ((BrooklynObjectInternal) entity).setCatalogItemIdAndSearchPath(newCatalogId, newSearchPath);
+        }
+    }
+
     private synchronized void init() {
         if (result!=null) {
             if (zipFile!=null || zipIn==null) return;
@@ -834,6 +884,20 @@ public class BrooklynBomOsgiArchiveInstaller {
                             }
                             
                             throw Exceptions.propagate(e);
+                        }
+                    }
+
+                    // Process upgrade headers (Brooklyn-Catalog-Force-Remove-Bundles /
+                    // Brooklyn-Catalog-Upgrade-For-Bundles) from the newly installed bundle at runtime.
+                    // Bundle types are now in the type registry so the upgrade scanner can correctly
+                    // build upgradesProvidedByTypes. Skip during rebind — that path uses installPersistedBundles.
+                    if (!Boolean.TRUE.equals(result.rebinding) && result.bundle != null) {
+                        java.util.Dictionary<String, String> newBundleHeaders = result.bundle.getHeaders();
+                        if (newBundleHeaders != null && (
+                                newBundleHeaders.get(BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES) != null ||
+                                newBundleHeaders.get(BundleUpgradeParser.MANIFEST_HEADER_UPGRADE_FOR_BUNDLES) != null)) {
+                            mgmt().getCatalogInitialization().rescanBundleUpgradesForRuntime();
+                            removeSupersededBundlesAfterUpgrade(result.getMetadata());
                         }
                     }
                 }
