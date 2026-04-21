@@ -311,11 +311,29 @@ public class CatalogInitialization implements ManagementContextInjectable {
     }
 
     /**
+     * Rescans all OSGi bundles for upgrade headers and updates the {@link CatalogUpgrades} stored in the
+     * management context. Called at runtime after a bundle with upgrade headers is installed at runtime
+     * (not during rebind), once the bundle's types are loaded in the type registry.
+     */
+    public void rescanBundleUpgradesForRuntime() {
+        Maybe<OsgiManager> maybesOsgiManager = managementContext.getOsgiManager();
+        if (maybesOsgiManager.isAbsent()) return;
+        OsgiManager osgiManager = maybesOsgiManager.get();
+        BundleContext bundleContext = osgiManager.getFramework().getBundleContext();
+        RebindLogger runtimeLogger = new RebindLogger() {
+            @Override public void debug(String msg, Object... args) { log.debug(msg, args); }
+            @Override public void info(String msg, Object... args) { log.info(msg, args); }
+        };
+        CatalogUpgrades freshUpgrades = catalogUpgradeScanner.scan(osgiManager, bundleContext, runtimeLogger);
+        CatalogUpgrades.storeInManagementContext(freshUpgrades, managementContext);
+    }
+
+    /**
      * Populates the initial catalog, but not via an official code-path.
-     * 
-     * Expected to be called only during tests, where the test has not gone through the same 
+     *
+     * Expected to be called only during tests, where the test has not gone through the same
      * management-context lifecycle as is done in BasicLauncher.
-     * 
+     *
      * Subsequent calls will fail to things like {@link #populateInitialCatalogOnly()} or
      * {@link #populateInitialAndPersistedCatalog(ManagementNodeState, PersistedCatalogState, RebindExceptionHandler, RebindLogger)}.
      */
