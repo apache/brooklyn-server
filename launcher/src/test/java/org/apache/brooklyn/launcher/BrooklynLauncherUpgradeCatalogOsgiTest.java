@@ -406,7 +406,7 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
         assertEquals(resultWithoutForceCode, ResultCode.IGNORING_BUNDLE_FORCIBLY_REMOVED);
         assertEquals(resultWithoutForce.get().getMetadata().getVersionedName(), bundleV2.getVersionedName());
         assertTrue(resultWithoutForceMessage.contains("Bundle "+bundleV1.getVersionedName()+" forcibly removed, upgraded to 2.0.0"), "msg="+resultWithoutForceMessage);
-        
+
         launcher.terminate();
     }
 }

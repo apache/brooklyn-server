@@ -145,7 +145,7 @@ public class BrooklynBomOsgiArchiveInstaller {
     private ManagementContextInternal mgmt() {
         return (ManagementContextInternal) osgiManager.getManagementContext();
     }
-    
+
     private synchronized void init() {
         if (result!=null) {
             if (zipFile!=null || zipIn==null) return;
@@ -836,6 +836,7 @@ public class BrooklynBomOsgiArchiveInstaller {
                             throw Exceptions.propagate(e);
                         }
                     }
+
                 }
             };
             if (deferredStart) {
