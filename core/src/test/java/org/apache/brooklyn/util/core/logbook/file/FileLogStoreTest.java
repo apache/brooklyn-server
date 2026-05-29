@@ -496,6 +496,58 @@ public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
         assertTrue(brooklynLogEntries.stream().anyMatch(Predicates.not(e -> e.getTaskId().equals(logBookQueryParams.getTaskId()))));
     }
 
+    @Test
+    public void testQueryLogSampleWithLoggerName() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(1000);
+        logBookQueryParams.setTail(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setLoggerName("i.c.b"); // matches all AbstractToscaYamlConverter entries
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+
+        assertEquals(4, brooklynLogEntries.size());
+        assertTrue(brooklynLogEntries.stream().allMatch(e -> e.getClazz().startsWith("i.c.b")));
+    }
+
+    @Test
+    public void testQueryLogSampleWithLoggerNameAndPhrase() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(1000);
+        logBookQueryParams.setTail(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setLoggerName("i.c.b");
+        logBookQueryParams.setSearchPhrase("testing");
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+
+        assertEquals(2, brooklynLogEntries.size());
+        assertTrue(brooklynLogEntries.stream().allMatch(e -> e.getClazz().startsWith("i.c.b")));
+        assertTrue(brooklynLogEntries.stream().allMatch(e -> e.getMessage().contains("testing")));
+    }
+
+    @Test
+    public void testQueryLogSampleWithNonMatchingLoggerName() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(1000);
+        logBookQueryParams.setTail(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setLoggerName("o.a.b.SSH"); // no entries with this class prefix
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+
+        assertEquals(0, brooklynLogEntries.size());
+    }
+
     private LogBookQueryParams newQueryParams(boolean recursive) {
         LogBookQueryParams params = new LogBookQueryParams();
         params.setNumberOfItems(5); // Request first five only

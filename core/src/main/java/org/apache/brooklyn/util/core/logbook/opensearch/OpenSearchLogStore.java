@@ -305,6 +305,11 @@ public class OpenSearchLogStore implements LogStore {
             queryBoolMustListBuilder.add(buildMatchPhraseOf("message", params.getSearchPhrase()));
         }
 
+        // Apply logger/class name prefix.
+        if (Strings.isNonBlank(params.getLoggerName())) {
+            queryBoolMustListBuilder.add(ImmutableMap.of("prefix", ImmutableMap.of("class", params.getLoggerName())));
+        }
+
         ImmutableList<Object> queryBoolMustList = queryBoolMustListBuilder.build();
 
         if (queryBoolMustList.isEmpty()) {

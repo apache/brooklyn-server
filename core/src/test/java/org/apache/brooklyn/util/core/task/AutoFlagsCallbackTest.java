@@ -55,8 +55,8 @@ public class AutoFlagsCallbackTest extends BrooklynAppUnitTestSupport {
         Asserts.assertThat(depth.get(), x -> x>=0);
 
         app.start(null);
-        // but by the time start completes it should be back to 0
-        Asserts.assertEquals(depth.get(), 0);
+        // sensor tasks triggered during start may complete slightly after start() returns; wait for them
+        Asserts.eventually(() -> depth.get(), x -> x == 0);
 
         Entities.submit(app, Tasks.create("test1", () -> {
             log.info("running test 1" + " / " + Tasks.current().getId());

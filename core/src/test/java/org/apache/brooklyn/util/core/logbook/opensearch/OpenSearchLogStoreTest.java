@@ -171,6 +171,31 @@ public class OpenSearchLogStoreTest {
     }
 
     @Test
+    public void queryWithLoggerName() {
+        OpenSearchLogStore cut = new OpenSearchLogStore();
+        LogBookQueryParams p = new LogBookQueryParams();
+        p.setNumberOfItems(10);
+        p.setTail(false);
+        p.setLevels(ImmutableList.of());
+        p.setLoggerName("o.a.b.SSH");
+        String query = cut.getJsonQuery(p);
+        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"prefix\":{\"class\":\"o.a.b.SSH\"}}]}}}");
+    }
+
+    @Test
+    public void queryWithLoggerNameAndPhrase() {
+        OpenSearchLogStore cut = new OpenSearchLogStore();
+        LogBookQueryParams p = new LogBookQueryParams();
+        p.setNumberOfItems(10);
+        p.setTail(false);
+        p.setLevels(ImmutableList.of());
+        p.setLoggerName("o.a.b.SSH");
+        p.setSearchPhrase("some phrase");
+        String query = cut.getJsonQuery(p);
+        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"message\":\"some phrase\"}},{\"prefix\":{\"class\":\"o.a.b.SSH\"}}]}}}");
+    }
+
+    @Test
     public void queryWithTaskIdAndPhrase() {
         OpenSearchLogStore cut = new OpenSearchLogStore();
         LogBookQueryParams p = new LogBookQueryParams();

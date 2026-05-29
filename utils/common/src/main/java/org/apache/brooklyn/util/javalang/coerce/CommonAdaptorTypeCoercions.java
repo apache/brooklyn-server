@@ -441,8 +441,25 @@ public class CommonAdaptorTypeCoercions {
                 Maybe<?> resultM = null;
                 Collection<?> result = null;
                 if (parameters.length==1 && TypeTokens.isAssignableFromRaw(CharSequence.class, parameters[0])) {
-                    // for list of strings, use special parse
-                    result = JavaStringEscapes.unwrapJsonishListStringIfPossible(inputS);
+                    // for list of strings: if input uses YAML block list syntax ("- item" lines), parse
+                    // it directly with YAML (wrapping in brackets kills the block sequence markers).
+                    // Only adopt the YAML result when all elements are simple values — this preserves
+                    // the behaviour that "[ a: 1, b: 2 ]" stays as ["a: 1", "b: 2"] rather than
+                    // being coerced from map objects to their toString representations.
+                    if (inputS.trim().startsWith("- ")) {
+                        try {
+                            Object yamlDoc = Iterables.getOnlyElement(Yamls.parseAll(inputS));
+                            if (yamlDoc instanceof List &&
+                                    ((List<?>) yamlDoc).stream().noneMatch(x -> x instanceof Map || x instanceof Collection)) {
+                                result = (Collection<?>) yamlDoc;
+                            }
+                        } catch (Exception e) {
+                            Exceptions.propagateIfFatal(e);
+                        }
+                    }
+                    if (result == null) {
+                        result = JavaStringEscapes.unwrapJsonishListStringIfPossible(inputS);
+                    }
                 } else {
                     // any other type, use YAMLish parse
                     resultM = JavaStringEscapes.tryUnwrapJsonishList(inputS);

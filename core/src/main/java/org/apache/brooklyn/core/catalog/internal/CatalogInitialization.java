@@ -312,10 +312,10 @@ public class CatalogInitialization implements ManagementContextInjectable {
 
     /**
      * Populates the initial catalog, but not via an official code-path.
-     * 
-     * Expected to be called only during tests, where the test has not gone through the same 
+     *
+     * Expected to be called only during tests, where the test has not gone through the same
      * management-context lifecycle as is done in BasicLauncher.
-     * 
+     *
      * Subsequent calls will fail to things like {@link #populateInitialCatalogOnly()} or
      * {@link #populateInitialAndPersistedCatalog(ManagementNodeState, PersistedCatalogState, RebindExceptionHandler, RebindLogger)}.
      */
