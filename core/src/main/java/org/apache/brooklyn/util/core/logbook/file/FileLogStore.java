@@ -191,14 +191,14 @@ public class FileLogStore implements LogStore {
                     if (!isSearchTaskIdMatch) return false;
                 }
 
-                // Check search phrases.
+                // Check search phrases. Case-insensitive to stay consistent with the OpenSearch backend.
                 if (Strings.isNonBlank(params.getSearchPhrase())) {
-                    if (Strings.isBlank(brooklynLogEntry.getMessage()) || !brooklynLogEntry.getMessage().contains(params.getSearchPhrase())) return false;
+                    if (Strings.isBlank(brooklynLogEntry.getMessage()) || !brooklynLogEntry.getMessage().toLowerCase(Locale.ROOT).contains(params.getSearchPhrase().toLowerCase(Locale.ROOT))) return false;
                 }
 
-                // Check logger/class name prefix.
+                // Check logger/class name prefix. Case-insensitive to stay consistent with the OpenSearch backend.
                 if (Strings.isNonBlank(params.getLoggerName())) {
-                    if (Strings.isBlank(brooklynLogEntry.getClazz()) || !brooklynLogEntry.getClazz().startsWith(params.getLoggerName())) return false;
+                    if (Strings.isBlank(brooklynLogEntry.getClazz()) || !brooklynLogEntry.getClazz().toLowerCase(Locale.ROOT).startsWith(params.getLoggerName().toLowerCase(Locale.ROOT))) return false;
                 }
 
                 return true;

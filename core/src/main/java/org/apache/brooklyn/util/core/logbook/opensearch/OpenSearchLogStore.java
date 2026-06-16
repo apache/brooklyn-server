@@ -305,9 +305,11 @@ public class OpenSearchLogStore implements LogStore {
             queryBoolMustListBuilder.add(buildMatchPhraseOf("message", params.getSearchPhrase()));
         }
 
-        // Apply logger/class name prefix.
+        // Apply logger/class name prefix. Case-insensitive: the prefix query is a term-level query that is not
+        // analyzed, so without this flag it only matches the lowercased indexed terms of the analyzed "class" field.
         if (Strings.isNonBlank(params.getLoggerName())) {
-            queryBoolMustListBuilder.add(ImmutableMap.of("prefix", ImmutableMap.of("class", params.getLoggerName())));
+            queryBoolMustListBuilder.add(ImmutableMap.of("prefix", ImmutableMap.of("class",
+                    ImmutableMap.of("value", params.getLoggerName(), "case_insensitive", true))));
         }
 
         ImmutableList<Object> queryBoolMustList = queryBoolMustListBuilder.build();
