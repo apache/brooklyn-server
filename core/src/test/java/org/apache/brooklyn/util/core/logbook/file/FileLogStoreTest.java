@@ -548,6 +548,40 @@ public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
         assertEquals(0, brooklynLogEntries.size());
     }
 
+    @Test
+    public void testQueryLogSampleWithLoggerNameIsCaseInsensitive() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(1000);
+        logBookQueryParams.setTail(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setLoggerName("I.C.B"); // upper case still matches the lower case "i.c.b" entries
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+
+        assertEquals(4, brooklynLogEntries.size());
+        assertTrue(brooklynLogEntries.stream().allMatch(e -> e.getClazz().startsWith("i.c.b")));
+    }
+
+    @Test
+    public void testQueryLogSampleWithSearchPhraseIsCaseInsensitive() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(1000);
+        logBookQueryParams.setTail(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setSearchPhrase("TESTING"); // upper case still matches the lower case "testing" entries
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+
+        assertEquals(3, brooklynLogEntries.size());
+        assertTrue(brooklynLogEntries.stream().allMatch(e -> e.getMessage().toLowerCase(java.util.Locale.ROOT).contains("testing")));
+    }
+
     private LogBookQueryParams newQueryParams(boolean recursive) {
         LogBookQueryParams params = new LogBookQueryParams();
         params.setNumberOfItems(5); // Request first five only
