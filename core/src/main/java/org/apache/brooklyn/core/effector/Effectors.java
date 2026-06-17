@@ -183,7 +183,7 @@ public class Effectors {
             if (eff2 != eff) {
                 if (eff2 instanceof EffectorWithBody) {
                     log.debug("Replacing invocation of {} on {} with {} which is the impl defined at that entity", new Object[] { eff, entity, eff2 });
-                    return ((EffectorWithBody<T>)eff2).getBody().newTask(entity, eff2, getConfigBagWithParametersCoerced(eff2, parameters, false));
+                    return ((EffectorWithBody<T>)eff2).getBody().newTask(entity, eff2, getConfigBagWithParametersCoerced(entity, eff2, parameters, false));
                 } else {
                     log.warn("Effector {} defined on {} has no body; invoking caller-supplied {} instead", new Object[] { eff2, entity, eff });
                 }
@@ -194,9 +194,9 @@ public class Effectors {
         
         if (eff instanceof EffectorWithBody) {
             if (eff instanceof WorkflowEffector.WorkflowEffectorAndBody) {
-                return (TaskAdaptable<T>) ((WorkflowEffector.WorkflowEffectorAndBody) eff).getBody().newSubWorkflowTask(entity, eff, getConfigBagWithParametersCoerced(eff, parameters, false), parent, parentWorkflowInitializer);
+                return (TaskAdaptable<T>) ((WorkflowEffector.WorkflowEffectorAndBody) eff).getBody().newSubWorkflowTask(entity, eff, getConfigBagWithParametersCoerced(entity, eff, parameters, false), parent, parentWorkflowInitializer);
             } else {
-                return ((EffectorWithBody<T>) eff).getBody().newTask(entity, eff, getConfigBagWithParametersCoerced(eff, parameters, false));
+                return ((EffectorWithBody<T>) eff).getBody().newTask(entity, eff, getConfigBagWithParametersCoerced(entity, eff, parameters, false));
             }
         }
         
@@ -204,6 +204,26 @@ public class Effectors {
     }
 
     public static ConfigBag getConfigBagWithParametersCoerced(Effector<?> eff, @Nullable Map<?,?> map, boolean requireParameter) {
+        return getConfigBagWithParametersCoerced(null, eff, map, requireParameter);
+    }
+
+    public static ConfigBag getConfigBagWithParametersCoerced(@Nullable Entity entity, Effector<?> eff, @Nullable Map<?,?> map, boolean requireParameter) {
+        // Coercing a parameter whose declared type is a registered type (e.g. a TOSCA data type) needs a
+        // management context, which the bean coercer obtains from the current task's context entity. When the
+        // effector is invoked outside the entity's task (e.g. from REST) there is no such context, and the
+        // coercion fails with "... without a management context". Run the coercion in the entity's execution
+        // context so the context entity (and hence the management context) is available.
+        if (entity != null && BrooklynTaskTags.getContextEntity(Tasks.current()) == null) {
+            return ((EntityInternal) entity).getExecutionContext().get(
+                    Tasks.<ConfigBag>builder().dynamic(false)
+                            .displayName("Coercing parameters for effector " + eff.getName())
+                            .body(() -> coerceParametersIntoConfigBag(eff, map, requireParameter))
+                            .build());
+        }
+        return coerceParametersIntoConfigBag(eff, map, requireParameter);
+    }
+
+    private static ConfigBag coerceParametersIntoConfigBag(Effector<?> eff, @Nullable Map<?,?> map, boolean requireParameter) {
         ConfigBag bag = ConfigBag.newInstance();
         if (map!=null) {
             map.forEach( (ko,v) -> {
