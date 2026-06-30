@@ -38,7 +38,7 @@ public class BrooklynUserWithRandomPasswordSecurityProvider extends AbstractSecu
     private final String password;
 
     public BrooklynUserWithRandomPasswordSecurityProvider() {
-        this.password = Identifiers.makeRandomId(10);
+        this.password = Identifiers.makeRandomPassword(10);
         LOG.info("Allowing access to web console from localhost or with {}:{}", USER, password);
     }
 
