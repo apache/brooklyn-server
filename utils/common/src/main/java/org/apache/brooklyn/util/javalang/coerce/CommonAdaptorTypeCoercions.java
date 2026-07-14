@@ -461,9 +461,25 @@ public class CommonAdaptorTypeCoercions {
                         result = JavaStringEscapes.unwrapJsonishListStringIfPossible(inputS);
                     }
                 } else {
-                    // any other type, use YAMLish parse
-                    resultM = JavaStringEscapes.tryUnwrapJsonishList(inputS);
-                    result = (Collection<?>) resultM.orNull();
+                    // for a list of non-strings: if input uses YAML block list syntax ("- item" lines),
+                    // parse it directly with YAML, keeping maps/collections so the element coercer can
+                    // recurse into them. Wrapping in brackets (as the jsonish parser does) kills the block
+                    // sequence markers and collapses the whole block into a single string element.
+                    if (inputS.trim().startsWith("- ")) {
+                        try {
+                            Object yamlDoc = Iterables.getOnlyElement(Yamls.parseAll(inputS));
+                            if (yamlDoc instanceof List) {
+                                result = (Collection<?>) yamlDoc;
+                            }
+                        } catch (Exception e) {
+                            Exceptions.propagateIfFatal(e);
+                        }
+                    }
+                    if (result == null) {
+                        // any other type, use YAMLish parse
+                        resultM = JavaStringEscapes.tryUnwrapJsonishList(inputS);
+                        result = (Collection<?>) resultM.orNull();
+                    }
                 }
                 if (result==null) {
                     if (resultM!=null) return Maybe.Absent.castAbsent(resultM);

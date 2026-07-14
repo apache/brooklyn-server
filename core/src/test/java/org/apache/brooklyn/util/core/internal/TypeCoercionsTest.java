@@ -362,6 +362,27 @@ public class TypeCoercionsTest {
 
     @SuppressWarnings("serial")
     @Test
+    public void testYamlBlockListCoercionToListOfMaps() {
+        // YAML block list of maps (e.g. an effector param of type list<custom-data-type> supplied as block
+        // YAML) must parse to a list of maps rather than collapsing the whole block into a single element.
+        List<?> s = TypeCoercions.coerce(
+                "- name: element1\n  password: p1\n  a_list:\n    - sub1\n    - sub2\n- name: element2\n  password: p2",
+                new TypeToken<List<Map<String, Object>>>() {});
+        assertEquals(s, ImmutableList.of(
+                MutableMap.of("name", "element1", "password", "p1", "a_list", ImmutableList.of("sub1", "sub2")),
+                MutableMap.of("name", "element2", "password", "p2")));
+
+        // single block-list entry
+        s = TypeCoercions.coerce("- name: only\n  password: p", new TypeToken<List<Map<String, Object>>>() {});
+        assertEquals(s, ImmutableList.of(MutableMap.of("name", "only", "password", "p")));
+
+        // flow/bracket form still works for list of maps
+        s = TypeCoercions.coerce("[ a: 1, b: 2 ]", new TypeToken<List<Map<String, Object>>>() {});
+        assertEquals(s, ImmutableList.of(MutableMap.of("a", 1), MutableMap.of("b", 2)));
+    }
+
+    @SuppressWarnings("serial")
+    @Test
     public void testYamlBlockListCoercionToStringList() {
         // YAML block list syntax should be parsed correctly for List<String>
         List<?> s = TypeCoercions.coerce("- a\n- b", new TypeToken<List<String>>() {});
