@@ -89,7 +89,12 @@ public interface ApplicationApi {
                 + "default 1 means to have detail for just applications and additional entity IDs explicitly requested, "
                 + "with references to children but not their details; 0 is no detail even for applications; negative is full depth", required=false)
             @DefaultValue("1")
-            @QueryParam("depth") int depth);
+            @QueryParam("depth") int depth,
+            @ApiParam(value="Whether to include the 'tags' field for each entity; "
+                + "default true for backwards compatibility, but this can be a significant part of the response size "
+                + "(e.g. it includes full catalog/type spec text repeated per entity) so callers who don't need it should set false", required=false)
+            @DefaultValue("true")
+            @QueryParam("includeTags") boolean includeTags);
 
     @GET
     @Path("/fetch")

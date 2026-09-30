@@ -234,7 +234,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
     
     @Override
-    public List<EntitySummary> details(String entityIds, boolean includeAllApps, String extraSensorsGlobsS, String extraConfigGlobsS, int depth) {
+    public List<EntitySummary> details(String entityIds, boolean includeAllApps, String extraSensorsGlobsS, String extraConfigGlobsS, int depth, boolean includeTags) {
         List<String> extraSensorGlobs = JavaStringEscapes.unwrapOptionallyQuotedJavaStringList(extraSensorsGlobsS);
         List<String> extraConfigGlobs = JavaStringEscapes.unwrapOptionallyQuotedJavaStringList(extraConfigGlobsS);
 
@@ -243,7 +243,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         if (includeAllApps) {
             for (Entity application : mgmt().getApplications()) {
                 if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, application)) {
-                    entitySummaries.put(application.getId(), fromEntity(application, true, depth, extraSensorGlobs, extraConfigGlobs));
+                    entitySummaries.put(application.getId(), fromEntity(application, includeTags, depth, extraSensorGlobs, extraConfigGlobs));
                 }
             }
         }
@@ -254,7 +254,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                 Entity entity = mgmt().getEntityManager().getEntity(entityId.trim());
                 while (entity != null && !entitySummaries.containsKey(entity.getId())) {
                     if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-                        entitySummaries.put(entity.getId(), fromEntity(entity, true, depth, extraSensorGlobs, extraConfigGlobs));
+                        entitySummaries.put(entity.getId(), fromEntity(entity, includeTags, depth, extraSensorGlobs, extraConfigGlobs));
                     }
                     entity = entity.getParent();
                 }
