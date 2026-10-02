@@ -138,6 +138,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         waitForApplicationTasks(app);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
+        waitForApplicationTasks(entity);
         EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "foo"), "bar");
     }
 
@@ -157,6 +158,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         waitForApplicationTasks(app);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
+        waitForApplicationTasks(entity);
         EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "foo"), MutableMap.of("k", "v"));
     }
 
@@ -1029,6 +1031,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "        - set-sensor boolean initializer_ran = true");
         waitForApplicationTasks(app);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
+        waitForApplicationTasks(entity);
         EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "initializer_ran"), true);
     }
 
@@ -1278,6 +1281,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         waitForApplicationTasks(app);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
+        waitForApplicationTasks(entity);
         Asserts.assertEquals(entity.getDisplayName(), "new-name");
     }
 
@@ -1327,6 +1331,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         waitForApplicationTasks(app);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
+        waitForApplicationTasks(entity);
         Asserts.assertEquals(entity.getDisplayName(), "new name");
     }
 
