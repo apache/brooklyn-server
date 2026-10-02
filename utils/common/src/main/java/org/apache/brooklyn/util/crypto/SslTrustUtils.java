@@ -39,7 +39,7 @@ public class SslTrustUtils {
         return connection;
     }
     
-    /** trusts all SSL certificates */
+    /** trusts all SSL certificates, it is not secure*/
     public static final TrustManager TRUST_ALL = new X509TrustManager() {
         @Override
         public X509Certificate[] getAcceptedIssuers() {
