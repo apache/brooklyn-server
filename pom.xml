@@ -108,7 +108,7 @@
         <logback.version>1.2.9</logback.version>
         <slf4j.version>1.7.36</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception; 2.x is released 2023 but does not provide org.slf4j.spi.SLF4JServiceProvider which is used -->
         <!-- Must match jclouds' version. From jclouds 2.4.0 it is 27 by default but might use any. -->
-        <guava.version>27.1-jre</guava.version>
+        <guava.version>32.0.0-jre</guava.version>
         <!--
             This can be different from above and should be used only by Swagger related code.
             Note that some bundles used by Brooklyn will try to bind to the latest version available.
