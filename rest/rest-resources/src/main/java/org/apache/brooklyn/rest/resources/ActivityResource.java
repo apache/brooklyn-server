@@ -85,19 +85,23 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
         if (!(parentTask instanceof HasTaskChildren)) {
             return result;
         }
+        Set<String> visited = MutableSet.of();
         Set<Task<?>> nextLayer = MutableSet.copyOf( ((HasTaskChildren) parentTask).getChildren() );
         outer: while (limit!=0 && !nextLayer.isEmpty() && maxDepth-- != 0) {
             Set<Task<?>> thisLayer = nextLayer;
             nextLayer = MutableSet.of();
             for (final Task<?> childTask : thisLayer) {
-                TaskSummary wasThere = result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null), suppressSecrets, false).apply(childTask));
-                if (wasThere==null) {
+                if (!visited.add(childTask.getId())) {
+                    continue;
+                }
+                if (canSeeEntity(childTask)) {
+                    result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null), suppressSecrets, false).apply(childTask));
                     if (--limit == 0) {
                         break outer;
                     }
-                    if (childTask instanceof HasTaskChildren) {
-                        Iterables.addAll(nextLayer, ((HasTaskChildren)childTask).getChildren());
-                    }
+                }
+                if (childTask instanceof HasTaskChildren) {
+                    Iterables.addAll(nextLayer, ((HasTaskChildren) childTask).getChildren());
                 }
             }
         }
@@ -112,9 +116,15 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
         if (Boolean.TRUE.equals(includeBackground)) {
             result.addAll(getBackgroundedChildren(t));
         }
+        result.removeIf(childTask -> !canSeeEntity(childTask));
         return TaskTransformer.fromTasks(result, limit, false, null, ui, resolving(null), suppressSecrets);
     }
 
+    protected boolean canSeeEntity(Task<?> task) {
+        Entity entity = BrooklynTaskTags.getContextEntity(task);
+        return entity == null || Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity);
+    }
+    
     private Collection<Task<?>> getBackgroundedChildren(Task<?> t) {
         Entity entity = BrooklynTaskTags.getContextEntity(t);
         List<Task<?>> result = MutableList.of();
@@ -168,6 +178,11 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
     @Override
     public Boolean cancel(String taskId, Boolean noInterrupt) {
         Task<?> t = findTask(taskId);
+        Entity entity = BrooklynTaskTags.getContextEntity(t);
+        if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
         return t.cancel(noInterrupt==null || !noInterrupt);
     }
 
