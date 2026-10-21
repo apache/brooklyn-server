@@ -191,7 +191,7 @@
         <karaf.version>4.3.8</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
         <pax-web.version>7.3.27</pax-web.version> <!-- karaf 4.3 -->
-        <jetty.version>9.4.49.v20220914</jetty.version> <!-- pax 7.3.27, there is more recent 9.4.50.v20221201 but no pax -->
+        <jetty.version>9.4.51.v20230217</jetty.version> <!-- pax 7.3.27, there is more recent 9.4.50.v20221201 but no pax -->
         <commons-collections.version>3.2.2</commons-collections.version>
         <spifly.version>1.3.2</spifly.version> <!-- 1.3.0 from kubernetes; 1.2.4 from pax-jetty; v1.3.2 from erstwhile jetty feature; but 1.3.2 fixes an NPE bug in 1.3.0 so use it -->
         <jaxb-api.version>2.3.3</jaxb-api.version>
