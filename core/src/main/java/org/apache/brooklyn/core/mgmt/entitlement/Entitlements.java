@@ -291,7 +291,14 @@ public class Entitlements {
 
     /**
      * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY}, {@link #SEE_ALL_SERVER_INFO},
-     * {@link #EXECUTE_GROOVY_SCRIPT}, {@link #EXECUTE_SCRIPT}, {@link #MODIFY_ENTITY}, and {@link #HA_ADMIN}.
+     * {@link #EXECUTE_GROOVY_SCRIPT}, {@link #EXECUTE_SCRIPT}, {@link #MODIFY_ENTITY}, {@link #HA_ADMIN}, and {@link #SHUTDOWN}.
+     * <p>
+     * {@link #MODIFY_ENTITY} is deliberately excluded (since the "entitlements for workflow" change): a {@code user}
+     * is expected to work through defined operations ({@link #INVOKE_EFFECTOR}, including replaying a workflow),
+     * not through direct/arbitrary entity state mutation (e.g. forcing a custom workflow or writing non-reconfigurable
+     * config directly) — that remains a higher-trust-level capability. This is narrower than some published
+     * descriptions of {@code user} ("access to everything but actions that affect the server itself") suggest;
+     * treat this Javadoc, not that description, as authoritative.
      */
     public static EntitlementManager user() {
         return new EntitlementManager() {
@@ -304,7 +311,8 @@ public class Entitlements {
                         !EXECUTE_GROOVY_SCRIPT.equals(permission) &&
                         !EXECUTE_SCRIPT.equals(permission) &&
                         !MODIFY_ENTITY.equals(permission) &&
-                        !HA_ADMIN.equals(permission);
+                        !HA_ADMIN.equals(permission) &&
+                        !SHUTDOWN.equals(permission);
             }
             @Override
             public String toString() {
@@ -343,7 +351,12 @@ public class Entitlements {
     }
 
     /**
-     * @return An entitlement manager denying access to anything that requires entitlements.
+     * @return An entitlement manager denying access to anything that requires entitlements,
+     * including {@link #SERVER_STATUS}. This has been its behavior since it was introduced, and
+     * is relied on by existing deployments (e.g. a monitoring-only account configured with
+     * {@code brooklyn.entitlements.perUser.<user>=minimal} to get precisely zero access). It is
+     * <b>not</b> "server stats only" despite some published descriptions of {@code minimal} saying
+     * so &mdash; for that, see {@link #serverStatusOnly()}.
      */
     public static EntitlementManager minimal() {
         return new EntitlementManager() {
@@ -465,7 +478,13 @@ public class Entitlements {
         );
     }
 
-    /** allow healthcheck */
+    /**
+     * @return An entitlement manager allowing only {@link #SERVER_STATUS} (version, HA state,
+     * up/healthy checks) and denying everything else — suitable for a monitoring-only account
+     * that needs liveness/health data but nothing else. Selectable by the {@code serverStatusOnly}
+     * keyword in {@link #load}; distinct from {@link #minimal()}, which denies everything
+     * including {@link #SERVER_STATUS}.
+     */
     public static EntitlementManager serverStatusOnly() {
         return FineGrainedEntitlements.allowing(SERVER_STATUS);
     }
@@ -545,7 +564,7 @@ public class Entitlements {
 
     public static final ConfigKey<String> GLOBAL_ENTITLEMENT_MANAGER = ConfigKeys.newStringConfigKey(ENTITLEMENTS_CONFIG_PREFIX + ".global",
         "Class for entitlements in effect globally; "
-        + "short names 'minimal', 'readonly', 'user' or 'root' are permitted here, with the default 'root' giving full access to all declared users; "
+        + "short names 'minimal', 'readonly', 'user', 'root' or 'serverStatusOnly' are permitted here, with the default 'root' giving full access to all declared users; "
         + "or supply the name of an "+EntitlementManager.class+" class to instantiate, taking a 1-arg BrooklynProperties constructor or a 0-arg constructor",
         "root");
     
@@ -563,6 +582,8 @@ public class Entitlements {
             return readOnly();
         } else if ("minimal".equalsIgnoreCase(type)) {
             return minimal();
+        } else if ("serverStatusOnly".equalsIgnoreCase(type) || "server_status_only".equalsIgnoreCase(type)) {
+            return serverStatusOnly();
         } else if ("user".equalsIgnoreCase(type)) {
             return user();
         } else if ("powerUser".equalsIgnoreCase(type) || "power_user".equalsIgnoreCase(type)) {

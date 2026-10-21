@@ -195,6 +195,10 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
         assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
         assertFalse(user.isEntitled(null, Entitlements.HA_ADMIN, null));
+        // a 'user' must not be able to stop the server, nor directly mutate entity state
+        // (only through defined operations such as invoking an effector)
+        assertFalse(user.isEntitled(null, Entitlements.SHUTDOWN, null));
+        assertFalse(user.isEntitled(null, Entitlements.MODIFY_ENTITY, null));
     }
 
     // blueprintautor, same as root but not Groovy scripts
@@ -210,9 +214,14 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
         assertFalse(user.isEntitled(null, Entitlements.ADD_JAVA, null));
         assertFalse(user.isEntitled(null, Entitlements.HA_ADMIN, null));
+        assertFalse(user.isEntitled(null, Entitlements.SHUTDOWN, null));
+        assertFalse(user.isEntitled(null, Entitlements.MODIFY_ENTITY, null));
     }
 
-    // minimal
+    // minimal: denies EVERYTHING, including server status - this is intentional and has been its
+    // behavior since introduction (e.g. a monitoring-only account configured with
+    // brooklyn.entitlements.perUser.<user>=minimal is expected to get precisely zero access).
+    // Do not "fix" this to allow SERVER_STATUS - that is serverStatusOnly(), tested below.
     public void testGlobalMinimalEntitlement() {
         EntitlementManager minimal = Entitlements.minimal();
         assertFalse(minimal.isEntitled(null, Entitlements.ROOT, null));
@@ -225,6 +234,8 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(minimal.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
         assertFalse(minimal.isEntitled(null, Entitlements.ADD_JAVA, null));
         assertFalse(minimal.isEntitled(null, Entitlements.HA_ADMIN, null));
+        assertFalse(minimal.isEntitled(null, Entitlements.SHUTDOWN, null));
+        assertFalse(minimal.isEntitled(null, Entitlements.SERVER_STATUS, null));
     }
     public void testAppSpecificMinimalEntitlement() {
         EntitlementManager minimal = Entitlements.minimal();
@@ -234,6 +245,25 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(minimal.isEntitled(null, Entitlements.SEE_SENSOR, Entitlements.EntityAndItem.of(app, "password")));
         assertFalse(minimal.isEntitled(null, Entitlements.DEPLOY_APPLICATION, Entitlements.EntityAndItem.of(app, null)));
         assertFalse(minimal.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+    }
+
+    // serverStatusOnly: the actual "stats only, for monitoring systems" profile - distinct from
+    // minimal() above, which denies this too. Selectable via the 'serverStatusOnly' keyword.
+    public void testGlobalServerStatusOnlyEntitlement() {
+        EntitlementManager serverStatusOnly = Entitlements.serverStatusOnly();
+        assertTrue(serverStatusOnly.isEntitled(null, Entitlements.SERVER_STATUS, null));
+        assertFalse(serverStatusOnly.isEntitled(null, Entitlements.ROOT, null));
+        assertFalse(serverStatusOnly.isEntitled(null, Entitlements.SEE_ENTITY, null));
+        assertFalse(serverStatusOnly.isEntitled(null, Entitlements.INVOKE_EFFECTOR, null));
+        assertFalse(serverStatusOnly.isEntitled(null, Entitlements.SEE_SENSOR, null));
+        assertFalse(serverStatusOnly.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
+        assertFalse(serverStatusOnly.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(serverStatusOnly.isEntitled(null, Entitlements.HA_ADMIN, null));
+
+        // and resolvable by keyword via Entitlements.load(), both spellings
+        assertTrue(Entitlements.load(null, null, "serverStatusOnly").isEntitled(null, Entitlements.SERVER_STATUS, null));
+        assertTrue(Entitlements.load(null, null, "server_status_only").isEntitled(null, Entitlements.SERVER_STATUS, null));
+        assertFalse(Entitlements.load(null, null, "serverStatusOnly").isEntitled(null, Entitlements.SEE_ENTITY, null));
     }
 
     // readOnly
