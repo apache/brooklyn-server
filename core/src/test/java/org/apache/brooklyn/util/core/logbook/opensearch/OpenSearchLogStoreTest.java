@@ -19,8 +19,22 @@
 package org.apache.brooklyn.util.core.logbook.opensearch;
 
 import com.google.common.collect.ImmutableList;
+import com.sun.net.httpserver.HttpServer;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
 import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
-import org.junit.Test;
+import org.apache.brooklyn.util.stream.Streams;
+import org.testng.annotations.Test;
+
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.test.Asserts.assertEquals;
 
@@ -36,13 +50,13 @@ public class OpenSearchLogStoreTest {
         p.setDateTimeTo("2021-06-01T13:28:48,482");
         p.setLevels(ImmutableList.of());
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
     }
 
     @Test
     public void queryWithTailRequest() {
-        String EXPECTED_QUERY_HEAD = "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"match_all\":{}}}";
-        String EXPECTED_QUERY_TAIL = "{\"sort\":{\"timestamp\":\"desc\"},\"size\":10,\"query\":{\"match_all\":{}}}";
+        String EXPECTED_QUERY_HEAD = "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"match_all\":{}}}";
+        String EXPECTED_QUERY_TAIL = "{\"sort\":[{\"timestamp\":\"desc\"},{\"_seq_no\":\"desc\"}],\"size\":10,\"query\":{\"match_all\":{}}}";
 
         OpenSearchLogStore cut = new OpenSearchLogStore();
         LogBookQueryParams p = new LogBookQueryParams();
@@ -69,7 +83,7 @@ public class OpenSearchLogStoreTest {
         p.setDateTimeFrom("2021-01-01T00:00:00,001");
         p.setLevels(ImmutableList.of());
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"gte\":\"2021-01-01T00:00:00,001\"}}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"gte\":\"2021-01-01T00:00:00,001\"}}}]}}}");
     }
 
     @Test
@@ -81,7 +95,7 @@ public class OpenSearchLogStoreTest {
         p.setDateTimeTo("2021-01-01T00:00:00,001");
         p.setLevels(ImmutableList.of());
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"lte\":\"2021-01-01T00:00:00,001\"}}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"lte\":\"2021-01-01T00:00:00,001\"}}}]}}}");
     }
 
     @Test
@@ -92,7 +106,7 @@ public class OpenSearchLogStoreTest {
         p.setTail(false);
         p.setLevels(ImmutableList.of("WARN", "DEBUG"));
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"terms\":{\"level\":[\"warn\",\"debug\"]}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"terms\":{\"level\":[\"warn\",\"debug\"]}}]}}}");
     }
 
     @Test
@@ -105,7 +119,7 @@ public class OpenSearchLogStoreTest {
         p.setDateTimeTo("2021-06-01T13:28:48,482");
         p.setLevels(ImmutableList.of("DEBUG"));
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"terms\":{\"level\":[\"debug\"]}},{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"terms\":{\"level\":[\"debug\"]}},{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
     }
 
     @Test
@@ -118,7 +132,7 @@ public class OpenSearchLogStoreTest {
         p.setDateTimeTo("2021-06-01T13:28:48,482");
         p.setLevels(ImmutableList.of("WARN", "DEBUG"));
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"terms\":{\"level\":[\"warn\",\"debug\"]}},{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"terms\":{\"level\":[\"warn\",\"debug\"]}},{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
     }
 
     @Test
@@ -130,7 +144,7 @@ public class OpenSearchLogStoreTest {
         p.setLevels(ImmutableList.of());
         p.setSearchPhrase("some phrase");
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
     }
 
     @Test
@@ -142,7 +156,7 @@ public class OpenSearchLogStoreTest {
         p.setLevels(ImmutableList.of());
         p.setEntityId("entityIdxx");
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"entityIds\":\"entityIdxx\"}},{\"match_phrase\":{\"message\":\"entityIdxx\"}}]}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"entityIds\":\"entityIdxx\"}},{\"match_phrase\":{\"message\":\"entityIdxx\"}}]}}]}}}");
     }
 
     @Test
@@ -154,7 +168,7 @@ public class OpenSearchLogStoreTest {
         p.setLevels(ImmutableList.of());
         p.setTaskId("taskIdxxxx");
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"taskId\":\"taskIdxxxx\"}},{\"match_phrase\":{\"message\":\"taskIdxxxx\"}}]}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"taskId\":\"taskIdxxxx\"}},{\"match_phrase\":{\"message\":\"taskIdxxxx\"}}]}}]}}}");
     }
 
     @Test
@@ -167,7 +181,7 @@ public class OpenSearchLogStoreTest {
         p.setEntityId("entityIdxx");
         p.setSearchPhrase("some phrase");
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"entityIds\":\"entityIdxx\"}},{\"match_phrase\":{\"message\":\"entityIdxx\"}}]}},{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"entityIds\":\"entityIdxx\"}},{\"match_phrase\":{\"message\":\"entityIdxx\"}}]}},{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
     }
 
     @Test
@@ -179,7 +193,7 @@ public class OpenSearchLogStoreTest {
         p.setLevels(ImmutableList.of());
         p.setLoggerName("o.a.b.SSH");
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"prefix\":{\"class\":{\"value\":\"o.a.b.SSH\",\"case_insensitive\":true}}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"prefix\":{\"class\":{\"value\":\"o.a.b.SSH\",\"case_insensitive\":true}}}]}}}");
     }
 
     @Test
@@ -192,7 +206,7 @@ public class OpenSearchLogStoreTest {
         p.setLoggerName("o.a.b.SSH");
         p.setSearchPhrase("some phrase");
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"message\":\"some phrase\"}},{\"prefix\":{\"class\":{\"value\":\"o.a.b.SSH\",\"case_insensitive\":true}}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"message\":\"some phrase\"}},{\"prefix\":{\"class\":{\"value\":\"o.a.b.SSH\",\"case_insensitive\":true}}}]}}}");
     }
 
     @Test
@@ -205,6 +219,62 @@ public class OpenSearchLogStoreTest {
         p.setTaskId("taskIdxxxx");
         p.setSearchPhrase("some phrase");
         String query = cut.getJsonQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"taskId\":\"taskIdxxxx\"}},{\"match_phrase\":{\"message\":\"taskIdxxxx\"}}]}},{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
+        assertEquals(query, "{\"sort\":[{\"timestamp\":\"asc\"},{\"_seq_no\":\"asc\"}],\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"taskId\":\"taskIdxxxx\"}},{\"match_phrase\":{\"message\":\"taskIdxxxx\"}}]}},{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
+    }
+
+    @Test
+    public void queryWithoutTieBreakSortsByTimestampOnly() {
+        OpenSearchLogStore cut = new OpenSearchLogStore();
+        LogBookQueryParams p = new LogBookQueryParams();
+        p.setNumberOfItems(10);
+        p.setLevels(ImmutableList.of());
+        p.setTail(false);
+        assertEquals(cut.getJsonQuery(p, false), "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"match_all\":{}}}");
+        p.setTail(true);
+        assertEquals(cut.getJsonQuery(p, false), "{\"sort\":{\"timestamp\":\"desc\"},\"size\":10,\"query\":{\"match_all\":{}}}");
+    }
+
+    @Test
+    public void queryFallsBackToTimestampSortWhenTieBreakSortIsRejected() throws Exception {
+        List<String> requestBodies = Collections.synchronizedList(new ArrayList<>());
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/brooklyn/_search", exchange -> {
+            String body = Streams.readFullyString(exchange.getRequestBody());
+            requestBodies.add(body);
+            boolean tieBreak = body.contains("_seq_no");
+            String response = tieBreak
+                    ? "{\"error\":{\"type\":\"illegal_argument_exception\",\"reason\":\"cannot sort on _seq_no\"},\"status\":400}"
+                    : "{\"hits\":{\"hits\":[{\"_id\":\"b\",\"_source\":{\"timestamp\":\"2026-10-21T17:00:11,775Z\",\"message\":\"second\"}},"
+                    + "{\"_id\":\"a\",\"_source\":{\"timestamp\":\"2026-10-21T17:00:11,775Z\",\"message\":\"first\"}}]}}";
+            byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(tieBreak ? 400 : 200, bytes.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(bytes);
+            }
+        });
+        server.start();
+        LocalManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        try {
+            mgmt.getBrooklynProperties().put(OpenSearchLogStore.LOGBOOK_LOG_STORE_HOST.getName(), "http://127.0.0.1:" + server.getAddress().getPort());
+            mgmt.getBrooklynProperties().put(OpenSearchLogStore.LOGBOOK_LOG_STORE_INDEX.getName(), "brooklyn");
+            mgmt.getBrooklynProperties().put(OpenSearchLogStore.LOGBOOK_LOG_STORE_USER.getName(), "admin");
+            mgmt.getBrooklynProperties().put(OpenSearchLogStore.LOGBOOK_LOG_STORE_PASS.getName(), "admin");
+            OpenSearchLogStore cut = new OpenSearchLogStore(mgmt);
+
+            LogBookQueryParams p = new LogBookQueryParams();
+            p.setNumberOfItems(10);
+            p.setTail(true);
+            p.setLevels(ImmutableList.of());
+
+            List<BrooklynLogEntry> entries = cut.query(p);
+            assertEquals(entries.stream().map(BrooklynLogEntry::getMessage).collect(Collectors.toList()), ImmutableList.of("first", "second"));
+            assertEquals(requestBodies.size(), 2);
+            assertEquals(requestBodies.get(0), "{\"sort\":[{\"timestamp\":\"desc\"},{\"_seq_no\":\"desc\"}],\"size\":10,\"query\":{\"match_all\":{}}}");
+            assertEquals(requestBodies.get(1), "{\"sort\":{\"timestamp\":\"desc\"},\"size\":10,\"query\":{\"match_all\":{}}}");
+        } finally {
+            server.stop(0);
+            Entities.destroyAll(mgmt);
+        }
     }
 }
