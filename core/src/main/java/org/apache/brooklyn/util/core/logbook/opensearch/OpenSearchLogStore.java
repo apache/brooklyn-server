@@ -54,6 +54,9 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.util.EntityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
@@ -67,6 +70,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.util.core.logbook.LogbookConfig.BASE_NAME_LOGBOOK;
@@ -76,6 +80,16 @@ import static org.apache.brooklyn.util.core.logbook.LogbookConfig.LOGBOOK_MAX_RE
  * Implementation for expose log from ElasticSearch to the logbook API.
  */
 public class OpenSearchLogStore implements LogStore {
+
+    private static final Logger LOG = LoggerFactory.getLogger(OpenSearchLogStore.class);
+
+    /**
+     * Secondary sort field, to keep the order of entries logged in the same millisecond: the timestamp only has
+     * millisecond precision, and OpenSearch does not preserve the order of entries with equal sort values.
+     * {@code _seq_no} is assigned by OpenSearch in the order documents are written to a shard, which (with log
+     * shippers such as Fluentd reading a log file in order) is the order they were logged.
+     */
+    private static final String TIE_BREAK_SORT_FIELD = "_seq_no";
 
     /*
      # example config for local default implementation
@@ -115,6 +129,7 @@ public class OpenSearchLogStore implements LogStore {
     private Boolean verifySsl;
     private String indexName;
     private Integer maxTasks;
+    private final AtomicBoolean tieBreakSortFailureLogged = new AtomicBoolean();
 
     @VisibleForTesting
     public OpenSearchLogStore() {
@@ -182,37 +197,58 @@ public class OpenSearchLogStore implements LogStore {
 
     @Override
     public List<BrooklynLogEntry> query(LogBookQueryParams params) throws IOException {
+        try (CloseableHttpResponse response = httpClient.execute(buildSearchRequest(getJsonQuery(params, true)))) {
+            if (response.getStatusLine().getStatusCode() == 400) {
+                // The tie-break sort was rejected (not expected on OpenSearch or Elasticsearch 7+); fall back to
+                // sorting by timestamp only rather than returning nothing.
+                String body = response.getEntity() != null ? EntityUtils.toString(response.getEntity()) : "";
+                if (tieBreakSortFailureLogged.compareAndSet(false, true)) {
+                    LOG.warn("Logbook query sorting on '" + TIE_BREAK_SORT_FIELD + "' was rejected by the log store; falling back to "
+                            + "timestamp-only order, so entries logged in the same millisecond may be out of order. Response: " + body);
+                } else {
+                    LOG.debug("Logbook query sorting on '" + TIE_BREAK_SORT_FIELD + "' rejected, falling back; response: " + body);
+                }
+                try (CloseableHttpResponse fallbackResponse = httpClient.execute(buildSearchRequest(getJsonQuery(params, false)))) {
+                    return parseSearchResponse(fallbackResponse, params);
+                }
+            }
+            return parseSearchResponse(response, params);
+        }
+    }
+
+    private HttpPost buildSearchRequest(String jsonQuery) throws IOException {
         HttpPost request = new HttpPost(host + "/" + indexName + "/_search");
         request.addHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-        request.setEntity(new StringEntity(getJsonQuery(params)));
+        request.setEntity(new StringEntity(jsonQuery));
+        return request;
+    }
 
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
+    private List<BrooklynLogEntry> parseSearchResponse(CloseableHttpResponse response, LogBookQueryParams params) throws IOException {
+        BrooklynOpenSearchModel jsonResponse = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .readValue(response.getEntity().getContent(), BrooklynOpenSearchModel.class);
 
-            BrooklynOpenSearchModel jsonResponse = new ObjectMapper()
-                    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                    .readValue(response.getEntity().getContent(), BrooklynOpenSearchModel.class);
+        if (jsonResponse.hits != null && jsonResponse.hits.hits != null) {
 
-            if (jsonResponse.hits != null && jsonResponse.hits.hits != null) {
+            // Get the filtered stream from elastic search query result.
+            List<BrooklynLogEntry> brooklynLogEntries = jsonResponse.hits.hits.stream()
+                    .map(openSearchHit -> {
+                        BrooklynLogEntry entry = openSearchHit.getSource();
+                        entry.setLineId(openSearchHit.getId());
+                        return entry;
+                    }).collect(Collectors.toList());
 
-                // Get the filtered stream from elastic search query result.
-                List<BrooklynLogEntry> brooklynLogEntries = jsonResponse.hits.hits.stream()
-                        .map(openSearchHit -> {
-                            BrooklynLogEntry entry = openSearchHit.getSource();
-                            entry.setLineId(openSearchHit.getId());
-                            return entry;
-                        }).collect(Collectors.toList());
-
-                // Note, 'tail' requires to reverse the order back since elastic search requires 'sort' + 'desc' to get
-                // last number of items, when requested.
-                if (params.isTail()) {
-                    Collections.reverse(brooklynLogEntries);
-                }
-
-                // Collect the query result.
-                return brooklynLogEntries;
-            } else {
-                return ImmutableList.of();
+            // Note, 'tail' requires to reverse the order back since elastic search requires 'sort' + 'desc' to get
+            // last number of items, when requested. The tie-break field is sorted in the same direction, so entries
+            // with the same timestamp are in logged order after the reverse too.
+            if (params.isTail()) {
+                Collections.reverse(brooklynLogEntries);
             }
+
+            // Collect the query result.
+            return brooklynLogEntries;
+        } else {
+            return ImmutableList.of();
         }
     }
 
@@ -223,9 +259,18 @@ public class OpenSearchLogStore implements LogStore {
 
     @VisibleForTesting
     protected String getJsonQuery(LogBookQueryParams params) {
+        return getJsonQuery(params, true);
+    }
+
+    @VisibleForTesting
+    protected String getJsonQuery(LogBookQueryParams params, boolean withTieBreak) {
+        String order = params.isTail() ? "desc" : "asc";
+        Object sort = withTieBreak
+                ? ImmutableList.of(ImmutableMap.of("timestamp", order), ImmutableMap.of(TIE_BREAK_SORT_FIELD, order))
+                : ImmutableMap.of("timestamp", order);
         ImmutableMap qb = ImmutableMap.builder()
                 .put("size", params.getNumberOfItems())
-                .put("sort", ImmutableMap.of("timestamp", params.isTail() ? "desc" : "asc"))
+                .put("sort", sort)
                 .put("query", buildQuery(params))
                 .build();
         return new JSONObject(qb).toString();
