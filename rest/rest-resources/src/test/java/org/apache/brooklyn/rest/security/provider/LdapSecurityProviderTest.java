@@ -48,4 +48,18 @@ public class LdapSecurityProviderTest {
         assertEquals(ldapSecurityProvider.getSecurityPrincipal("username@example.org"), "username@example.org");
     }
 
+    @Test
+    public void testEscapeLdapFilterValueLeavesPlainNamesUnchanged() {
+        assertEquals(LdapSecurityProvider.escapeLdapFilterValue("jsmith"), "jsmith");
+        assertEquals(LdapSecurityProvider.escapeLdapFilterValue("CN=Me,OU=Users,DC=example,DC=org"), "CN=Me,OU=Users,DC=example,DC=org");
+    }
+
+    @Test
+    public void testEscapeLdapFilterValueEscapesMetacharacters() {
+        assertEquals(LdapSecurityProvider.escapeLdapFilterValue(")(sAMAccountName=admin"), "\\29\\28sAMAccountName=admin");
+        assertEquals(LdapSecurityProvider.escapeLdapFilterValue("*"), "\\2a");
+        assertEquals(LdapSecurityProvider.escapeLdapFilterValue("a\\b"), "a\\5cb");
+        assertEquals(LdapSecurityProvider.escapeLdapFilterValue("a\0b"), "a\\00b");
+    }
+
 }
