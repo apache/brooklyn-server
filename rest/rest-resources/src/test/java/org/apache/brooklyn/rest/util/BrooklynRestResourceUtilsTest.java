@@ -209,6 +209,44 @@ public class BrooklynRestResourceUtilsTest {
         assertEquals(subappPolicy.getDisplayName(), "mypolicy");
     }
 
+    @Test
+    public void testUrlSafeForServerSideBlueprintFetchAcceptsHttpAndHttpsYaml() {
+        assertTrue(util.isUrlSafeForServerSideBlueprintFetch("http://example.org/blueprint.yaml"));
+        assertTrue(util.isUrlSafeForServerSideBlueprintFetch("https://example.org/blueprint.yml"));
+    }
+
+    @Test
+    public void testUrlSafeForServerSideBlueprintFetchRejectsNonYamlExtension() {
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("http://example.org/blueprint.txt"));
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("http://example.org/blueprint"));
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("http://example.org/blueprint.java"));
+    }
+
+    @Test
+    public void testUrlSafeForServerSideBlueprintFetchIgnoresQueryStringAndFragment() {
+        assertTrue(util.isUrlSafeForServerSideBlueprintFetch("https://s3.example.org/blueprint.yaml?X-Amz-Signature=abc123&X-Amz-Expires=600"));
+        assertTrue(util.isUrlSafeForServerSideBlueprintFetch("https://example.org/blueprint.yml#section"));
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("https://example.org/blueprint?file=yaml"));
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("https://example.org/blueprint.txt?yaml"));
+    }
+
+    @Test
+    public void testUrlSafeForServerSideBlueprintFetchRejectsNonHttpSchemes() {
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("file:///etc/passwd"));
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("file:///tmp/blueprint.yaml"));
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("classpath://blueprint.yaml"));
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("sftp://host/blueprint.yaml"));
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("ftp://host/blueprint.yaml"));
+    }
+
+    @Test
+    public void testUrlSafeForServerSideBlueprintFetchRejectsNoSchemeOrBlank() {
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("blueprint.yaml"));
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch("/etc/passwd"));
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch(""));
+        assertFalse(util.isUrlSafeForServerSideBlueprintFetch(null));
+    }
+
     public interface MyInterface {
     }
 

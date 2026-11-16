@@ -541,7 +541,26 @@ public class BrooklynRestResourceUtils {
         return !Urls.isUrlWithProtocol(url) || url.startsWith("classpath:");
     }
 
-    
+    /** true if the URL is safe for the server to fetch a blueprint from on the caller's behalf:
+     *  requires an explicit http(s) scheme (so callers cannot use this to read local files,
+     *  classpath resources, or other schemes on the server) and a yaml/yml extension.
+     *  <p>
+     *  note this does not protect against SSRF to internal hosts reachable over http(s);
+     *  callers remain responsible for any additional host/network restrictions. */
+    public boolean isUrlSafeForServerSideBlueprintFetch(String url) {
+        if (Strings.isEmpty(url)) return false;
+        if (!Urls.isUrlWithProtocol(url)) return false;
+
+        String protocol = Urls.getProtocol(url);
+        if (protocol==null || !("http".equalsIgnoreCase(protocol) || "https".equalsIgnoreCase(protocol))) return false;
+
+        // strip query string / fragment (e.g. S3 presigned URLs) before checking the extension
+        String path = url.split("[?#]", 2)[0];
+        String ext = Files.getFileExtension(path);
+        return "yaml".equalsIgnoreCase(ext) || "yml".equalsIgnoreCase(ext);
+    }
+
+
     public Iterable<Entity> descendantsOfAnyType(String application, String entity) {
         List<Entity> result = Lists.newArrayList();
         Entity e = getEntity(application, entity);

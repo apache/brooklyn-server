@@ -230,13 +230,13 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         }
 
         NamingEnumeration<?> answer = ctx.search(buildContainer(organizationUnit, defaultLdapRealm),
-                "(&(objectclass=user)(sAMAccountName=" + getAccountName(user) + "))", ctls);
+                "(&(objectclass=user)(sAMAccountName=" + escapeLdapFilterValue(getAccountName(user)) + "))", ctls);
 
         while (answer.hasMore()) {
             SearchResult rslt = (SearchResult) answer.next();
             if (Strings.isNonBlank(groupSearchFilter) && Strings.isNonBlank(groupBaseOU)) {
                 // add group custom search (to allow nested groups and base group OU)
-                String filter = groupSearchFilter.replace("{0}", rslt.getNameInNamespace());
+                String filter = groupSearchFilter.replace("{0}", escapeLdapFilterValue(rslt.getNameInNamespace()));
                 NamingEnumeration<?> results = ctx.search(buildContainer(groupBaseOU, defaultLdapRealm), filter, ctls);
 
                 if (results != null) {
@@ -277,6 +277,25 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
             return split[split.length - 1];
         }
         return user;
+    }
+
+    /** Escapes a value for safe inclusion in an RFC 4515 LDAP search filter,
+     *  so that values derived from user input (or from untrusted directory
+     *  entries) cannot alter the structure of the filter. */
+    static String escapeLdapFilterValue(String value) {
+        StringBuilder result = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '\\': result.append("\\5c"); break;
+                case '*':  result.append("\\2a"); break;
+                case '(':  result.append("\\28"); break;
+                case ')':  result.append("\\29"); break;
+                case '\0': result.append("\\00"); break;
+                default:   result.append(c);
+            }
+        }
+        return result.toString();
     }
 
     /**
