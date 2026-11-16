@@ -431,6 +431,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             uri = null;
         }
         if (uri != null) {
+            if (!brooklyn().isUrlSafeForServerSideBlueprintFetch(uri.toString())) {
+                throw new UserFacingException("Cannot resolve URL: "+uri+" (must be an http(s) URL to a .yaml/.yml resource)");
+            }
             log.debug("Create app called with URI; retrieving contents: {}", uri);
             try {
                 yaml = ResourceUtils.create(mgmt()).getResourceAsString(uri.toString());
